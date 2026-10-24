@@ -17,7 +17,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
-import { QUADRANTS, QUADRANT_TONES, groupByQuadrant, matrixTasks } from '../utils/eisenhower';
+import { QUADRANTS, QUADRANT_TONES, groupItemsByQuadrant } from '../utils/eisenhower';
 import { isResponsibleFor, responsibleIdsOf, responsibleNamesOf } from '../utils/taskPeople';
 
 interface DashboardChartsProps {
@@ -290,17 +290,18 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
   }, [tasks, assigneeScope, currentUser]);
 
   // Eisenhower matrix: how many current activities sit in each quarter.
-  const matrixGroups = useMemo(() => groupByQuadrant(tasks), [tasks]);
-  const matrixTotal = useMemo(() => matrixTasks(tasks).length, [tasks]);
+  const matrixGroups = useMemo(() => groupItemsByQuadrant(tasks), [tasks]);
+  const matrixTotal = useMemo(() => QUADRANTS.reduce((sum, q) => sum + matrixGroups[q.id].length, 0), [matrixGroups]);
   const handleMatrixClick = (quadrantId: keyof typeof matrixGroups) => {
     const quadrant = QUADRANTS.find((q) => q.id === quadrantId)!;
-    const items: ChartModalItem[] = matrixGroups[quadrantId].map((t) => ({
-      id: t.id,
-      title: t.title,
-      dueDate: t.dueDate,
-      priority: t.priority,
-      parentTask: t,
-      isSubTask: false,
+    const items: ChartModalItem[] = matrixGroups[quadrantId].map((entry) => ({
+      id: entry.key,
+      title: entry.title,
+      dueDate: entry.dueDate,
+      priority: entry.priority,
+      parentTask: entry.task,
+      isSubTask: !!entry.subTaskId,
+      subTaskId: entry.subTaskId,
     }));
     if (items.length === 0) return;
     setActiveModalData({ title: `ماتریس آیزنهاور · ${quadrant.no} ${quadrant.title} (${quadrant.hint})`, items });

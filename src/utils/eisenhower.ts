@@ -1,7 +1,7 @@
 // «ماتریس آیزنهاور»: every current activity falls in one of four quarters, by how important it
 // is (درجه اهمیت) and how urgent (موعد انجام). Pure helpers; used by the board grouping, the
 // matrix page, the statistics card and the task form.
-import { Priority, Task } from '../types';
+import { Priority, ProjectSubTask, Task } from '../types';
 import { getDaysDiff, toPersianDigits } from './helpers';
 import { parseDateSafely } from './jalali';
 
@@ -61,16 +61,89 @@ export function quadrantOf(task: Pick<Task, 'dueDate' | 'priority'>): Quadrant {
   return QUADRANTS.find((q) => q.important === important && q.urgent === urgent)!;
 }
 
-/** The activities that count in the matrix: the ones still to be done. */
 const OPEN_STATUSES = ['todo', 'in_progress', 'paused'];
 
-export function matrixTasks(tasks: Task[]): Task[] {
-  return tasks.filter((task) => OPEN_STATUSES.includes(task.status));
+/** One entry of the matrix: a plain or recurring activity, or one sub-activity of a project. */
+export interface MatrixItem {
+  key: string;
+  task: Task;
+  subTaskId?: string;
+  title: string;
+  priority: Priority;
+  dueDate: string;
+}
+
+const isDone = (st: ProjectSubTask): boolean => st.completed || st.status === 'completed';
+const subTaskDate = (st: ProjectSubTask, task: Pick<Task, 'dueDate'>): string => st.endDate || st.startDate || task.dueDate;
+
+/**
+ * What an activity puts in the matrix. A plain activity is one entry (its priority and due date).
+ * A project is one entry per open sub-activity (its importance and end date). A recurring
+ * activity is its next open occurrence. Finished activities have none.
+ */
+export function matrixItemsOf(task: Task): MatrixItem[] {
+  if (!OPEN_STATUSES.includes(task.status)) return [];
+  const subTasks = task.projectSubTasks || [];
+  if (subTasks.length === 0) {
+    return [{ key: task.id, task, title: task.title, priority: task.priority, dueDate: task.dueDate }];
+  }
+
+  let open = subTasks.filter((st) => !isDone(st));
+  if (task.isRecurring) {
+    // Only the next occurrence matters now, not every one scheduled for the months ahead.
+    open = [...open]
+      .sort((a, b) => (parseDateSafely(subTaskDate(a, task))?.getTime() ?? 0) - (parseDateSafely(subTaskDate(b, task))?.getTime() ?? 0))
+      .slice(0, 1);
+  }
+  return open.map((st) => ({
+    key: `${task.id}:${st.id}`,
+    task,
+    subTaskId: st.id,
+    title: task.isRecurring ? task.title : `${task.title} › ${st.title}`,
+    priority: st.importance as Priority,
+    dueDate: subTaskDate(st, task),
+  }));
+}
+
+export function quadrantOfItem(item: Pick<MatrixItem, 'priority' | 'dueDate'>): Quadrant {
+  return quadrantOf(item);
+}
+
+export function allMatrixItems(tasks: Task[]): MatrixItem[] {
+  return tasks.flatMap(matrixItemsOf);
+}
+
+export function groupItemsByQuadrant(tasks: Task[]): Record<QuadrantId, MatrixItem[]> {
+  const out: Record<QuadrantId, MatrixItem[]> = { do: [], schedule: [], delegate: [], drop: [] };
+  for (const item of allMatrixItems(tasks)) out[quadrantOf(item).id].push(item);
+  return out;
+}
+
+/**
+ * The one quarter a whole activity card is placed in (the board grouping): important if any of
+ * its entries is important, urgent if any is urgent. Null when it has no open entry.
+ */
+export function quadrantOfTask(task: Task): Quadrant | null {
+  const items = matrixItemsOf(task);
+  if (items.length === 0) return null;
+  const important = items.some((item) => isImportant(item.priority));
+  const urgent = items.some((item) => isUrgent(item));
+  return QUADRANTS.find((q) => q.important === important && q.urgent === urgent)!;
 }
 
 export function groupByQuadrant(tasks: Task[]): Record<QuadrantId, Task[]> {
   const out: Record<QuadrantId, Task[]> = { do: [], schedule: [], delegate: [], drop: [] };
-  for (const task of matrixTasks(tasks)) out[quadrantOf(task).id].push(task);
+  for (const task of tasks) {
+    const quadrant = quadrantOfTask(task);
+    if (quadrant) out[quadrant.id].push(task);
+  }
+  return out;
+}
+
+/** How many entries fall in each quarter. */
+export function quadrantCounts(items: Pick<MatrixItem, 'priority' | 'dueDate'>[]): Record<QuadrantId, number> {
+  const out: Record<QuadrantId, number> = { do: 0, schedule: 0, delegate: 0, drop: 0 };
+  for (const item of items) out[quadrantOf(item).id]++;
   return out;
 }
 
@@ -96,7 +169,7 @@ export function describeQuadrant(task: Pick<Task, 'dueDate' | 'priority'>): stri
  * on «کم‌اهمیت» becomes medium); «فوری» means due tomorrow, «غیرفوری» means a week from today
  * - the time of day of the due date is kept. Nothing is returned for what already fits.
  */
-export function moveToQuadrant(task: Task, target: Quadrant): { priority?: Priority; dueDate?: string } {
+export function moveToQuadrant(task: Pick<Task, 'dueDate' | 'priority'>, target: Quadrant): { priority?: Priority; dueDate?: string } {
   const patch: { priority?: Priority; dueDate?: string } = {};
   if (target.important && task.priority !== 'high') patch.priority = 'high';
   if (!target.important && task.priority === 'high') patch.priority = 'medium';

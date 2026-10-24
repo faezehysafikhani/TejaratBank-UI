@@ -6,14 +6,14 @@ import { X, LayoutGrid, Zap, CalendarClock, Send, Trash2, Clock, Inbox, ChevronL
 import { Priority, PRIORITIES, Task } from '../types';
 import { toPersianDigits } from '../utils/helpers';
 import {
-  QUADRANTS, QUADRANT_TONES, Quadrant, QuadrantId, QuadrantTone, daysToDue, dueSummary, groupByQuadrant, matrixTasks,
-  moveToQuadrant, quadrantOf,
+  QUADRANTS, QUADRANT_TONES, MatrixItem, Quadrant, QuadrantId, QuadrantTone, daysToDue, dueSummary, groupItemsByQuadrant,
+  moveToQuadrant, quadrantOfItem,
 } from '../utils/eisenhower';
 
 interface EisenhowerViewProps {
   tasks: Task[];
   onViewDetails: (task: Task) => void;
-  onMoveTask: (task: Task, patch: { priority?: Priority; dueDate?: string }) => void;
+  onMoveTask: (item: MatrixItem, patch: { priority?: Priority; dueDate?: string }) => void;
 }
 
 const PREVIEW_COUNT = 5;
@@ -45,8 +45,8 @@ const LOOK: Record<QuadrantTone, { card: string; chip: string; bar: string; dot:
 };
 
 /** The due date chip: red once past due, amber when it is today or tomorrow, quiet otherwise. */
-function dueChipClass(task: Task): string {
-  const days = daysToDue(task);
+function dueChipClass(item: MatrixItem): string {
+  const days = daysToDue(item);
   if (days === null) return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
   if (days < 0) return 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300';
   if (days <= 1) return 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
@@ -56,27 +56,27 @@ function dueChipClass(task: Task): string {
 const PRIORITY_DOT: Record<Priority, string> = { high: 'bg-rose-500', medium: 'bg-amber-400', low: 'bg-emerald-500' };
 
 export const EisenhowerView: React.FC<EisenhowerViewProps> = ({ tasks, onViewDetails, onMoveTask }) => {
-  const grouped = useMemo(() => groupByQuadrant(tasks), [tasks]);
-  const total = useMemo(() => matrixTasks(tasks).length, [tasks]);
+  const grouped = useMemo(() => groupItemsByQuadrant(tasks), [tasks]);
+  const total = useMemo(() => QUADRANTS.reduce((sum, q) => sum + grouped[q.id].length, 0), [grouped]);
   const [openQuadrant, setOpenQuadrant] = useState<QuadrantId | null>(null);
   const [dragOver, setDragOver] = useState<QuadrantId | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
 
-  const move = (task: Task, target: Quadrant) => {
-    const patch = moveToQuadrant(task, target);
-    if (patch.priority || patch.dueDate) onMoveTask(task, patch);
+  const move = (item: MatrixItem, target: Quadrant) => {
+    const patch = moveToQuadrant(item, target);
+    if (patch.priority || patch.dueDate) onMoveTask(item, patch);
   };
 
   const opened = openQuadrant ? QUADRANTS.find((q) => q.id === openQuadrant)! : null;
 
-  const rowProps = (task: Task) => ({
+  const rowProps = (item: MatrixItem) => ({
     role: 'button' as const,
     tabIndex: 0,
-    onClick: () => onViewDetails(task),
+    onClick: () => onViewDetails(item.task),
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        onViewDetails(task);
+        onViewDetails(item.task);
       }
     },
   });
@@ -160,8 +160,8 @@ export const EisenhowerView: React.FC<EisenhowerViewProps> = ({ tasks, onViewDet
                     e.preventDefault();
                     setDragOver(null);
                     setDragging(null);
-                    const task = tasks.find((t) => t.id === e.dataTransfer.getData('text/plain'));
-                    if (task) move(task, q);
+                    const dropped = QUADRANTS.flatMap((x) => grouped[x.id]).find((i) => i.key === e.dataTransfer.getData('text/plain'));
+                    if (dropped) move(dropped, q);
                   }}
                   className={`relative flex min-h-[14rem] flex-col overflow-hidden rounded-3xl border bg-gradient-to-b ${look.card} p-3 shadow-[0_10px_28px_-18px_rgba(15,23,42,0.55)] transition-all duration-200 hover:shadow-[0_16px_34px_-18px_rgba(15,23,42,0.55)] ${
                     over ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-transparent' : ''
@@ -194,13 +194,13 @@ export const EisenhowerView: React.FC<EisenhowerViewProps> = ({ tasks, onViewDet
                   <div className="mt-2.5 flex-1 space-y-1.5">
                     {list.slice(0, PREVIEW_COUNT).map((task) => (
                       <div
-                        key={task.id}
+                        key={task.key}
                         draggable
-                        onDragStart={(e) => { e.dataTransfer.setData('text/plain', task.id); setDragging(task.id); }}
+                        onDragStart={(e) => { e.dataTransfer.setData('text/plain', task.key); setDragging(task.key); }}
                         onDragEnd={() => { setDragging(null); setDragOver(null); }}
                         {...rowProps(task)}
                         className={`group rounded-xl border border-white/70 dark:border-slate-700/70 bg-white/90 dark:bg-slate-800/80 px-2.5 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 cursor-grab active:cursor-grabbing ${
-                          dragging === task.id ? 'opacity-40' : ''
+                          dragging === task.key ? 'opacity-40' : ''
                         }`}
                         title={task.title}
                       >
@@ -284,10 +284,10 @@ export const EisenhowerView: React.FC<EisenhowerViewProps> = ({ tasks, onViewDet
                 </div>
               )}
               {grouped[opened.id].map((task) => (
-                <div key={task.id} className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-3">
+                <div key={task.key} className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 p-3">
                   <button
                     type="button"
-                    onClick={() => { setOpenQuadrant(null); onViewDetails(task); }}
+                    onClick={() => { setOpenQuadrant(null); onViewDetails(task.task); }}
                     className="flex w-full items-start gap-2 text-right cursor-pointer"
                   >
                     <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${PRIORITY_DOT[task.priority]}`} />
@@ -302,12 +302,12 @@ export const EisenhowerView: React.FC<EisenhowerViewProps> = ({ tasks, onViewDet
                     </div>
                     <select
                       aria-label="انتقال به ربع دیگر"
-                      value={quadrantOf(task).id}
+                      value={quadrantOfItem(task).id}
                       onChange={(e) => move(task, QUADRANTS.find((q) => q.id === e.target.value)!)}
                       className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     >
                       {QUADRANTS.map((q) => (
-                        <option key={q.id} value={q.id}>{q.id === quadrantOf(task).id ? `اکنون: ${q.title}` : `انتقال به ${q.title}`}</option>
+                        <option key={q.id} value={q.id}>{q.id === quadrantOfItem(task).id ? `اکنون: ${q.title}` : `انتقال به ${q.title}`}</option>
                       ))}
                     </select>
                   </div>
