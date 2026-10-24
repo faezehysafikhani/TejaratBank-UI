@@ -14,6 +14,7 @@
  *   Nexus.TaskManagement/Application/Dtos/TaskManagementDtos.cs
  * Enums travel as strings (JsonStringEnumConverter) and property names are camelCase.
  */
+import { toSafeBlob } from '../utils/safeBlob';
 import {
   Task,
   TaskStatus,
@@ -721,7 +722,7 @@ function mapSubTask(s: SubTaskDto): ProjectSubTask {
 
 async function downloadFileAsDataUrl(fileId: string): Promise<string> {
   const blob = await request<Blob>('GET', `/api/task-management/files/${fileId}/content`, { responseType: 'blob' });
-  return blobToDataUrl(blob);
+  return blobToDataUrl(toSafeBlob(blob));
 }
 
 /**
@@ -2247,6 +2248,7 @@ function attachmentUrlFor(messageId: string): Promise<string> {
   let url = attachmentUrls.get(messageId);
   if (!url) {
     url = request<Blob>('GET', `${CHAT}/messages/${messageId}/attachment`, { responseType: 'blob' })
+      .then(toSafeBlob)
       .then((blob) => (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof window !== 'undefined'
         ? URL.createObjectURL(blob)
         : blobToDataUrl(blob)))

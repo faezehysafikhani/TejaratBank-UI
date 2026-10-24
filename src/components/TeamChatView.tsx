@@ -934,7 +934,7 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
                               }`}
                             >
                               <FileText className="w-4 h-4 shrink-0" />
-                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="underline text-xs truncate max-w-[180px] hover:opacity-80">
+                              <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="underline text-xs truncate max-w-[180px] hover:opacity-80">
                                 {msg.attachmentName || 'فایل پیوست'}
                               </a>
                             </div>
