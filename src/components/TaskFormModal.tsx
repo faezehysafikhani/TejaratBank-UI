@@ -1989,6 +1989,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               })}
             </div>
             {/* Where this activity lands in the Eisenhower matrix (importance by priority, urgency by due date) */}
+            {isProject && matrixPreview.length === 0 && (
+              <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2.5 text-[11px] text-slate-600 dark:text-slate-300" data-matrix-label>
+                خود پروژه در ماتریس آیزنهاور نمی‌آید؛ هر زیرفعالیت باز آن با اهمیت و تاریخ پایان خودش در ماتریس قرار می‌گیرد.
+              </div>
+            )}
             {matrixPreview.length > 0 && (() => {
               const counts = quadrantCounts(matrixPreview);
               const merged = matrixPreview.length === 1 ? quadrantOfItem(matrixPreview[0]) : null;
@@ -2012,7 +2017,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     </div>
                   )}
                   {isProject
-                    ? <p className="text-[11px] text-slate-500 dark:text-slate-400">هر زیرفعالیت باز با اهمیت و تاریخ پایان خودش در ماتریس می‌آید.</p>
+                    ? <p className="text-[11px] text-slate-500 dark:text-slate-400">خود پروژه در ماتریس نمی‌آید؛ هر زیرفعالیت باز با اهمیت و تاریخ پایان خودش می‌آید.</p>
                     : isRecurring && <p className="text-[11px] text-slate-500 dark:text-slate-400">فقط نوبت بعدی فعالیت تکرارشونده حساب می‌شود.</p>}
                 </div>
               );

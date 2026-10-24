@@ -78,12 +78,14 @@ const subTaskDate = (st: ProjectSubTask, task: Pick<Task, 'dueDate'>): string =>
 
 /**
  * What an activity puts in the matrix. A plain activity is one entry (its priority and due date).
- * A project is one entry per open sub-activity (its importance and end date). A recurring
+ * A project has no entry of its own, only one per open sub-activity (its importance and end date). A recurring
  * activity is its next open occurrence. Finished activities have none.
  */
 export function matrixItemsOf(task: Task): MatrixItem[] {
   if (!OPEN_STATUSES.includes(task.status)) return [];
   const subTasks = task.projectSubTasks || [];
+  // A project is not placed itself: only its sub-activities are.
+  if (subTasks.length === 0 && task.isProject) return [];
   if (subTasks.length === 0) {
     return [{ key: task.id, task, title: task.title, priority: task.priority, dueDate: task.dueDate }];
   }
@@ -120,22 +122,19 @@ export function groupItemsByQuadrant(tasks: Task[]): Record<QuadrantId, MatrixIt
 }
 
 /**
- * The one quarter a whole activity card is placed in (the board grouping): important if any of
- * its entries is important, urgent if any is urgent. Null when it has no open entry.
+ * The quarters an activity card is placed in on the board: one for a plain or recurring
+ * activity, and for a project every quarter one of its open sub-activities is in (the project
+ * itself is not placed).
  */
-export function quadrantOfTask(task: Task): Quadrant | null {
-  const items = matrixItemsOf(task);
-  if (items.length === 0) return null;
-  const important = items.some((item) => isImportant(item.priority));
-  const urgent = items.some((item) => isUrgent(item));
-  return QUADRANTS.find((q) => q.important === important && q.urgent === urgent)!;
+export function quadrantsOfTask(task: Task): Quadrant[] {
+  const ids = new Set(matrixItemsOf(task).map((item) => quadrantOf(item).id));
+  return QUADRANTS.filter((q) => ids.has(q.id));
 }
 
 export function groupByQuadrant(tasks: Task[]): Record<QuadrantId, Task[]> {
   const out: Record<QuadrantId, Task[]> = { do: [], schedule: [], delegate: [], drop: [] };
   for (const task of tasks) {
-    const quadrant = quadrantOfTask(task);
-    if (quadrant) out[quadrant.id].push(task);
+    for (const quadrant of quadrantsOfTask(task)) out[quadrant.id].push(task);
   }
   return out;
 }
