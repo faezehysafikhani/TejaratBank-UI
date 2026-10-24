@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, X, Check, Columns3, UserCheck, Users, AlertTriangle, CalendarDays, Tag, ListOrdered, Eye, PlayCircle } from 'lucide-react';
+import { Layers, X, Check, Columns3, UserCheck, Users, AlertTriangle, CalendarDays, Tag, ListOrdered, Eye, PlayCircle, LayoutGrid } from 'lucide-react';
 import { BoardGroupBy, BoardViewSettings, BOARD_GROUP_LABELS } from '../utils/boardView';
 
 interface BoardViewBarProps {
@@ -15,6 +15,7 @@ const OPTIONS: { id: BoardGroupBy; icon: React.ElementType; wide?: boolean }[] =
   { id: 'priority', icon: AlertTriangle },
   { id: 'dueDate', icon: CalendarDays },
   { id: 'tag', icon: Tag },
+  { id: 'eisenhower', icon: LayoutGrid },
   { id: 'none', icon: ListOrdered, wide: true },
 ];
 

@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
 import PeoplePicker from './PeoplePicker';
+import { QUADRANT_TONES, describeQuadrant, quadrantOf } from '../utils/eisenhower';
 import { isResponsibleFor, responsibleIdsOf } from '../utils/taskPeople';
 import { getAssignmentLimit, getAssignablePosts, AssignablePosts } from '../services/nexusApi';
 import { appAlert } from '../utils/appDialog';
@@ -1972,6 +1973,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 );
               })}
             </div>
+            {/* Where this activity lands in the Eisenhower matrix (importance by priority, urgency by due date) */}
+            {!hideDueDate && dueDateISO && (
+              <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2.5" data-matrix-label>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300">این فعالیت در ماتریس آیزنهاور:</p>
+                <p className={`text-sm font-black ${QUADRANT_TONES[quadrantOf({ priority, dueDate: dueDateISO }).tone].title}`}>
+                  ربع {quadrantOf({ priority, dueDate: dueDateISO }).no} · {quadrantOf({ priority, dueDate: dueDateISO }).title}
+                </p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300">{describeQuadrant({ priority, dueDate: dueDateISO })}</p>
+              </div>
+            )}
           </div>
 
           {/* Tags / Labels Input Section */}
