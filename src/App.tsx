@@ -23,6 +23,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
 const ReportsPage = lazy(() => import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const EisenhowerView = lazy(() => import('./components/EisenhowerView').then(m => ({ default: m.EisenhowerView })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
 const PersonalNotesView = lazy(() => import('./components/PersonalNotesView').then(m => ({ default: m.PersonalNotesView })));
@@ -88,6 +89,7 @@ import { useBranding } from './utils/branding';
 const PAGE_TITLES: Record<string, string> = {
   kanban: 'بورد کانبان',
   calendar: 'نمای تقویم',
+  matrix: 'ماتریس آیزنهاور',
   overdue: 'موعد گذشته',
   chat: 'گفتگوی تیمی',
   notes: 'یادداشت‌های شخصی',
@@ -699,6 +701,20 @@ export default function App() {
       loadTasks(false);
     }
   }, [tasks, currentUser, loadTasks]);
+
+  // Eisenhower matrix: dropping an activity on another quarter changes its priority and/or due date.
+  const handleMatrixMove = useCallback(async (task: Task, patch: { priority?: Task['priority']; dueDate?: string }) => {
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t)));
+    try {
+      await updateTaskInPB(task.id, patch);
+      setReportRefreshKey((k) => k + 1);
+      setPbError(null);
+    } catch (err: any) {
+      console.error('Error moving task in the matrix:', err);
+      setPbError(userErrorMessage(err, 'جابه‌جایی فعالیت در ماتریس انجام نشد.'));
+      loadTasks(false);
+    }
+  }, [loadTasks]);
 
   // Task Detail & Discussion Modal State
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
@@ -1439,6 +1455,17 @@ export default function App() {
                   onStatusChange={handleStatusChange}
                   onPreviewAttachment={setPreviewAttachment}
                   onViewDetails={handleOpenTaskDetail}
+                />
+              </Suspense>
+            )}
+
+            {/* Eisenhower matrix */}
+            {activeTab === 'matrix' && canOpenTab(currentUser, 'matrix') && (
+              <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
+                <EisenhowerView
+                  tasks={visibleTasks}
+                  onViewDetails={handleOpenTaskDetail}
+                  onMoveTask={handleMatrixMove}
                 />
               </Suspense>
             )}

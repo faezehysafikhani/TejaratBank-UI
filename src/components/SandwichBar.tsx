@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Kanban, Calendar, Plus, AlertCircle, Settings, MessageSquare, FileText, Layers, X, BarChart3, UserCog } from 'lucide-react';
+import { Kanban, Calendar, Plus, AlertCircle, Settings, MessageSquare, FileText, Layers, X, BarChart3, UserCog, LayoutGrid } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
 import { AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
 
-export type ActiveTab = 'kanban' | 'calendar' | 'overdue' | 'chat' | 'notes' | 'reports' | 'substitution' | 'settings';
+export type ActiveTab = 'kanban' | 'calendar' | 'matrix' | 'overdue' | 'chat' | 'notes' | 'reports' | 'substitution' | 'settings';
 
 interface SandwichBarProps {
   activeTab: ActiveTab;
@@ -208,6 +208,23 @@ export const SandwichBar: React.FC<SandwichBarProps> = ({
           >
             <Calendar className="w-7 h-7 shrink-0" />
             <span className="text-[11px] sm:text-xs leading-none whitespace-nowrap">تقویم</span>
+          </button>
+          )}
+
+          {/* 2b. Eisenhower matrix */}
+          {canOpenTab('matrix') && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('matrix')}
+            className={`relative flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-2xl sm:rounded-full transition-all cursor-pointer ${
+              activeTab === 'matrix'
+                ? `${palette.accentBg} text-white font-bold shadow-md shadow-slate-950 ring-2 ring-white/20`
+                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/80'
+            }`}
+            title="ماتریس آیزنهاور"
+          >
+            <LayoutGrid className="w-7 h-7 shrink-0" />
+            <span className="text-[11px] sm:text-xs leading-none whitespace-nowrap">ماتریس</span>
           </button>
           )}
 

@@ -13,9 +13,11 @@ import {
   AlertCircle,
   Calendar,
   Users,
+  LayoutGrid,
   User as UserIcon
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
+import { QUADRANTS, QUADRANT_TONES, groupByQuadrant, matrixTasks } from '../utils/eisenhower';
 import { isResponsibleFor, responsibleIdsOf, responsibleNamesOf } from '../utils/taskPeople';
 
 interface DashboardChartsProps {
@@ -287,6 +289,23 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
     }));
   }, [tasks, assigneeScope, currentUser]);
 
+  // Eisenhower matrix: how many current activities sit in each quarter.
+  const matrixGroups = useMemo(() => groupByQuadrant(tasks), [tasks]);
+  const matrixTotal = useMemo(() => matrixTasks(tasks).length, [tasks]);
+  const handleMatrixClick = (quadrantId: keyof typeof matrixGroups) => {
+    const quadrant = QUADRANTS.find((q) => q.id === quadrantId)!;
+    const items: ChartModalItem[] = matrixGroups[quadrantId].map((t) => ({
+      id: t.id,
+      title: t.title,
+      dueDate: t.dueDate,
+      priority: t.priority,
+      parentTask: t,
+      isSubTask: false,
+    }));
+    if (items.length === 0) return;
+    setActiveModalData({ title: `ماتریس آیزنهاور · ${quadrant.no} ${quadrant.title} (${quadrant.hint})`, items });
+  };
+
   // Click Handlers for Charts
   const handlePieClick = (entry: any) => {
     if (!entry || !entry.items || entry.items.length === 0) return;
@@ -541,6 +560,39 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
           </div>
         </div>
 
+      </div>
+
+      {/* Eisenhower matrix: current activities by importance and urgency (each cell opens its list) */}
+      <div className="dashboard-chart-panel rounded-3xl p-5 border border-slate-200/90 dark:border-slate-800 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="p-2 bg-orange-50 dark:bg-orange-950/60 rounded-xl text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900">
+            <LayoutGrid className="w-4 h-4" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">توزیع فعالیت‌های جاری در ماتریس آیزنهاور</h4>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+              بر اساس درجه اهمیت و موعد انجام ({toPersianDigits(matrixTotal)} مورد - قابل کلیک)
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
+          {QUADRANTS.map((q) => {
+            const tone = QUADRANT_TONES[q.tone];
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => handleMatrixClick(q.id)}
+                disabled={matrixGroups[q.id].length === 0}
+                className={`rounded-2xl ${tone.soft} p-3 text-right transition-shadow hover:shadow-md disabled:cursor-default disabled:hover:shadow-none cursor-pointer`}
+              >
+                <div className={`text-xs font-black ${tone.title}`}>{q.no} · {q.title}</div>
+                <div className={`text-3xl font-black my-1 ${tone.count}`}>{toPersianDigits(matrixGroups[q.id].length)}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">{q.hint}</div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Pop-up Modal for Chart Click Details */}
