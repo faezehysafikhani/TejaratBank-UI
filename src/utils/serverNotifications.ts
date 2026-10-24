@@ -46,6 +46,7 @@ const TASK_NOTICES: Record<string, { type: AppNotification['type']; badge: strin
   'task.access_granted': { type: 'system', badge: 'دسترسی جدید', action: 'به این فعالیت دسترسی پیدا کردید' },
   'task.due_soon': { type: 'reminder', badge: 'موعد نزدیک', action: 'موعد انجام این فعالیت نزدیک است' },
   'task.overdue': { type: 'reminder', badge: 'موعد گذشته', action: 'موعد این فعالیت گذشته و هنوز انجام نشده است' },
+  'task.overdue_changed': { type: 'system', badge: 'تغییر فعالیت موعدگذشته', action: 'وضعیت این فعالیت موعدگذشته تغییر کرد' },
   'task.recurring_soon': { type: 'reminder', badge: 'نوبت بعدی', action: 'نوبت بعدی این فعالیت تکرارشونده نزدیک است' },
   'task.reminder': { type: 'reminder', badge: 'یادآوری موعد', action: 'یادآوری موعد وظیفه' },
 };
