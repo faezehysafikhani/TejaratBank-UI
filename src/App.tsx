@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import type { MatrixItem } from './utils/eisenhower';
+import { parseDateSafely } from './utils/jalali';
 import { TaskTitleContext } from './components/TaskCardList';
 import { Task, TaskStatus, Priority, Attachment, User, WorkTeam, AppTheme, AppColorPalette, TaskComment, STATUSES, PRIORITIES, AppNotification, setMaxAttachmentBytes, SubTaskProgress } from './types';
 import { getUploadPolicy, refreshUploadPolicy } from './utils/uploadPolicy';
@@ -679,11 +681,32 @@ export default function App() {
     }
   }, [tasks, currentUser, loadTasks]);
 
-  // Eisenhower matrix: dropping an activity on another quarter changes its priority and/or due date.
-  const handleMatrixMove = useCallback(async (task: Task, patch: { priority?: Task['priority']; dueDate?: string }) => {
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t)));
+  // Eisenhower matrix: dropping an entry on another quarter changes its priority and/or due date.
+  // For a project's sub-activity (or a recurring occurrence) that is its importance and end date.
+  const handleMatrixMove = useCallback(async (item: MatrixItem, patch: { priority?: Task['priority']; dueDate?: string }) => {
+    const task = tasks.find((t) => t.id === item.task.id);
+    if (!task) return;
+
+    let updates: Partial<Task> = patch;
+    if (item.subTaskId) {
+      updates = {
+        projectSubTasks: (task.projectSubTasks || []).map((st) => {
+          if (st.id !== item.subTaskId) return st;
+          const next = { ...st };
+          if (patch.priority) next.importance = patch.priority;
+          if (patch.dueDate) {
+            next.endDate = patch.dueDate;
+            // An end before the start is not a valid sub-activity.
+            if (st.startDate && (parseDateSafely(st.startDate)?.getTime() ?? 0) > new Date(patch.dueDate).getTime()) next.startDate = patch.dueDate;
+          }
+          return next;
+        }),
+      };
+    }
+
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)));
     try {
-      await updateTaskInPB(task.id, patch);
+      await updateTaskInPB(task.id, updates);
       setReportRefreshKey((k) => k + 1);
       setPbError(null);
     } catch (err: any) {
@@ -691,7 +714,7 @@ export default function App() {
       setPbError(userErrorMessage(err, 'جابه‌جایی فعالیت در ماتریس انجام نشد.'));
       loadTasks(false);
     }
-  }, [loadTasks]);
+  }, [tasks, loadTasks]);
 
   // Task Detail & Discussion Modal State
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);

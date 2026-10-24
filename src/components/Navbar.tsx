@@ -53,7 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const systemTime = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(systemNow);
 
   return (
-    <header className="ui-bar sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-md text-white transition-colors duration-300">
+    <header className="ui-bar lg:sticky lg:top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-md text-white transition-colors duration-300">
       <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-3 lg:px-3 py-3 sm:py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           

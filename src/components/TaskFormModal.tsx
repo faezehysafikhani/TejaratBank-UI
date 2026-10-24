@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
 import PeoplePicker from './PeoplePicker';
-import { QUADRANT_TONES, describeQuadrant, quadrantOf } from '../utils/eisenhower';
+import { QUADRANTS, QUADRANT_TONES, describeQuadrant, matrixItemsOf, quadrantCounts, quadrantOfItem } from '../utils/eisenhower';
 import { isResponsibleFor, responsibleIdsOf } from '../utils/taskPeople';
 import { getAssignmentLimit, getAssignablePosts, AssignablePosts } from '../services/nexusApi';
 import { appAlert } from '../utils/appDialog';
@@ -387,6 +387,36 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   // A recurring task is scheduled by its own recurrence settings and a project by its charter's
   // dates (its end date is its deadline); neither asks for the plain due date.
   const hideDueDate = isProject || isRecurring;
+
+  // The repeat schedule as the form stands now (used for the saved task and for the matrix preview).
+  const buildRecurringConfig = (): RecurringConfig => ({
+    frequency: recurringFrequency,
+    intervalWeeks: recurringFrequency === 'weekly' ? recurringIntervalWeeks : undefined,
+    startTime: recurringStartTime,
+    endTime: recurringEndTime,
+    dailyTime: recurringStartTime,
+    time: recurringStartTime,
+    weeklyDays: recurringFrequency === 'weekly' ? recurringWeeklyDays : undefined,
+    monthlyDays: (recurringFrequency === 'monthly' || recurringFrequency === 'monthly_day') ? recurringMonthlyDays : undefined,
+    nthOccurrence: recurringFrequency === 'monthly_nth_weekday' ? recurringNthOccurrence : undefined,
+    nthWeekday: recurringFrequency === 'monthly_nth_weekday' ? recurringNthWeekday : undefined,
+    startDate: recurringStartDate || dueDateISO || getNowISO(),
+    endDate: recurringEndDate || undefined,
+  });
+
+  // Where this activity lands in the Eisenhower matrix, as the form stands now: a project by its
+  // open sub-activities, a recurring one by its next occurrence, any other by priority and due date.
+  const matrixPreview = React.useMemo(() => {
+    const recurringNow = !isProject && isRecurring;
+    let subTasks: ProjectSubTask[] = isProject ? projectSubTasks : (taskToEdit?.projectSubTasks || []);
+    if (recurringNow) subTasks = generateRecurringOccurrences(buildRecurringConfig(), subTasks);
+    const dueDate = recurringNow ? recurringStartDate || dueDateISO : isProject ? projectCharterEndDate || dueDateISO : dueDateISO;
+    const pseudo = { id: 'preview', status: 'todo', priority, dueDate, isRecurring: recurringNow, isProject, projectSubTasks: subTasks } as unknown as Task;
+    return matrixItemsOf(pseudo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProject, isRecurring, projectSubTasks, taskToEdit, priority, dueDateISO, projectCharterEndDate, recurringFrequency,
+      recurringIntervalWeeks, recurringNthOccurrence, recurringNthWeekday, recurringStartTime, recurringEndTime,
+      recurringWeeklyDays, recurringMonthlyDays, recurringStartDate, recurringEndDate]);
   // A task made from a message or comment keeps that text as its title.
   const titleLocked = !taskToEdit && (!!initialTitle?.trim() || (isSub && !!parentTask));
 
@@ -580,22 +610,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     const finalIsProject = isProject;
     const finalIsRecurring = !isProject && isRecurring;
 
-    const recurringConfig: RecurringConfig | undefined = finalIsRecurring
-      ? {
-          frequency: recurringFrequency,
-          intervalWeeks: recurringFrequency === 'weekly' ? recurringIntervalWeeks : undefined,
-          startTime: recurringStartTime,
-          endTime: recurringEndTime,
-          dailyTime: recurringStartTime,
-          time: recurringStartTime,
-          weeklyDays: recurringFrequency === 'weekly' ? recurringWeeklyDays : undefined,
-          monthlyDays: (recurringFrequency === 'monthly' || recurringFrequency === 'monthly_day') ? recurringMonthlyDays : undefined,
-          nthOccurrence: recurringFrequency === 'monthly_nth_weekday' ? recurringNthOccurrence : undefined,
-          nthWeekday: recurringFrequency === 'monthly_nth_weekday' ? recurringNthWeekday : undefined,
-          startDate: recurringStartDate || dueDateISO || getNowISO(),
-          endDate: recurringEndDate || undefined,
-        }
-      : undefined;
+    const recurringConfig: RecurringConfig | undefined = finalIsRecurring ? buildRecurringConfig() : undefined;
 
     const projectCharter: ProjectCharter | undefined = finalIsProject
       ? {
@@ -1974,15 +1989,34 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               })}
             </div>
             {/* Where this activity lands in the Eisenhower matrix (importance by priority, urgency by due date) */}
-            {!hideDueDate && dueDateISO && (
-              <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2.5" data-matrix-label>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300">این فعالیت در ماتریس آیزنهاور:</p>
-                <p className={`text-sm font-black ${QUADRANT_TONES[quadrantOf({ priority, dueDate: dueDateISO }).tone].title}`}>
-                  ربع {quadrantOf({ priority, dueDate: dueDateISO }).no} · {quadrantOf({ priority, dueDate: dueDateISO }).title}
-                </p>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300">{describeQuadrant({ priority, dueDate: dueDateISO })}</p>
-              </div>
-            )}
+            {matrixPreview.length > 0 && (() => {
+              const counts = quadrantCounts(matrixPreview);
+              const merged = matrixPreview.length === 1 ? quadrantOfItem(matrixPreview[0]) : null;
+              return (
+                <div className="mt-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2.5 space-y-1" data-matrix-label>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                    {merged ? 'این فعالیت در ماتریس آیزنهاور:' : `${toPersianDigits(matrixPreview.length)} مورد باز این فعالیت در ماتریس آیزنهاور:`}
+                  </p>
+                  {merged ? (
+                    <>
+                      <p className={`text-sm font-black ${QUADRANT_TONES[merged.tone].title}`}>ربع {merged.no} · {merged.title}</p>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300">{describeQuadrant(matrixPreview[0])}</p>
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUADRANTS.filter((q) => counts[q.id] > 0).map((q) => (
+                        <span key={q.id} className={`rounded-lg px-2 py-0.5 text-[11px] font-black ${QUADRANT_TONES[q.tone].soft} ${QUADRANT_TONES[q.tone].title}`}>
+                          {q.no} · {q.title}: {toPersianDigits(counts[q.id])}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {isProject
+                    ? <p className="text-[11px] text-slate-500 dark:text-slate-400">هر زیرفعالیت باز با اهمیت و تاریخ پایان خودش در ماتریس می‌آید.</p>
+                    : isRecurring && <p className="text-[11px] text-slate-500 dark:text-slate-400">فقط نوبت بعدی فعالیت تکرارشونده حساب می‌شود.</p>}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Tags / Labels Input Section */}
