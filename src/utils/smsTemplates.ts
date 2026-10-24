@@ -10,6 +10,7 @@ export const PRODUCT_SMS_TEMPLATE_KEYS = [
   'task_due_changed',
   'task_due_soon',
   'task_overdue',
+  'task_overdue_changed',
   'recurring_task_upcoming',
 ] as const;
 
