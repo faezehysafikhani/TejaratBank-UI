@@ -1,4 +1,5 @@
 import React from 'react';
+import { isSafeInlineType } from '../utils/safeBlob';
 import { Attachment } from '../types';
 import { formatFileSize, formatToJalali } from '../utils/helpers';
 import { X, Download, FileText, Image as ImageIcon, ExternalLink } from 'lucide-react';
@@ -64,7 +65,9 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
       if (attachment.dataUrl.startsWith('data:')) {
         const parts = attachment.dataUrl.split(',');
         const mimeMatch = parts[0].match(/:(.*?);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'text/plain';
+        // Only a few types may be opened in a tab; the rest is saved instead of being run.
+        const declared = mimeMatch ? mimeMatch[1] : '';
+        const mime = isSafeInlineType(declared) ? declared : 'application/octet-stream';
         const bstr = atob(parts[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
@@ -73,9 +76,19 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         }
         const blob = new Blob([u8arr], { type: mime });
         const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-      } else {
-        window.open(attachment.dataUrl, '_blank');
+        if (mime === 'application/octet-stream') {
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = attachment.name || 'file';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } else {
+          window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        }
+      } else if (attachment.dataUrl.startsWith('blob:')) {
+        window.open(attachment.dataUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (err) {
       console.error('Error opening attachment in new tab:', err);
