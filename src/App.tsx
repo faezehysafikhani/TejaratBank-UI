@@ -1666,8 +1666,10 @@ export default function App() {
             notifications={allNotifications}
             onMarkAsRead={handleMarkNotificationAsRead}
             onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-            onSelectTask={(taskId) => {
-              const target = tasks.find((t) => t.id === taskId);
+            onSelectTask={async (taskId) => {
+              // A task not among the loaded ones (e.g. changed by someone else a moment ago) is fetched.
+              const target = tasks.find((t) => t.id === taskId)
+                ?? (await fetchTasksFromPB().catch(() => [] as Task[])).find((t) => t.id === taskId);
               if (target) {
                 handleOpenTaskDetail(target);
               }

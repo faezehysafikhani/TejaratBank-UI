@@ -120,6 +120,8 @@ export function toAppNotification(dto: ServerNotificationDto, visibleTasks: Task
         details: details || undefined,
         badge: notice.badge,
         popup: category === 'task.overdue_changed' ? true : undefined,
+        // «مشاهده فعالیت» always has a task to open: when it is not among the loaded ones the app fetches it.
+        ...(category === 'task.overdue_changed' && !base.taskId && dto.referenceId ? { taskId: dto.referenceId } : {}),
       };
     }
   }
