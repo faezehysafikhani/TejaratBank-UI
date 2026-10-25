@@ -352,7 +352,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 «{detailFor.taskTitle}»
               </p>
 
-              <ul className="mt-2.5 space-y-2">
+              <ul className="mt-2.5 max-h-[55vh] space-y-2 overflow-y-auto pr-0.5">
                 {(detailFor.details || '').split(CHANGE_SEPARATOR).map((line, i) => {
                   const at = line.indexOf(': ');
                   const label = at >= 0 ? line.slice(0, at) : '';
