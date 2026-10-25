@@ -90,6 +90,7 @@ npm start
   CSP ابتدا در حالت `report-only` است و تخلف‌ها به `/api/platform/csp-report` گزارش می‌شوند؛
   بعد از حدود دو هفته و بررسی گزارش‌ها، `"cspMode": "enforce"` را بگذارید و
   `npm run headers:sync` را اجرا کنید. `web.config` و `vercel.json` از همین فایل ساخته می‌شوند.
+- **API روی origin جدا (غیر پیشنهادی):** گزارش CSP و `connect-src` باید به آدرس API اشاره کنند. برای `npm start` متغیرهای `CSP_REPORT_URI` (آدرس کامل `/api/platform/csp-report`) و `CSP_CONNECT_SRC` (مثلاً `http://localhost:5271 ws://localhost:5271`) را بگذارید؛ برای web.config/vercel.json کلیدهای `cspReportUri` و `connectSrcExtra` را در `security-headers.json` پر کنید و `npm run headers:sync` بزنید. در استقرار هم‌مبدأ لازم نیست.
 - **پیوست‌ها:** فقط نوع‌های امن (تصویر، PDF، صوت، Word، Excel) درون برنامه باز می‌شوند؛ بقیه
   فقط دانلود می‌شوند.
 - **فایل تنظیمات runtime:** `config/runtime-config.json` فقط داده است و هنگام شروع اعتبارسنجی
