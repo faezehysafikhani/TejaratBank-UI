@@ -333,6 +333,8 @@ export interface AppNotification {
   isRead: boolean;
   /** The label shown on the item, when its type's usual one does not fit (e.g. «موعد گذشته»). */
   badge?: string;
+  /** The details open in a small popup («جزئیات») instead of being listed in the item. */
+  popup?: boolean;
 }
 
 export interface DirectMessage {

@@ -10,7 +10,10 @@ import {
   CheckCheck,
   Check,
   ExternalLink,
-  Inbox
+  Inbox,
+  Cloud,
+  Info,
+  ArrowLeft
 } from 'lucide-react';
 import { formatToJalali, toPersianDigits } from '../utils/helpers';
 import { CHANGE_SEPARATOR } from '../utils/taskChangeSummary';
@@ -35,6 +38,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   appColorPalette = 'indigo',
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'comments' | 'logs'>('all');
+  // The item whose details are open in the small cloud popup.
+  const [detailFor, setDetailFor] = useState<AppNotification | null>(null);
 
   if (!isOpen) return null;
 
@@ -241,7 +246,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                       <span className={notification.type === 'comment' ? '' : 'font-bold'}>{notification.actionTitle}</span>
                     </p>
                     {/* An edit's changes, each on its own line. */}
-                    {notification.details && (
+                    {notification.details && !notification.popup && (
                       <ul className="space-y-0.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed break-words">
                         {notification.details.split(CHANGE_SEPARATOR).map((line, i) => (
                           <li key={i} className="flex gap-1.5">
@@ -260,6 +265,19 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
                 {/* Actions Right */}
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  {notification.popup && notification.details && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!notification.isRead) onMarkAsRead(notification.id);
+                        setDetailFor(notification);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-all cursor-pointer"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      <span>جزئیات</span>
+                    </button>
+                  )}
                   {/* A server notification without a task the user can open has nothing to show. */}
                   {notification.taskId && (
                   <button
@@ -300,6 +318,87 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         </div>
 
       </div>
+
+      {/* Details of a past-due task's change, in a small soft cloud. */}
+      {detailFor && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4"
+          onClick={() => setDetailFor(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="جزئیات تغییر فعالیت موعدگذشته"
+        >
+          <div className="relative w-full max-w-sm pt-8 animate-in zoom-in-95 fade-in duration-200" onClick={(e) => e.stopPropagation()}>
+            <span className="absolute top-3 right-10 h-14 w-14 rounded-full bg-sky-100 dark:bg-slate-700" />
+            <span className="absolute top-0 right-20 h-[4.5rem] w-[4.5rem] rounded-full bg-sky-100 dark:bg-slate-700" />
+            <span className="absolute top-4 right-36 h-12 w-12 rounded-full bg-sky-100 dark:bg-slate-700" />
+            <div className="relative rounded-[2rem] border border-white/80 dark:border-slate-600 bg-gradient-to-b from-sky-100 via-sky-50 to-white dark:from-slate-700 dark:via-slate-800 dark:to-slate-800 p-5 shadow-[0_24px_60px_-24px_rgba(14,165,233,0.65)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-900/60 text-sky-500 shadow-sm">
+                    <Cloud className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-black text-slate-800 dark:text-white">تغییر فعالیت موعدگذشته</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-300">{formatToJalali(detailFor.createdAt)}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => setDetailFor(null)} aria-label="بستن" title="بستن" className="rounded-xl p-1.5 text-slate-400 hover:bg-white/70 dark:hover:bg-slate-700 cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <p className="mt-3 rounded-2xl bg-white/80 dark:bg-slate-900/50 px-3.5 py-2.5 text-sm font-black leading-6 text-indigo-700 dark:text-indigo-300 shadow-sm">
+                «{detailFor.taskTitle}»
+              </p>
+
+              <ul className="mt-2.5 space-y-2">
+                {(detailFor.details || '').split(CHANGE_SEPARATOR).map((line, i) => {
+                  const at = line.indexOf(': ');
+                  const label = at >= 0 ? line.slice(0, at) : '';
+                  const value = at >= 0 ? line.slice(at + 2) : line;
+                  const steps = value.split(' ← ');
+                  return (
+                    <li key={i} className="rounded-2xl bg-white/70 dark:bg-slate-900/40 px-3.5 py-2 shadow-sm">
+                      {label && <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{label}</p>}
+                      {steps.length === 2 ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-black">
+                          <span className="rounded-lg bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-slate-600 dark:text-slate-200">{steps[0]}</span>
+                          <ArrowLeft className="h-3.5 w-3.5 text-sky-500" />
+                          <span className="rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 text-emerald-700 dark:text-emerald-300">{steps[1]}</span>
+                        </div>
+                      ) : (
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100">{value}</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setDetailFor(null)} className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-200 hover:bg-white/70 dark:hover:bg-slate-700 cursor-pointer">
+                  بستن
+                </button>
+                {detailFor.taskId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const taskId = detailFor.taskId;
+                      setDetailFor(null);
+                      onSelectTask(taskId);
+                      onClose();
+                    }}
+                    className={`flex items-center gap-1 px-3.5 py-1.5 ${palette.accentBg} ${palette.accentHover} text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer`}
+                  >
+                    <span>مشاهده فعالیت</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
