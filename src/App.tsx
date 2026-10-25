@@ -42,6 +42,7 @@ const FeatureListPdfModal = lazy(() => import('./components/FeatureListPdfModal'
 
 import {
   fetchTasksFromPB,
+  fetchTaskByIdPB,
   createTaskInPB,
   updateTaskInPB,
   deleteTaskFromPB,
@@ -73,7 +74,8 @@ import {
   toAppNotification,
 } from './utils/serverNotifications';
 import { Database, PanelRightOpen } from 'lucide-react';
-import { SESSION_ENDED_EVENT, TASK_CREATED_ACTION, withoutEditDuplicates } from './services/nexusApi';
+import { showToast } from './utils/toast';
+import { NexusApiError, SESSION_ENDED_EVENT, TASK_CREATED_ACTION, withoutEditDuplicates } from './services/nexusApi';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
@@ -571,6 +573,7 @@ export default function App() {
 
     // Optimistic delete
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setGoneTaskIds((prev) => [...prev, taskId]);
     setIsSyncing(true);
     try {
       await deleteTaskFromPB(taskId);
@@ -1049,18 +1052,50 @@ export default function App() {
     };
   }, [currentUser?.id, loadServerNotifications]);
 
+  // Tasks known to be gone (deleted here, or the server said 404 when a notification was opened):
+  // their notifications are hidden, except the «deleted» notice itself.
+  const [goneTaskIds, setGoneTaskIds] = useState<string[]>([]);
   const allNotifications = useMemo(
-    () => mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks))),
-    [appNotifications, serverNotifications, visibleTasks]
+    () =>
+      mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks))).filter(
+        (n) => !n.taskId || !goneTaskIds.includes(n.taskId) || n.badge === 'حذف فعالیت'
+      ),
+    [appNotifications, serverNotifications, visibleTasks, goneTaskIds]
   );
+
+  // «مشاهده فعالیت»: from the loaded tasks, else by id from the server; clear message when it cannot be opened.
+  const openTaskFromNotification = useCallback(async (taskId: string) => {
+    if (goneTaskIds.includes(taskId)) {
+      showToast('این فعالیت حذف شده است.', 'error');
+      return;
+    }
+    const loaded = tasks.find((t) => t.id === taskId);
+    if (loaded) {
+      handleOpenTaskDetail(loaded);
+      return;
+    }
+    try {
+      handleOpenTaskDetail(await fetchTaskByIdPB(taskId));
+    } catch (err) {
+      const status = err instanceof NexusApiError ? err.httpStatus : 0;
+      if (status === 404) {
+        setGoneTaskIds((prev) => [...prev, taskId]);
+        showToast('این فعالیت حذف شده است.', 'error');
+      } else if (status === 403) {
+        showToast('به این فعالیت دسترسی ندارید.', 'error');
+      } else {
+        showToast('بارگذاری فعالیت انجام نشد. دوباره تلاش کنید.', 'error');
+      }
+    }
+  }, [tasks, goneTaskIds, handleOpenTaskDetail]);
 
   const unreadNotificationsCount = useMemo(
     () => allNotifications.filter((n) => !n.isRead).length,
     [allNotifications]
   );
 
-  // Badge count limited strictly to overdue tasks per user request
-  const totalBadgeCount = overdueCount;
+  // Tab title and app badge show the same number as the bell: unread notifications
+  const totalBadgeCount = unreadNotificationsCount;
 
   // Sync total badge count with PWA App Badge API, Service Worker and Document Title
   useEffect(() => {
@@ -1666,14 +1701,7 @@ export default function App() {
             notifications={allNotifications}
             onMarkAsRead={handleMarkNotificationAsRead}
             onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-            onSelectTask={async (taskId) => {
-              // A task not among the loaded ones (e.g. changed by someone else a moment ago) is fetched.
-              const target = tasks.find((t) => t.id === taskId)
-                ?? (await fetchTasksFromPB().catch(() => [] as Task[])).find((t) => t.id === taskId);
-              if (target) {
-                handleOpenTaskDetail(target);
-              }
-            }}
+            onSelectTask={openTaskFromNotification}
             appColorPalette={appColorPalette}
           />
         )}

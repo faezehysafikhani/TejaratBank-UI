@@ -1233,7 +1233,7 @@ export async function fetchTasks(): Promise<Task[]> {
   });
 }
 
-async function fetchTask(taskId: string): Promise<Task> {
+export async function fetchTask(taskId: string): Promise<Task> {
   const [dto, comments, logs] = await Promise.all([getTaskDto(taskId), fetchComments(taskId), fetchActivity(taskId)]);
   return mapTask(dto, comments, logs);
 }

@@ -86,8 +86,9 @@ export function toAppNotification(dto: ServerNotificationDto, visibleTasks: Task
     const task = taskOf(dto.referenceId, visibleTasks);
     const base = {
       id: SERVER_NOTIFICATION_PREFIX + dto.id,
-      // Only a task the user can still see can be opened.
-      taskId: task ? task.id : '',
+      // The task it is about; when it is not among the loaded ones the app fetches it by this id
+      // (a deleted task's own notice has nothing left to open).
+      taskId: task ? task.id : category === 'task.deleted' ? '' : dto.referenceId || '',
       actorName: dto.actorName || 'سامانه',
       createdAt: asUtc(dto.createdAt),
       isRead: dto.isRead,
@@ -120,8 +121,6 @@ export function toAppNotification(dto: ServerNotificationDto, visibleTasks: Task
         details: details || undefined,
         badge: notice.badge,
         popup: category === 'task.overdue_changed' ? true : undefined,
-        // «مشاهده فعالیت» always has a task to open: when it is not among the loaded ones the app fetches it.
-        ...(category === 'task.overdue_changed' && !base.taskId && dto.referenceId ? { taskId: dto.referenceId } : {}),
       };
     }
   }

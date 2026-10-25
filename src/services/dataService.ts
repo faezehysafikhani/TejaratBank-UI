@@ -267,6 +267,11 @@ export async function fetchTasksFromPB(): Promise<Task[]> {
   return nexusApi.fetchTasks();
 }
 
+/** One task by id (GET /api/task-management/tasks/{id}); throws NexusApiError (404 deleted, 403 no access). */
+export async function fetchTaskByIdPB(taskId: string): Promise<Task> {
+  return nexusApi.fetchTask(taskId);
+}
+
 export async function createTaskInPB(
   taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<Task> {

@@ -105,7 +105,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setActiveTab('all')}
+              onClick={() => { setActiveTab('all'); setDetailFor(null); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'all'
                   ? `${palette.accentBg} text-white shadow-xs`
@@ -116,7 +116,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('comments')}
+              onClick={() => { setActiveTab('comments'); setDetailFor(null); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'comments'
                   ? `${palette.accentBg} text-white shadow-xs`
@@ -128,7 +128,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('logs')}
+              onClick={() => { setActiveTab('logs'); setDetailFor(null); }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                 activeTab === 'logs'
                   ? `${palette.accentBg} text-white shadow-xs`
