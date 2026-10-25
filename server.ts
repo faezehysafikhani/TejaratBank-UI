@@ -2,19 +2,30 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
+import { buildHeaders } from "./scripts/security-headers-lib.mjs";
+import securityHeadersConfig from "./security-headers.json";
 
 dotenv.config();
 
 export const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "100kb" }));
 
 app.disable("x-powered-by");
+
+// The response security headers (security-headers.json): the Content-Security-Policy (report-only
+// until switched to enforce there), HSTS, Permissions-Policy and the basics. Not in development:
+// the dev server's own scripts and websocket would trip the policy.
+const securityHeaders = process.env.NODE_ENV === "production" ? buildHeaders(securityHeadersConfig) : {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+};
 app.use((_req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "no-referrer");
+  for (const [name, value] of Object.entries(securityHeaders)) {
+    res.setHeader(name, value as string);
+  }
   next();
 });
 
@@ -75,6 +86,14 @@ async function startServer() {
           if (filepath.endsWith('.png') || filepath.endsWith('.svg') || filepath.endsWith('.ico')) {
             res.setHeader('Cache-Control', 'public, max-age=86400');
           }
+          // The page, the runtime settings and the service worker are re-checked on every load,
+          // so a new header policy or API address reaches people at once, not after a day. The
+          // hashed files under /assets never change and may be kept for long.
+          if (/[\\/]dist[\\/](index\.html|sw\.js|config[\\/]runtime-config\.json)$/.test(filepath)) {
+            res.setHeader('Cache-Control', 'no-cache');
+          } else if (/[\\/]assets[\\/]/.test(filepath)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          }
         }
       }));
 
@@ -84,6 +103,7 @@ async function startServer() {
           try {
             const html = fs.readFileSync(indexPath, "utf-8");
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache');
             return res.send(html);
           } catch (e) {
             console.error("Error reading index.html:", e);

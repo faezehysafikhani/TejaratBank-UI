@@ -2,6 +2,8 @@ node_modules/
 build/
 dist/
 dist-org-sandbox/
+server.cjs
+server.cjs.map
 coverage/
 .DS_Store
 *.log
