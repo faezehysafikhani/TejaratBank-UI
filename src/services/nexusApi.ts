@@ -2,7 +2,7 @@
  * REST connection to the NexusCore backend (ASP.NET Core 8, TaskManagement module).
  *
  * This is the app's only backend. In production, the origin is read at runtime from
- * /config/runtime-config.js; without it the app calls the origin it is served from
+ * /config/runtime-config.json; without it the app calls the origin it is served from
  * (a reverse proxy in front of both).
  *
  * The functions in dataService.ts delegate here; the components keep calling the same
@@ -37,7 +37,7 @@ import { iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
 import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { NETWORK_ERROR, TIMEOUT_ERROR, persianApiMessage } from '../utils/errorMessages';
 import { normalizeAvatar } from '../utils/avatars';
-import { clearLookups } from '../utils/lookupCache';
+import { clearPrivateData } from '../utils/privateStorage';
 import type { ServerNotificationDto } from '../utils/serverNotifications';
 
 // ---------------------------------------------------------------------------
@@ -277,19 +277,32 @@ export interface NoteDto {
 }
 
 // ---------------------------------------------------------------------------
-// Session (access + refresh token)
+// Session (access token in memory, refresh token in an HttpOnly cookie)
 // ---------------------------------------------------------------------------
 
+/**
+ * What is kept in the browser's storage: who is signed in, and what they may see. Nothing in it
+ * can be used to call the API - the tokens are not here. The access token lives only in this
+ * page's memory (below), and the refresh token only in a cookie the server sets with HttpOnly,
+ * which no script - ours or an injected one - can read.
+ */
 interface StoredSession {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresAtUtc: string;
   user: UserDto;
   /** The user's permissions from the last /me answer. */
   permissions?: string[];
 }
 
-const SESSION_KEY = 'nexuscore_auth_session_v1';
+const SESSION_KEY = 'nexuscore_auth_profile_v2';
+/** Before the cookie, the tokens themselves were stored here. Never read again; removed. */
+const LEGACY_SESSION_KEY = 'nexuscore_auth_session_v1';
+
+/** The short-lived access token. A reload starts without one and gets one from the cookie. */
+let tokens: {
+  accessToken: string;
+  accessTokenExpiresAtUtc: string;
+  /** Only when the server returned the refresh token in the body instead of the cookie (older servers): kept in memory only. */
+  refreshToken?: string;
+} | null = null;
 
 /**
  * Fired on window when the server no longer accepts the session (account disabled, tokens
@@ -298,8 +311,9 @@ const SESSION_KEY = 'nexuscore_auth_session_v1';
 export const SESSION_ENDED_EVENT = 'nexuscore:session-ended';
 
 function endSession(): void {
+  tokens = null;
   writeSession(null);
-  clearLookups();
+  clearPrivateData();
   try {
     window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
   } catch {
@@ -324,37 +338,77 @@ function writeSession(session: StoredSession | null): void {
       localStorage.removeItem(SESSION_KEY);
     }
   } catch {
-    // Storage unavailable (private mode); the session simply will not survive a reload.
+    // Storage unavailable (private mode); the page simply will not remember who is signed in.
   }
+}
+
+// Sessions from before the cookie held live tokens in storage: they are removed, and the user
+// signs in once more.
+try {
+  localStorage.removeItem(LEGACY_SESSION_KEY);
+} catch {
+  // Storage unavailable.
+}
+
+// Signing out (or being signed out) in another tab ends this tab's session as well.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === SESSION_KEY && event.newValue === null && tokens) {
+      tokens = null;
+      try {
+        window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+      } catch {
+        // Nothing to notify.
+      }
+    }
+  });
 }
 
 function saveAuthResponse(auth: AuthResponse): void {
   const previous = readSession();
-  writeSession({
+  tokens = {
     accessToken: auth.accessToken,
-    refreshToken: auth.refreshToken,
     accessTokenExpiresAtUtc: auth.accessTokenExpiresAtUtc,
+    refreshToken: auth.refreshToken || undefined,
+  };
+  writeSession({
     user: auth.user,
     // A renewed token keeps the known permissions; a new sign-in reads them from /me.
     permissions: previous?.user?.id === auth.user.id ? previous.permissions : undefined,
   });
 }
 
-// Refresh tokens rotate on every use (IdentityService.RefreshTokenAsync revokes the old one),
-// so concurrent 401s must share a single refresh call rather than racing each other.
+/** An access token that is good for at least a little longer, renewed from the cookie when it is not. */
+async function ensureAccessToken(): Promise<string | null> {
+  if (!readSession()) return null;
+  if (tokens && new Date(tokens.accessTokenExpiresAtUtc).getTime() - Date.now() > 20_000) {
+    return tokens.accessToken;
+  }
+  return (await refreshSession()) && tokens ? tokens.accessToken : null;
+}
+
+// Refresh tokens rotate on every use, so concurrent 401s must share a single refresh call rather
+// than racing each other - and so must several tabs, which share the one cookie: the browser's
+// lock makes them take turns, and the second tab sends the cookie the first one just received.
 let refreshInFlight: Promise<boolean> | null = null;
+
+async function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? (navigator as any).locks : undefined;
+  return locks?.request ? (locks.request('nexus-refresh', work) as Promise<T>) : work();
+}
 
 async function refreshSession(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
 
-  refreshInFlight = (async () => {
-    const session = readSession();
-    if (!session?.refreshToken) return false;
+  refreshInFlight = withRefreshLock(async () => {
+    if (!readSession()) return false;
     try {
       const auth = await request<AuthResponse>('POST', '/api/identity/auth/refresh', {
-        body: { refreshToken: session.refreshToken },
+        // The cookie carries the token; a body is only sent when the server handed the token over in one.
+        body: tokens?.refreshToken ? { refreshToken: tokens.refreshToken } : undefined,
         auth: false,
         retryOnUnauthorized: false,
+        cookieSession: true,
       });
       saveAuthResponse(auth);
       return true;
@@ -364,7 +418,7 @@ async function refreshSession(): Promise<boolean> {
       }
       return false;
     }
-  })();
+  });
 
   try {
     return await refreshInFlight;
@@ -399,6 +453,13 @@ interface RequestOptions {
   unauthorizedMessage?: string;
   /** Fetch cache mode; reports use 'no-store' so a repeat request never returns an old copy. */
   cache?: RequestCache;
+  /**
+   * The call that sets, uses or ends the refresh-token cookie (sign-in, refresh, sign-out, a
+   * password or mobile change): asks the server to keep the token in the cookie, marks the
+   * request as ours (a cross-site form cannot send this header) and sends the cookie along even
+   * when the API is on another origin.
+   */
+  cookieSession?: boolean;
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -439,8 +500,12 @@ async function request<T>(method: string, path: string, options: RequestOptions 
   const headers: Record<string, string> = { Accept: responseType === 'json' ? 'application/json' : '*/*' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth) {
-    const session = readSession();
-    if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+    const accessToken = await ensureAccessToken();
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  }
+  if (options.cookieSession) {
+    headers['X-Nexus-Session'] = 'cookie';
+    headers['X-Requested-With'] = 'XMLHttpRequest';
   }
 
   const controller = new AbortController();
@@ -454,6 +519,7 @@ async function request<T>(method: string, path: string, options: RequestOptions 
       // FormData sets its own multipart boundary header.
       body: form ?? (body !== undefined ? JSON.stringify(body) : undefined),
       cache: options.cache,
+      credentials: options.cookieSession ? 'include' : undefined,
       signal: controller.signal,
     });
   } catch (err: any) {
@@ -960,6 +1026,7 @@ export async function login(
       },
       auth: false,
       retryOnUnauthorized: false,
+      cookieSession: true,
       unauthorizedMessage: 'نام کاربری، شماره تلفن یا رمز عبور صحیح نیست.',
     });
   } catch (err) {
@@ -982,7 +1049,7 @@ export async function login(
 /** Signed-in user from the stored session, without a network call (used on first render). */
 export function getSessionUser(): User | null {
   const session = readSession();
-  return session?.refreshToken && session.user ? { ...mapUserDto(session.user), permissions: session.permissions } : null;
+  return session?.user ? { ...mapUserDto(session.user), permissions: session.permissions } : null;
 }
 
 export function getSessionTenantId(): string | null {
@@ -1021,16 +1088,18 @@ export async function refreshCurrentUser(): Promise<User | null> {
  * tokens are discarded at once. The server call is best effort - sign-out never waits for it.
  */
 export function logout(): void {
-  const refreshToken = readSession()?.refreshToken;
+  const refreshToken = tokens?.refreshToken;
+  tokens = null;
   writeSession(null);
-  clearLookups();
-  if (refreshToken) {
-    request<void>('POST', '/api/identity/auth/logout', {
-      body: { refreshToken },
-      auth: false,
-      retryOnUnauthorized: false,
-    }).catch(() => undefined);
-  }
+  // What the page kept of this person (chat history, notes, caches) goes with the session.
+  clearPrivateData();
+  request<void>('POST', '/api/identity/auth/logout', {
+    // The cookie names the session; a body only when the server had handed the token over in one.
+    body: refreshToken ? { refreshToken } : undefined,
+    auth: false,
+    retryOnUnauthorized: false,
+    cookieSession: true,
+  }).catch(() => undefined);
 }
 
 // ---------------------------------------------------------------------------
@@ -2218,7 +2287,28 @@ export async function testLdapConnection(settings: LdapSettings): Promise<LdapTe
 
 /** Changes the signed-in user's own password; the current one is required. */
 export async function changeMyPassword(currentPassword: string, newPassword: string): Promise<void> {
-  await request('PUT', '/api/identity/auth/me/password', { body: { currentPassword, newPassword } });
+  // cookieSession: the server keeps this sign-in and ends the others.
+  await request('PUT', '/api/identity/auth/me/password', { body: { currentPassword, newPassword }, cookieSession: true });
+}
+
+/**
+ * Step 1 of changing the mobile number (the number a forgotten password is recovered through):
+ * with the current password, the server sends a code by SMS to the NEW number.
+ */
+export async function requestPhoneChange(newPhoneNumber: string, currentPassword: string): Promise<{ message: string; expiresInSeconds: number }> {
+  return request<{ message: string; expiresInSeconds: number }>('POST', '/api/identity/auth/me/phone/request', {
+    body: { newPhoneNumber: newPhoneNumber.trim(), currentPassword },
+  });
+}
+
+/** Step 2: the code from the SMS and the password again; the number changes and other sessions end. */
+export async function confirmPhoneChange(newPhoneNumber: string, code: string, currentPassword: string): Promise<User> {
+  const saved = await request<UserDto>('POST', '/api/identity/auth/me/phone/confirm', {
+    body: { newPhoneNumber: newPhoneNumber.trim(), code: code.trim(), currentPassword },
+    cookieSession: true,
+  });
+  updateSessionUser(saved);
+  return mapUserDto(saved);
 }
 
 // ---------------------------------------------------------------------------
@@ -2426,13 +2516,8 @@ let taskHubRetryDelay = 15_000;
 let changeTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function hubAccessToken(): Promise<string> {
-  const session = readSession();
-  if (!session) return '';
-  // A token that is about to expire would get the connection rejected; renew it first.
-  if (new Date(session.accessTokenExpiresAtUtc).getTime() - Date.now() < 30_000) {
-    await refreshSession();
-  }
-  return readSession()?.accessToken || '';
+  // A token that is about to expire would get the connection rejected; it is renewed first.
+  return (await ensureAccessToken()) || '';
 }
 
 function notifyTaskChange(): void {

@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "",
+  "signalRBaseUrl": "",
+  "tenantSlug": "",
+  "requestTimeoutMs": 30000
+}

@@ -8,7 +8,7 @@ import { AppTheme, AppColorPalette, User as UserType, WorkTeam, MAX_ATTACHMENT_B
 import { COLOR_PALETTES } from '../utils/theme';
 import { PRESET_AVATARS, compressImageFile } from '../utils/avatars';
 import { readFileAsDataUrl } from '../utils/storage';
-import { SystemAdministration, ChangePasswordCard } from './admin/SystemAdministration';
+import { SystemAdministration, ChangePasswordCard, ChangePhoneCard } from './admin/SystemAdministration';
 import { WorkTeamManagement } from './WorkTeamManagement';
 import { userErrorMessage } from '../utils/errorMessages';
 
@@ -96,6 +96,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }));
   };
 
+  // The mobile number follows the signed-in user: it changes through its own verified step.
+  useEffect(() => {
+    setProfilePhoneNumber(currentUser?.phoneNumber || '');
+  }, [currentUser?.phoneNumber]);
+
   // Re-initialize the form only when the signed-in user actually changes (login/logout/switch),
   // not on every re-render of the currentUser object (e.g. a background refresh on window focus),
   // which would otherwise wipe an avatar/photo the user just picked before they could save it.
@@ -173,6 +178,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const profileContent = (
     <div className="w-full space-y-6 animate-in fade-in duration-200">
       {currentUser && <ChangePasswordCard />}
+      {currentUser && (
+        <ChangePhoneCard
+          currentPhone={currentUser.phoneNumber}
+          // The new number is already in the stored session; saving the unchanged profile
+          // brings the whole app's copy of the user up to date.
+          onChanged={async () => { await onSaveProfile?.({}); }}
+        />
+      )}
 
       {/* Section 2: User Profile & Avatar Form */}
       {currentUser && (
@@ -349,10 +362,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <input
                         type="tel"
                         value={profilePhoneNumber}
-                        onChange={(e) => setProfilePhoneNumber(e.target.value)}
+                        readOnly
+                        aria-readonly="true"
+                        title="تغییر شماره موبایل از کارت «تغییر شماره موبایل» و با کد تأیید پیامکی انجام می‌شود."
                         placeholder="09121234567"
                         className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dir-ltr text-right font-mono"
                       />
+                      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">برای تغییر شماره از کارت «تغییر شماره موبایل» استفاده کنید.</p>
                     </div>
                   </div>
 

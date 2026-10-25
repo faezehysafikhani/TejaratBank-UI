@@ -6,11 +6,14 @@
   "scripts": {
     "check:permissions": "node scripts/check-permission-prerequisites.mjs",
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=server.cjs",
+    "start": "node server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.cjs",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && node scripts/security-headers.mjs check",
+    "headers:sync": "node scripts/security-headers.mjs sync",
+    "headers:check": "node scripts/security-headers.mjs check",
+    "test": "node --import tsx --test scripts/security.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/vazirmatn": "^5.3.0",

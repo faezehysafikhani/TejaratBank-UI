@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck } from 'lucide-react';
-import { getKnownPermissions, getMyPermissions, changeMyPassword, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
+import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck } from 'lucide-react';
+import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneChange, confirmPhoneChange, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
 import { LoginHistoryPanel } from './LoginHistoryPanel';
@@ -91,6 +91,15 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
 };
 
 /** The signed-in user's own password change (the system administrator included). */
+/** Mirrors the server's rule (PasswordRules): 10+ characters of at least three kinds. The server decides; this only saves a trip. */
+const PASSWORD_RULE = 'رمز عبور باید حداقل ۱۰ کاراکتر باشد و دست‌کم از سه نوع کاراکتر (حرف کوچک، حرف بزرگ، رقم، نماد) تشکیل شود.';
+
+function isStrongPassword(value: string): boolean {
+  if (value.length < 10 || value.length > 128) return false;
+  const kinds = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(value)).length;
+  return kinds >= 3;
+}
+
 export const ChangePasswordCard: React.FC = () => {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -101,7 +110,7 @@ export const ChangePasswordCard: React.FC = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    if (next.length < 8) { setMessage({ type: 'error', text: 'رمز عبور جدید باید حداقل ۸ کاراکتر باشد.' }); return; }
+    if (!isStrongPassword(next)) { setMessage({ type: 'error', text: PASSWORD_RULE }); return; }
     if (next !== repeat) { setMessage({ type: 'error', text: 'تکرار رمز عبور جدید با آن یکسان نیست.' }); return; }
     setBusy(true);
     try {
@@ -127,7 +136,7 @@ export const ChangePasswordCard: React.FC = () => {
           <Field label="رمز عبور فعلی" required>
             <input type="password" className={`${inputClass} dir-ltr text-right`} value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" required />
           </Field>
-          <Field label="رمز عبور جدید" required hint="حداقل ۸ کاراکتر">
+          <Field label="رمز عبور جدید" required hint="حداقل ۱۰ کاراکتر، ترکیبی از حروف، ارقام و نماد">
             <input type="password" className={`${inputClass} dir-ltr text-right`} value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" required />
           </Field>
           <Field label="تکرار رمز عبور جدید" required>
@@ -138,6 +147,90 @@ export const ChangePasswordCard: React.FC = () => {
           <PrimaryButton type="submit" disabled={busy}>
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             <span>تغییر رمز عبور</span>
+          </PrimaryButton>
+        </div>
+      </form>
+    </AdminCard>
+  );
+};
+
+/**
+ * Changing the mobile number (the number a forgotten password is recovered through): the current
+ * password and the new number first, then the code that arrives on the NEW number. The number
+ * changes only after both, and the person's other sign-ins end.
+ */
+export const ChangePhoneCard: React.FC<{ currentPhone?: string; onChanged?: () => void | Promise<void> }> = ({ currentPhone, onChanged }) => {
+  const [newPhone, setNewPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const sendCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setBusy(true);
+    try {
+      const answer = await requestPhoneChange(newPhone, password);
+      setSent(true);
+      setMessage({ type: 'success', text: `${answer.message} کد تا ${Math.ceil(answer.expiresInSeconds / 60)} دقیقه معتبر است.` });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: userErrorMessage(err, 'ارسال کد تأیید انجام نشد.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    setBusy(true);
+    try {
+      await confirmPhoneChange(newPhone, code, password);
+      setNewPhone(''); setPassword(''); setCode(''); setSent(false);
+      setMessage({ type: 'success', text: 'شماره موبایل شما تغییر کرد. نشست‌های دیگر شما بسته شد.' });
+      await onChanged?.();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: userErrorMessage(err, 'تغییر شماره موبایل انجام نشد.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AdminCard className="p-5 sm:p-6">
+      <form onSubmit={sent ? confirm : sendCode} className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Smartphone className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">تغییر شماره موبایل</h3>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          شماره فعلی: <span className="font-mono dir-ltr">{currentPhone || '—'}</span>. شماره موبایل برای بازیابی رمز عبور استفاده می‌شود، بنابراین تغییر آن به رمز عبور فعلی و کدی نیاز دارد که به شماره‌ی جدید پیامک می‌شود.
+        </p>
+        {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Field label="شماره موبایل جدید" required>
+            <input type="tel" className={`${inputClass} dir-ltr text-right`} value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="09121234567" disabled={sent} required />
+          </Field>
+          <Field label="رمز عبور فعلی" required>
+            <input type="password" className={`${inputClass} dir-ltr text-right`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+          </Field>
+          {sent && (
+            <Field label="کد تأیید پیامک‌شده" required>
+              <input type="text" inputMode="numeric" className={`${inputClass} dir-ltr text-right`} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" required />
+            </Field>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          {sent && (
+            <button type="button" onClick={() => { setSent(false); setCode(''); setMessage(null); }} className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+              شماره‌ی دیگر
+            </button>
+          )}
+          <PrimaryButton type="submit" disabled={busy}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>{sent ? 'تأیید و تغییر شماره' : 'ارسال کد تأیید'}</span>
           </PrimaryButton>
         </div>
       </form>

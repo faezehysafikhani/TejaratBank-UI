@@ -1,0 +1,26 @@
+name: Security checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"   # weekly: new advisories appear without any change of ours
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Types, and the response security headers (security-headers.json) against web.config / vercel.json.
+      - run: npm run lint
+      - run: npm test
+      # Known-vulnerable packages: high or critical stops the build.
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run build
+      # The server bundle and its source must not be inside the folder that is published.
+      - run: test ! -e dist/server.cjs && test -z "$(find dist -name '*.map')"
