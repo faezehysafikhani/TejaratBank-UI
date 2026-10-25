@@ -1629,7 +1629,7 @@ function updateSessionUser(user: UserDto): void {
 
 export async function fetchMyNotifications(): Promise<ServerNotificationDto[]> {
   if (!readSession()) return [];
-  return request<ServerNotificationDto[]>('GET', '/api/notifications', { query: { pageSize: 50 } });
+  return request<ServerNotificationDto[]>('GET', '/api/notifications', { query: { pageSize: 50 }, cache: 'no-store' });
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
