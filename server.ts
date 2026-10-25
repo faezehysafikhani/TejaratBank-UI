@@ -17,7 +17,14 @@ app.disable("x-powered-by");
 // The response security headers (security-headers.json): the Content-Security-Policy (report-only
 // until switched to enforce there), HSTS, Permissions-Policy and the basics. Not in development:
 // the dev server's own scripts and websocket would trip the policy.
-const securityHeaders = process.env.NODE_ENV === "production" ? buildHeaders(securityHeadersConfig) : {
+const securityHeaders = process.env.NODE_ENV === "production" ? buildHeaders({
+  ...securityHeadersConfig,
+  // When the API is on another origin (not the intended same-origin setup): its address for the
+  // report endpoint and for connect-src, e.g. CSP_REPORT_URI=http://localhost:5271/api/platform/csp-report
+  // CSP_CONNECT_SRC="http://localhost:5271 ws://localhost:5271".
+  cspReportUri: process.env.CSP_REPORT_URI || securityHeadersConfig.cspReportUri,
+  connectSrcExtra: process.env.CSP_CONNECT_SRC ? process.env.CSP_CONNECT_SRC.split(/\s+/) : securityHeadersConfig.connectSrcExtra,
+}) : {
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
   "Referrer-Policy": "no-referrer",

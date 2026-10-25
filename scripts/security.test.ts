@@ -53,6 +53,15 @@ test('security headers: report-only first, enforce on request, HSTS and Permissi
   assert.equal(buildHeaders({ ...base, cspMode: 'off' })['Content-Security-Policy-Report-Only'], undefined);
 });
 
+test('security headers: an API on another origin is added to connect-src', () => {
+  const headers = buildHeaders({
+    cspMode: 'report-only', cspReportUri: 'http://api:5271/r', connectSrcExtra: ['http://api:5271', 'ws://api:5271'],
+    contentSecurityPolicy: ["default-src 'self'", "connect-src 'self' wss:"],
+    strictTransportSecurity: 'x', permissionsPolicy: 'y', always: {},
+  });
+  assert.equal(headers['Content-Security-Policy-Report-Only'], "default-src 'self'; connect-src 'self' wss: http://api:5271 ws://api:5271; report-uri http://api:5271/r");
+});
+
 test('attachments: only safe types keep their type, everything else becomes a download', () => {
   assert.equal(toSafeBlob(new Blob(['x'], { type: 'text/html' })).type, 'application/octet-stream');
   assert.equal(toSafeBlob(new Blob(['x'], { type: 'image/svg+xml' })).type, 'application/octet-stream');
