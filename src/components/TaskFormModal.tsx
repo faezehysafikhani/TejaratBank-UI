@@ -34,6 +34,7 @@ import {
   PlayCircle,
   CheckCircle2,
   Briefcase,
+  Lock,
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
 import PeoplePicker from './PeoplePicker';
@@ -60,6 +61,8 @@ interface TaskFormModalProps {
   initialDueDate?: string;
   initialTitle?: string;
   initialDescription?: string;
+  /** The description given in `initialDescription` cannot be edited (a task made from a message or comment). */
+  lockInitialDescription?: boolean;
   /** Set when the task is made from a comment of this activity: offers the «sub-activity» type. */
   parentTask?: { id: string; title: string } | null;
   appColorPalette?: AppColorPalette;
@@ -77,6 +80,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   initialDueDate,
   initialTitle = '',
   initialDescription = '',
+  lockInitialDescription = false,
   parentTask = null,
   appColorPalette = 'indigo',
   currentUser,
@@ -86,6 +90,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const palette = COLOR_PALETTES[appColorPalette] || COLOR_PALETTES.indigo;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  // What the user adds after a description that cannot be edited (a task made from a message or comment).
+  const [descriptionExtra, setDescriptionExtra] = useState('');
   const [dueDateISO, setDueDateISO] = useState<string>(() => initialDueDate || getNowISO());
   const [priority, setPriority] = useState<Priority>('medium');
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
@@ -346,6 +352,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     } else {
       setTitle(initialTitle || '');
       setDescription(initialDescription || '');
+      setDescriptionExtra('');
       const defaultDateTime = initialDueDate || getNowISO();
       setDueDateISO(defaultDateTime);
       setPriority('medium');
@@ -642,7 +649,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     onSave(
       {
         title: title.trim(),
-        description: description.trim(),
+        description: lockedDescription
+          ? [lockedDescription, descriptionExtra.trim()].filter(Boolean).join('\n\n')
+          : description.trim(),
         dueDate: finalDueDate,
         priority,
         status: finalStatus,
@@ -1316,16 +1325,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                 type="text"
                 value={title}
                 disabled={isStatusOnlyEdit}
-                readOnly={titleLocked}
-                title={titleLocked ? 'عنوان از متن پیام/کامنت گرفته شده و قابل تغییر نیست' : undefined}
                 onChange={(e) => {
-                  if (titleLocked) return;
                   setTitle(e.target.value);
                   if (e.target.value.trim()) setErrors({});
                 }}
                 placeholder={isProject ? 'مثال: پروژه‌ی بازطراحی داشبورد' : 'مثال: طراحی صفحات داشبورد جدید'}
                 className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs font-medium border rounded-xl focus:outline-hidden focus:ring-2 transition-all text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
-                  isStatusOnlyEdit || titleLocked ? 'opacity-60 cursor-not-allowed' : 'focus:bg-white dark:focus:bg-slate-800'
+                  isStatusOnlyEdit ? 'opacity-60 cursor-not-allowed' : 'focus:bg-white dark:focus:bg-slate-800'
                 } ${
                   errors.title
                     ? 'border-rose-400 focus:ring-rose-400'
@@ -1346,16 +1352,39 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1">
               {isProject ? 'شرح توضیحات پروژه' : 'شرح توضیحات'}
             </label>
-            <textarea
-              rows={3}
-              value={description}
-              disabled={isStatusOnlyEdit}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={isProject ? 'جزئیات و نکات مربوط به این پروژه...' : 'جزئیات و نکات مربوط به این فعالیت...'}
-              className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none ${
-                isStatusOnlyEdit ? 'opacity-60 cursor-not-allowed' : 'focus:bg-white dark:focus:bg-slate-800'
-              }`}
-            />
+            {lockedDescription ? (
+              // One box: the text taken from the message or comment on top (cannot be changed),
+              // and what the user adds right under it.
+              <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus-within:ring-2 focus-within:ring-indigo-500">
+                <div
+                  className="flex items-start gap-2 whitespace-pre-wrap break-words border-b border-dashed border-slate-300 dark:border-slate-600 bg-slate-100/90 dark:bg-slate-700/50 px-3.5 py-2.5 text-xs font-medium leading-6 text-slate-600 dark:text-slate-300 select-text"
+                  title="متن اصلی پیام یا کامنت قابل ویرایش نیست؛ می‌توانید زیر آن توضیح اضافه کنید."
+                >
+                  <Lock className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                  <span>{lockedDescription}</span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={descriptionExtra}
+                  disabled={isStatusOnlyEdit}
+                  onChange={(e) => setDescriptionExtra(e.target.value)}
+                  placeholder="توضیح خود را بعد از متن بالا بنویسید..."
+                  aria-label="افزودن توضیح بعد از متن پیام یا کامنت"
+                  className="block w-full resize-none bg-transparent px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden"
+                />
+              </div>
+            ) : (
+              <textarea
+                rows={3}
+                value={description}
+                disabled={isStatusOnlyEdit}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={isProject ? 'جزئیات و نکات مربوط به این پروژه...' : 'جزئیات و نکات مربوط به این فعالیت...'}
+                className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 text-xs font-medium border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none ${
+                  isStatusOnlyEdit ? 'opacity-60 cursor-not-allowed' : 'focus:bg-white dark:focus:bg-slate-800'
+                }`}
+              />
+            )}
           </div>
 
           {/* Jalali Date Time Picker & Status Grid */}

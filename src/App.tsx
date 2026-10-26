@@ -242,6 +242,7 @@ export default function App() {
   const [initialStatusForNewTask, setInitialStatusForNewTask] = useState<TaskStatus>('todo');
   const [initialDueDateForNewTask, setInitialDueDateForNewTask] = useState<string | undefined>(undefined);
   const [initialTitleForNewTask, setInitialTitleForNewTask] = useState<string>('');
+  const [lockInitialDescription, setLockInitialDescription] = useState<boolean>(false);
   const [parentForNewTask, setParentForNewTask] = useState<{ id: string; title: string } | null>(null);
   const [initialDescriptionForNewTask, setInitialDescriptionForNewTask] = useState<string>('');
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
@@ -790,14 +791,18 @@ export default function App() {
     setInitialStatusForNewTask(status);
     setInitialDueDateForNewTask(isoDate || new Date().toISOString());
     setInitialTitleForNewTask(initialTitle);
+    setLockInitialDescription(false);
     setInitialDescriptionForNewTask(initialDescription);
     setParentForNewTask(parent || null);
     setIsFormModalOpen(true);
   }, [currentUser]);
 
   // Handler to convert chat messages, activity comments, or personal notes into a new task
-  const handleConvertToTask = useCallback((title: string, description?: string, parent?: { id: string; title: string }) => {
+  // A message or comment turned into a task keeps its text as the description (nothing can be
+  // changed in it, more can be added); a note's text is an ordinary description.
+  const handleConvertToTask = useCallback((title: string, description?: string, parent?: { id: string; title: string }, lockDescription = true) => {
     handleOpenCreateModal('todo', undefined, title, description || '', parent);
+    setLockInitialDescription(lockDescription && !!(description || '').trim());
   }, [handleOpenCreateModal]);
 
   // Open Form Modal for Editing Task
@@ -1536,7 +1541,7 @@ export default function App() {
                 <PersonalNotesView
                   currentUser={currentUser}
                   appColorPalette={appColorPalette}
-                  onConvertToTask={handleConvertToTask}
+                  onConvertToTask={(title, description) => handleConvertToTask(title, description, undefined, false)}
                 />
               </Suspense>
             )}
@@ -1594,6 +1599,7 @@ export default function App() {
             initialDueDate={initialDueDateForNewTask}
             initialTitle={initialTitleForNewTask}
             initialDescription={initialDescriptionForNewTask}
+            lockInitialDescription={lockInitialDescription}
             parentTask={parentForNewTask}
             appColorPalette={appColorPalette}
             currentUser={currentUser}

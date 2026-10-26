@@ -35,8 +35,8 @@ const TaskGroupColumnBase: React.FC<TaskGroupColumnProps> = ({
   onOpenProjectDetails,
   onToggleSubTask,
 }) => {
-  // A group holding cards starts open; an empty one starts closed.
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(group.tasks.length === 0);
+  // Groups start closed, like the Kanban columns.
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const tone = GROUP_TONES[group.tone];
 
   return (

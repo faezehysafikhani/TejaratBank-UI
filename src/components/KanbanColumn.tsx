@@ -34,8 +34,8 @@ const KanbanColumnBase: React.FC<KanbanColumnProps> = ({
   onToggleSubTask,
   showDetails = true,
 }) => {
-  // A column holding cards starts open; an empty one starts closed.
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(tasks.length === 0);
+  // Columns start closed; the user opens the ones to look at.
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
 
   const cfg = STATUSES[status];
