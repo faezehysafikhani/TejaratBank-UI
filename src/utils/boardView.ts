@@ -3,9 +3,8 @@
 import { Task, Priority, PRIORITIES, TaskStatus } from '../types';
 import { getDaysDiff, getTaskLastModifiedTime, isOverdue } from './helpers';
 import { responsibleIdsOf } from './taskPeople';
-import { QUADRANTS, groupByQuadrant } from './eisenhower';
 
-export type BoardGroupBy = 'status' | 'owner' | 'responsible' | 'priority' | 'dueDate' | 'tag' | 'eisenhower' | 'none';
+export type BoardGroupBy = 'status' | 'owner' | 'responsible' | 'priority' | 'dueDate' | 'tag' | 'none';
 
 export interface BoardViewSettings {
   groupBy: BoardGroupBy;
@@ -24,7 +23,6 @@ export const BOARD_GROUP_LABELS: Record<BoardGroupBy, string> = {
   priority: 'درجه اهمیت (اولویت)',
   dueDate: 'موعد انجام',
   tag: 'برچسب کاری',
-  eisenhower: 'ماتریس آیزنهاور',
   none: 'بدون گروه‌بندی (لیست ردیف‌دار)',
 };
 
@@ -122,8 +120,6 @@ function buildGroups(tasks: Task[], groupBy: BoardGroupBy): TaskGroup[] {
       return byDueDate(tasks);
     case 'tag':
       return byTag(tasks);
-    case 'eisenhower':
-      return byEisenhower(tasks);
     default:
       return [{ key: 'all', title: 'همه فعالیت‌ها', tone: 'indigo', tasks: [...tasks] }];
   }
@@ -190,18 +186,6 @@ function byDueDate(tasks: Task[]): TaskGroup[] {
   }
   // The four time buckets always show; the special ones only when they hold something.
   return groups.filter((g, i) => i < 4 || g.tasks.length > 0);
-}
-
-/** The four quarters of the Eisenhower matrix (importance by priority, urgency by due date). */
-function byEisenhower(tasks: Task[]): TaskGroup[] {
-  const grouped = groupByQuadrant(tasks);
-  return QUADRANTS.map((q) => ({
-    key: `eisenhower:${q.id}`,
-    title: `${q.no} · ${q.title}`,
-    description: q.hint,
-    tone: q.tone,
-    tasks: grouped[q.id],
-  }));
 }
 
 function byTag(tasks: Task[]): TaskGroup[] {

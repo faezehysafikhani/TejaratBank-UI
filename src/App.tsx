@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import type { MatrixItem } from './utils/eisenhower';
-import { parseDateSafely } from './utils/jalali';
 import { TaskTitleContext } from './components/TaskCardList';
 import { Task, TaskStatus, Priority, Attachment, User, WorkTeam, AppTheme, AppColorPalette, TaskComment, STATUSES, PRIORITIES, AppNotification, setMaxAttachmentBytes, SubTaskProgress } from './types';
 import { getUploadPolicy, refreshUploadPolicy } from './utils/uploadPolicy';
@@ -23,7 +21,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy loaded views & modals for secondary views
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
-const EisenhowerView = lazy(() => import('./components/EisenhowerView').then(m => ({ default: m.EisenhowerView })));
 const ReportsView = lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
@@ -89,7 +86,6 @@ import { showToast } from './utils/toast';
 const PAGE_TITLES: Record<string, string> = {
   kanban: 'بورد کانبان',
   calendar: 'نمای تقویم',
-  matrix: 'ماتریس آیزنهاور',
   overdue: 'موعد گذشته',
   chat: 'گفتگوی تیمی',
   notes: 'یادداشت‌های شخصی',
@@ -685,41 +681,6 @@ export default function App() {
       loadTasks(false);
     }
   }, [tasks, currentUser, loadTasks]);
-
-  // Eisenhower matrix: dropping an entry on another quarter changes its priority and/or due date.
-  // For a project's sub-activity (or a recurring occurrence) that is its importance and end date.
-  const handleMatrixMove = useCallback(async (item: MatrixItem, patch: { priority?: Task['priority']; dueDate?: string }) => {
-    const task = tasks.find((t) => t.id === item.task.id);
-    if (!task) return;
-
-    let updates: Partial<Task> = patch;
-    if (item.subTaskId) {
-      updates = {
-        projectSubTasks: (task.projectSubTasks || []).map((st) => {
-          if (st.id !== item.subTaskId) return st;
-          const next = { ...st };
-          if (patch.priority) next.importance = patch.priority;
-          if (patch.dueDate) {
-            next.endDate = patch.dueDate;
-            // An end before the start is not a valid sub-activity.
-            if (st.startDate && (parseDateSafely(st.startDate)?.getTime() ?? 0) > new Date(patch.dueDate).getTime()) next.startDate = patch.dueDate;
-          }
-          return next;
-        }),
-      };
-    }
-
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)));
-    try {
-      await updateTaskInPB(task.id, updates);
-      setReportRefreshKey((k) => k + 1);
-      setPbError(null);
-    } catch (err: any) {
-      console.error('Error moving task in the matrix:', err);
-      setPbError(userErrorMessage(err, 'جابه‌جایی فعالیت در ماتریس انجام نشد.'));
-      loadTasks(false);
-    }
-  }, [tasks, loadTasks]);
 
   // Task Detail & Discussion Modal State
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<Task | null>(null);
@@ -1475,17 +1436,6 @@ export default function App() {
                   onStatusChange={handleStatusChange}
                   onPreviewAttachment={setPreviewAttachment}
                   onViewDetails={handleOpenTaskDetail}
-                />
-              </Suspense>
-            )}
-
-            {/* Eisenhower matrix */}
-            {activeTab === 'matrix' && canOpenTab(currentUser, 'matrix') && (
-              <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
-                <EisenhowerView
-                  tasks={visibleTasks}
-                  onViewDetails={handleOpenTaskDetail}
-                  onMoveTask={handleMatrixMove}
                 />
               </Suspense>
             )}

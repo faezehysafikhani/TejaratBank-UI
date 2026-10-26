@@ -53,7 +53,6 @@ export function isTaskAdmin(user: User | null | undefined): boolean {
 const TAB_PERMISSION: Partial<Record<ActiveTab, string>> = {
   kanban: PERMISSIONS.tasksView,
   calendar: PERMISSIONS.tasksView,
-  matrix: PERMISSIONS.tasksView,
   overdue: PERMISSIONS.tasksView,
   notes: PERMISSIONS.notesManage,
   reports: PERMISSIONS.tasksView,
