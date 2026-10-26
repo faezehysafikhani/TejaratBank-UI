@@ -81,7 +81,6 @@ import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissio
 import { userErrorMessage } from './utils/errorMessages';
 import { isTaskVisibleTo, responsibleIdsOf, responsibleNamesOf } from './utils/taskPeople';
 import { appAlert, appConfirm } from './utils/appDialog';
-import { showToast } from './utils/toast';
 
 const PAGE_TITLES: Record<string, string> = {
   kanban: 'بورد کانبان',

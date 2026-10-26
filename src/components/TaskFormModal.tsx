@@ -417,6 +417,9 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   // A recurring task is scheduled by its own recurrence settings and a project by its charter's
   // dates (its end date is its deadline); neither asks for the plain due date.
   const hideDueDate = isProject || isRecurring;
+  // A task made from a message or comment keeps that text as its description: the title can be
+  // changed, the text cannot, but more can be written after it.
+  const lockedDescription = !taskToEdit && lockInitialDescription ? (initialDescription || '').trim() : '';
   // A task made from a message or comment keeps that text as its title.
   const titleLocked = !taskToEdit && (!!initialTitle?.trim() || (isSub && !!parentTask));
 
