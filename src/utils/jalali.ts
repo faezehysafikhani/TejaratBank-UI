@@ -175,6 +175,12 @@ export function getNowISO(): string {
   return new Date().toISOString();
 }
 
+/** Today at 23:59 Iran time, as an ISO string in UTC: the default due time of a new task. */
+export function endOfTodayISO(): string {
+  const today = isoToIranDateTimeParts(new Date().toISOString())!.date;
+  return iranDateTimeToISO(today, '23:59')!;
+}
+
 // Parse ISO string safely ensuring timezone offsets and server date strings are properly parsed
 export function parseDateSafely(str: string): Date | null {
   if (!str) return null;

@@ -42,6 +42,8 @@ import { userErrorMessage } from '../utils/errorMessages';
 import { EmojiButton, VoiceButton, isVoiceName, containsEmoji } from './ChatExtras';
 import { isResponsibleFor, responsibleNamesOf } from '../utils/taskPeople';
 import { appAlert, appConfirm } from '../utils/appDialog';
+import { showToast } from '../utils/toast';
+import { NexusApiError } from '../services/nexusApi';
 
 interface TaskDetailModalProps {
   isOpen: boolean;
@@ -121,6 +123,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   }, [isOpen, onClose]);
 
   // Load comments & activity logs from the server
+  const toldGoneRef = useRef(false);
   useEffect(() => {
     if (task && task.id) {
       setIsLoadingComments(true);
@@ -132,7 +135,18 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           setCommentsList(sorted);
           onUpdateComments(task.id, sorted);
         })
-        .catch(() => {
+        .catch((err) => {
+          // The server no longer shows this task to the user (taken off it, or deleted) - e.g.
+          // opened from an old notification: say so instead of showing what the screen had.
+          if (err instanceof NexusApiError && err.httpStatus === 404) {
+            // Once, even if the comments were asked for twice.
+            if (!toldGoneRef.current) {
+              toldGoneRef.current = true;
+              showToast('این فعالیت دیگر در دسترس شما نیست.', 'info');
+            }
+            onClose();
+            return;
+          }
           const sorted = [...(task.comments || [])].sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );

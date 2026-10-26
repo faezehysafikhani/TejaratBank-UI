@@ -164,10 +164,13 @@ export async function fetchAllUsersPB(): Promise<User[]> {
   try {
       return await nexusApi.fetchUsers();
     } catch (err) {
-      // Listing users needs the Users.View permission; without it only the signed-in user is known.
+      // Listing users needs the Users.View permission. Without it, the people chat lets the user
+      // reach (no permission needed, and kept to their own company where the server limits it),
+      // with the signed-in user first - so a task or a team can still be given to colleagues.
       console.warn('Could not load users from NexusCore:', err instanceof Error ? err.message : err);
       const me = nexusApi.getSessionUser();
-      return me ? [me] : [];
+      const contacts = await fetchChatDirectoryPB();
+      return me ? [me, ...contacts.filter((c) => c.id !== me.id)] : contacts;
     }
 }
 

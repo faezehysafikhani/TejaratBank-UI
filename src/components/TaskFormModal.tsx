@@ -6,7 +6,7 @@ import { readFileAsDataUrl } from '../utils/storage';
 import { isAllowedUploadFile, UPLOAD_TYPE_ERROR_MESSAGE, ALLOWED_UPLOAD_ACCEPT } from '../utils/uploadPolicy';
 import { formatFileSize, toPersianDigits, computeAutoTaskStatus, formatToJalali } from '../utils/helpers';
 import { JalaliDateTimePicker } from './JalaliDateTimePicker';
-import { getNowISO, iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
+import { endOfTodayISO, getNowISO, iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
 import { fetchUserTeamsPB, fetchUserTeamsAsyncPB, fetchAllUsersPB } from '../services/dataService';
 import { generateRecurringOccurrences } from '../utils/recurring';
 import {
@@ -92,7 +92,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [description, setDescription] = useState('');
   // What the user adds after a description that cannot be edited (a task made from a message or comment).
   const [descriptionExtra, setDescriptionExtra] = useState('');
-  const [dueDateISO, setDueDateISO] = useState<string>(() => initialDueDate || getNowISO());
+  const [dueDateISO, setDueDateISO] = useState<string>(() => initialDueDate || endOfTodayISO());
   const [priority, setPriority] = useState<Priority>('medium');
   const [status, setStatus] = useState<TaskStatus>(initialStatus);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -105,6 +105,29 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [postMode, setPostMode] = useState<AssignablePosts | null>(null);
   const [responsiblePostIds, setResponsiblePostIds] = useState<string[]>([]);
   const [allowAssigneeStatusUpdate, setAllowAssigneeStatusUpdate] = useState<boolean>(true);
+  // «امکان بروزرسانی»: whether those responsible may change the task's status (to people or to posts).
+  // isStatusOnlyEdit is read when it is rendered, after it is defined below.
+  const assigneeStatusToggle = () => (
+    <div className="mt-2.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 transition-all animate-in fade-in">
+      <input
+        type="checkbox"
+        id="allowAssigneeStatusUpdate"
+        checked={allowAssigneeStatusUpdate}
+        disabled={isStatusOnlyEdit}
+        onChange={(e) => setAllowAssigneeStatusUpdate(e.target.checked)}
+        className="w-4 h-4 text-indigo-600 rounded-md border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+      />
+      <label
+        htmlFor="allowAssigneeStatusUpdate"
+        className="text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer select-none flex items-center gap-1.5"
+      >
+        <span>امکان بروزرسانی</span>
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
+          (اجازه بروزرسانی و تغییر وضعیت فعالیت توسط مسئولان)
+        </span>
+      </label>
+    </div>
+  );
   const [allRegisteredUsers, setAllRegisteredUsers] = useState<User[]>(registeredUsers);
   // Where the organization limits it: the people this user may not make responsible (above them).
   const [assignmentLimited, setAssignmentLimited] = useState(false);
@@ -354,7 +377,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setDescription(initialDescription || '');
       setDescriptionExtra('');
       const defaultDateTime = initialDueDate || getNowISO();
-      setDueDateISO(defaultDateTime);
+      // A new task is due by the end of today, not this very minute (it would be overdue at once).
+      setDueDateISO(initialDueDate || endOfTodayISO());
       setPriority('medium');
       setStatus(initialStatus);
       setAttachments([]);
@@ -1588,6 +1612,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">فعالیت به پست سازمانی داده می‌شود؛ اگر دارندهٔ پست عوض شود، فعالیت به نفر جدید می‌رسد.{assignmentLimited ? ' فقط پست‌های هم‌سطح شما و زیرمجموعه‌تان نمایش داده می‌شوند.' : ''}</p>
                     {errors.assignee && <p className="text-xs text-red-500 font-medium">{errors.assignee}</p>}
+                    {/* As with people: may the posts' holders change the task's status? */}
+                    {responsiblePostIds.length > 0 && assigneeStatusToggle()}
                   </div>
                 );
               })() : (() => {
@@ -1764,27 +1790,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     )}
 
                     {/* Checkbox for status update permission when someone is responsible */}
-                    {responsibleIds.length > 0 && (
-                      <div className="mt-2.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 transition-all animate-in fade-in">
-                        <input
-                          type="checkbox"
-                          id="allowAssigneeStatusUpdate"
-                          checked={allowAssigneeStatusUpdate}
-                          disabled={isStatusOnlyEdit}
-                          onChange={(e) => setAllowAssigneeStatusUpdate(e.target.checked)}
-                          className="w-4 h-4 text-indigo-600 rounded-md border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                        />
-                        <label
-                          htmlFor="allowAssigneeStatusUpdate"
-                          className="text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer select-none flex items-center gap-1.5"
-                        >
-                          <span>امکان بروزرسانی</span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
-                            (اجازه بروزرسانی و تغییر وضعیت فعالیت توسط مسئولان)
-                          </span>
-                        </label>
-                      </div>
-                    )}
+                    {responsibleIds.length > 0 && assigneeStatusToggle()}
                   </div>
                 );
               })()}
