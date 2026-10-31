@@ -1,4 +1,4 @@
-import { hasSimpleKinds } from './nodes/simpleKinds';
+import { hasSimpleKinds, kindOfType, SIMPLE_KINDS } from './nodes/simpleKinds';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -24,6 +24,7 @@ import { AddLinkDialog, RemoveLinkDialog, linkSentence } from './nodes/LinkDialo
 import { SaveTemplateDialog } from './nodes/SaveTemplateDialog';
 import { NodePostTools } from './nodes/NodePostTools';
 import { AppointDialog, EndAppointmentDialog, PostHistory, UserPositionHistory } from './nodes/AppointmentDialogs';
+import { SimpleNodeEditDialog } from './nodes/SimpleNodeEditDialog';
 import { StandInDialog } from './nodes/StandInDialog';
 import { MergeNodeDialog, NodeHistoryDialog } from './nodes/HistoryDialogs';
 import { CompanyFormDialog } from './nodes/CompanyFormDialog';
@@ -194,10 +195,13 @@ export const OrgChartDetails: React.FC<{
   onRequestAdd?: (parentId: string | null) => void;
   /** Opens «ساخت سریع» (a whole branch typed as an indented list) under a node, or at the top of the company (null). */
   onRequestQuickBuild?: (parentId: string | null) => void;
+  /** The simple chart (پست / سمت سازمانی): a short panel for a node or a company instead of every tool. */
+  simple?: boolean;
   selection: ChartSelection | null;
   onSelect: (selection: ChartSelection) => void;
   onChanged: () => Promise<void> | void;
-}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, onRequestQuickBuild, selection, onSelect, onChanged }) => {
+}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, onRequestQuickBuild, simple = false, selection, onSelect, onChanged }) => {
+  const [simpleEdit, setSimpleEdit] = useState<ChartUnit | null>(null);
   /** The two kinds (پست / سمت) are made by the first add; until then adding is open to whoever may manage the rules. */
   const kindsToMake = !hasSimpleKinds(nodeTypes) && canNode(can, 'manageRules');
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -696,6 +700,92 @@ export const OrgChartDetails: React.FC<{
     }
   }
 
+  if (simple && selection?.kind === 'company') {
+    const company = chart.find((c) => c.companyId === selection.companyId);
+    if (company) {
+      body = (
+        <>
+          <Header icon={Building2} tone="bg-indigo-600 text-white" title={company.name} subtitle="سازمان" badge={<ActiveBadge active={company.isActive} />} />
+          <div>
+            <InfoRow label={headTitleOf(company)}><PersonValue person={company.manager} empty="تعیین نشده" /></InfoRow>
+            <InfoRow label="تعداد افراد">{toPersianDigits(companyHeadcount(company))} نفر</InfoRow>
+          </div>
+          <QuickActions>
+            {canNode(can, 'create') && onRequestAdd && <ActionTile icon={Plus} label="افزودن پست یا سمت" disabled={!kindsToMake && addableTypes(nodeTypes, rules, null).length === 0} onClick={() => onRequestAdd(null)} />}
+            {canNode(can, 'create') && onRequestQuickBuild && <ActionTile icon={ListTree} label="ساخت سریع" title="ساخت یک شاخه‌ی کامل از روی فهرست تورفته" disabled={!kindsToMake && !hasSimpleKinds(nodeTypes)} onClick={() => onRequestQuickBuild(null)} />}
+            {can(P.manageCompanies) && <ActionTile icon={Pencil} label="ویرایش سازمان" disabled={busy} onClick={async () => {
+              try {
+                const companies = await listCompanies();
+                const full = companies.find((c) => c.id === company.companyId);
+                if (full) setExtra({ kind: 'editCompany', company: full, companies });
+              } catch (err) {
+                setMessage({ type: 'error', text: userErrorMessage(err, 'دریافت اطلاعات سازمان ممکن نشد.') });
+              }
+            }} />}
+          </QuickActions>
+        </>
+      );
+    }
+  }
+  if (simple && nodes.length > 0 && selection?.kind === 'unit') {
+    const found = findUnit(chart, selection.unitId);
+    if (found) {
+      const { company, unit } = found;
+      const kind = kindOfType(nodeTypes.find((t) => t.id === unit.nodeType?.nodeTypeId));
+      const path = [...ancestorsOf(company, unit.unitId)].reverse();
+      body = (
+        <>
+          <Header
+            icon={unit.nodeType ? ({ className }: { className?: string }) => <NodeTypeIcon icon={unit.nodeType!.icon} className={className} /> : Network}
+            tone={unit.nodeType ? 'text-white' : 'bg-emerald-600 text-white'}
+            title={unit.name}
+            subtitle={`${kind ? SIMPLE_KINDS[kind].name : unit.nodeType?.name || 'واحد'} · ${company.name}`}
+            badge={<ActiveBadge active={unit.isActive !== false} />}
+            color={unit.nodeType ? safeColor(unit.nodeType.color) : undefined}
+          />
+          <div>
+            {kind !== 'post' && <InfoRow label="شخص"><PersonValue person={unit.manager} empty="خالی" /></InfoRow>}
+            {path.length > 0 && (
+              <InfoRow label="زیر">
+                <span className="flex flex-wrap items-center justify-end gap-x-1 text-xs">
+                  {path.map((a, i) => (
+                    <React.Fragment key={a.unitId}>
+                      {i > 0 && <span className="text-slate-400">‹</span>}
+                      <button type="button" onClick={() => onSelect({ kind: 'unit', companyId: company.companyId, unitId: a.unitId })} className="text-indigo-700 dark:text-indigo-300 hover:underline cursor-pointer">{a.name}</button>
+                    </React.Fragment>
+                  ))}
+                </span>
+              </InfoRow>
+            )}
+          </div>
+          {(unit.children?.length ?? 0) > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-slate-500">زیرمجموعه‌ها ({toPersianDigits(unit.children!.length)})</p>
+              {unit.children!.map((child) => (
+                <button key={child.unitId} type="button" onClick={() => onSelect({ kind: 'unit', companyId: company.companyId, unitId: child.unitId })} className="w-full flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 text-right hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
+                  <span className={`flex items-center gap-2 min-w-0 text-sm font-bold ${child.isActive === false ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100'}`}>
+                    <NodeTypeIcon icon={child.nodeType?.icon} className="w-4 h-4 shrink-0" color={child.nodeType?.color} /> <span className="truncate">{child.name}</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500 shrink-0">{child.manager ? child.manager.displayName : kindOfType(nodeTypes.find((t) => t.id === child.nodeType?.nodeTypeId)) === 'role' ? 'خالی' : ''}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <QuickActions>
+            {canNode(can, 'update') && <ActionTile icon={Pencil} label={kind === 'role' ? 'ویرایش نام و شخص' : 'ویرایش نام'} disabled={busy} onClick={() => { if (versionOf(unit.unitId)) setSimpleEdit(unit); else setMessage({ type: 'error', text: NO_VERSION, conflict: true }); }} />}
+            {canNode(can, 'create') && onRequestAdd && <ActionTile icon={Plus} label="افزودن زیرمجموعه" disabled={busy || unit.isActive === false || (!kindsToMake && addableTypes(nodeTypes, rules, unit).length === 0)} onClick={() => onRequestAdd(unit.unitId)} />}
+            {canNode(can, 'create') && onRequestQuickBuild && unit.isActive !== false && <ActionTile icon={ListTree} label="ساخت سریع" title="ساخت چند زیرمجموعه از روی فهرست تورفته" disabled={busy} onClick={() => onRequestQuickBuild(unit.unitId)} />}
+            {canNode(can, 'move') && onRequestMove && <ActionTile icon={Move} label="جابه‌جایی" disabled={busy} onClick={() => onRequestMove(unit.unitId)} />}
+            {canNode(can, 'deactivate') && (unit.isActive === false
+              ? <ActionTile icon={Power} label="فعال کردن" disabled={busy} onClick={() => run(() => activateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» فعال شد.`, 'فعال کردن انجام نشد.')} />
+              : <ActionTile icon={Power} tone="rose" label="غیرفعال کردن" disabled={busy} onClick={async () => await appConfirm(`«${unit.name}» غیرفعال شود؟`)
+                && run(() => deactivateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» غیرفعال شد.`, 'غیرفعال کردن انجام نشد.')} />)}
+          </QuickActions>
+        </>
+      );
+    }
+  }
+
   return (
     <AdminCard className="p-4 space-y-4 2xl:h-full 2xl:overflow-y-auto">
       <div>
@@ -704,6 +794,18 @@ export const OrgChartDetails: React.FC<{
       </div>
       {message && !dialog && <MessageBox message={message} onClose={() => setMessage(null)} onReload={async () => { setMessage(null); await onChanged(); }} />}
       {body}
+      {simpleEdit && createPortal(
+        <SimpleNodeEditDialog
+          unit={simpleEdit}
+          companyId={chart.find((c) => allUnitsOf(c).some((u) => u.unitId === simpleEdit.unitId))?.companyId ?? ''}
+          isRole={kindOfType(nodeTypes.find((t) => t.id === simpleEdit.nodeType?.nodeTypeId)) === 'role'}
+          people={unplaced}
+          rowVersion={versionOf(simpleEdit.unitId)}
+          onSaved={async () => { await onChanged(); setMessage({ type: 'success', text: 'ذخیره شد.' }); }}
+          onClose={() => setSimpleEdit(null)}
+        />,
+        document.body,
+      )}
       {extra && createPortal(
         extra.kind === 'appoint' ? (
           <AppointDialog post={extra.post} placeName={extra.placeName} onDone={async (text) => { await onChanged(); setMessage({ type: 'success', text }); }} onClose={() => setExtra(null)} />

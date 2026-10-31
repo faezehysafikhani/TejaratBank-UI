@@ -4,7 +4,7 @@
 //   سمت سازمانی   - a seat one person holds; it is also a unit: it may have more پست / سمت under it.
 // پست and سمت are two ordinary node types the first add creates (codes below) together with the
 // rules between them, so nothing else of the structure changes and nobody has to set up rules.
-import { type NodeType, type NodeTypeRule, createNodeType, getNodeTypeRules, listNodeTypes, setNodeTypeRules } from '../../../../services/orgStructureApi';
+import { type ChartCompany, type ChartUnit, type NodeType, type NodeTypeRule, createNodeType, getNodeTypeRules, listNodeTypes, setNodeTypeRules } from '../../../../services/orgStructureApi';
 
 export type SimpleKind = 'post' | 'role';
 
@@ -89,3 +89,16 @@ export function parseOutline(text: string, parentKind: SimpleKind | null): Outli
   if (lines.length === 0 && errors.length === 0) errors.push('متنی وارد نشده است.');
   return { lines, errors };
 }
+
+const withoutVacantUnit = (unit: ChartUnit): ChartUnit => ({
+  ...unit,
+  positions: unit.positions?.filter((p) => p.holders.length > 0),
+  children: unit.children?.map(withoutVacantUnit),
+});
+
+/** The simple chart shows no empty older-style posts («۲ پست خالی»); a seat with no person is a سمت with «خالی». Nothing is deleted. */
+export const withoutVacantPosts = (company: ChartCompany): ChartCompany => ({
+  ...company,
+  positions: company.positions?.filter((p) => p.holders.length > 0),
+  units: company.units.map(withoutVacantUnit),
+});

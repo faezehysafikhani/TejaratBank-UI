@@ -11,7 +11,7 @@ import { AddNodeDialog, MoveNodeDialog } from './nodes/NodeDialogs';
 import { QuickBuildDialog } from './nodes/QuickBuildDialog';
 import { AutoLinkChoiceDialog } from './nodes/LinkDialogs';
 import { addableTypes, checkMove } from './orgNodeRules';
-import { ensureSimpleKinds, hasSimpleKinds, typesToOffer } from './nodes/simpleKinds';
+import { ensureSimpleKinds, hasSimpleKinds, typesToOffer, withoutVacantPosts } from './nodes/simpleKinds';
 import { atLeast, highestLevel, levelOf } from './orgUiLevel';
 import { PersonAvatar } from './PersonAvatar';
 import { TidyBoundary, TidyOrgChart } from './TidyOrgChart';
@@ -352,11 +352,13 @@ export const OrgChartBoard: React.FC<{
   onLevelChange?: (level: import('../../../services/orgStructureApi').OrgUiLevel) => void;
   /** Opens the chart on this company (from the group chart). */
   initialCompanyId?: string;
+  /** The simple chart: پست / سمت سازمانی, a short panel for the selected node, no empty older-style posts. */
+  simple?: boolean;
   /** Told when the selection changes: where it is (company, unit, position) and who, for the placement form beside the chart. */
   /** Changes when the data was changed elsewhere (the placement form): the chart is read again. */
   reloadToken?: number;
   onPlacementPick?: (pick: { companyId: string; unitId?: string; positionId?: string; userId?: string | null; userName?: string | null }) => void;
-}> = ({ can: realCan, onLevelChange, initialCompanyId, onPlacementPick, reloadToken }) => {
+}> = ({ can: realCan, onLevelChange, initialCompanyId, simple = false, onPlacementPick, reloadToken }) => {
   /** «نمایش به تاریخ»: the chart as of a day (only which nodes existed); nothing can be changed then. */
   const [asOf, setAsOf] = useState<string | undefined>(undefined);
   const asOfRef = useRef(asOf);
@@ -417,7 +419,8 @@ export const OrgChartBoard: React.FC<{
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
 
-  const chart = data.data?.chart || [];
+  const rawChart = data.data?.chart;
+  const chart = useMemo(() => (simple ? (rawChart || []).map(withoutVacantPosts) : rawChart || []), [rawChart, simple]);
   const company: ChartCompany | undefined = chart.find((c) => c.companyId === companyId) || chart[0];
   // A company opens with its first two levels drawn and the posts of nodes with sub-nodes closed, so a big structure stays
   // readable (and is drawn small the first time, not as hundreds of open cards); a flat company opens exactly as before.
@@ -882,7 +885,7 @@ export const OrgChartBoard: React.FC<{
             </div>
           )}
           <ViewSwitch view={view} onChange={chooseView} />
-          {view === 'tidy' && (
+          {view === 'tidy' && !simple && (
             <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer whitespace-nowrap">
               <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} className="accent-indigo-600" /> نمایش پست‌های خالی
             </label>
@@ -1171,6 +1174,7 @@ export const OrgChartBoard: React.FC<{
         onRequestMove={(unitId) => setMoveRequest({ unitId })}
         onRequestAdd={(parentId) => { void requestAdd(parentId); }}
         onRequestQuickBuild={(parentId) => { void requestQuick(parentId); }}
+        simple={simple}
         selection={selection}
         onSelect={(next) => choose(next)}
         onChanged={data.reload}
