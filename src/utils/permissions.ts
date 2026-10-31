@@ -13,6 +13,11 @@ export const PERMISSIONS = {
   tasksComment: 'Tasks.Comment',
   tasksUploadFiles: 'Tasks.UploadFiles',
   tasksManageAll: 'Tasks.ManageAll',
+  meetingsView: 'Meetings.View',
+  meetingsCreate: 'Meetings.Create',
+  meetingsEdit: 'Meetings.Edit',
+  meetingsInviteHigher: 'Meetings.InviteHigher',
+  meetingsAccessAllPeople: 'Meetings.AccessAllPeople',
   notesManage: 'Notes.Manage',
 } as const;
 
@@ -59,10 +64,23 @@ const TAB_PERMISSION: Partial<Record<ActiveTab, string>> = {
 };
 
 /** Whether a section (menu entry and page) is available to the user. Chat and settings always are. */
-export function canOpenTab(user: User | null | undefined, tab: ActiveTab): boolean {
+
+export function canOpenTab(
+  user: User | null | undefined,
+  tab: ActiveTab
+): boolean {
+  if (tab === 'calendar') {
+    return (
+      can(user, PERMISSIONS.tasksView) ||
+      can(user, PERMISSIONS.meetingsView) ||
+      can(user, PERMISSIONS.meetingsCreate)
+    );
+  }
+
   const permission = TAB_PERMISSION[tab];
   return !permission || can(user, permission);
 }
+
 
 /** The first section the user may open, for when the current one is not allowed. */
 export function firstAllowedTab(user: User | null | undefined): ActiveTab {
@@ -161,6 +179,11 @@ const PERMISSION_PREREQUISITES: Readonly<Record<string, readonly string[]>> = {
   'Tasks.ManageAll': ['Tasks.View'],
   'Tasks.ManageRecurring': ['Tasks.View'],
   'Tasks.ManageTags': ['Tasks.View'],
+  // Meetings
+  'Meetings.Create': ['Meetings.View'],
+  'Meetings.Edit': ['Meetings.View'],
+  'Meetings.InviteHigher': ['Meetings.View'],
+  'Meetings.AccessAllPeople': ['Meetings.View'],
   // Actions
   'Actions.Create': ['Actions.View'],
   'Actions.Edit': ['Actions.View'],
@@ -376,6 +399,7 @@ const MODULE_TITLES: Record<string, string> = {
   Identity: 'کاربران، نقش‌ها، گروه‌ها و تیم‌های کاری',
   Platform: 'تنظیمات سامانه و سازمان‌ها',
   TaskManagement: 'مدیریت فعالیت‌ها',
+  Meetings: 'جلسات',
   Ticketing: 'تیکت‌ها',
   Organization: 'ساختار سازمانی',
   Calendar: 'تقویم کاری',

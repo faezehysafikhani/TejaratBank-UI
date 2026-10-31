@@ -46,7 +46,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   // Group tasks by status in a single pass, then sort each column by last
   // modification time (newest first). Every status always gets a column, even with zero tasks
-  // (but «خاتمه یافته» while only current tasks are shown).
+  // (all four statuses, also while only current tasks are shown).
   const columns = useMemo(() => {
     const byStatus = new Map<TaskStatus, Task[]>();
     for (const task of boardTasks) {
@@ -57,13 +57,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         byStatus.set(task.status, [task]);
       }
     }
-    const keys = view.currentOnly ? STATUS_KEYS.filter((st) => st !== 'completed') : STATUS_KEYS;
-    return keys.map((st) => ({
+
+    return STATUS_KEYS.map((st) => ({
       status: st,
       tasks: (byStatus.get(st) ?? [])
         .sort((a, b) => getTaskLastModifiedTime(b) - getTaskLastModifiedTime(a)),
     }));
-  }, [boardTasks, view.currentOnly]);
+  }, [boardTasks]);
 
   const groups = useMemo(
     () => (view.groupBy === 'status' || view.groupBy === 'none' ? [] : buildTaskGroups(boardTasks, view.groupBy)),
@@ -73,7 +73,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   return (
     <div className="w-full space-y-6">
       {view.groupBy === 'status' && (
-        <div className={`grid gap-4 sm:gap-4.5 items-start grid-cols-1 md:grid-cols-2 ${columns.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+        <div className={`grid gap-4 sm:gap-4.5 items-start grid-cols-1 md:grid-cols-2 lg:grid-cols-4`}>
           {columns.map(({ status, tasks: columnTasks }) => (
             <KanbanColumn
               key={status}

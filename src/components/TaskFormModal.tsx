@@ -6,7 +6,7 @@ import { readFileAsDataUrl } from '../utils/storage';
 import { isAllowedUploadFile, UPLOAD_TYPE_ERROR_MESSAGE, ALLOWED_UPLOAD_ACCEPT } from '../utils/uploadPolicy';
 import { formatFileSize, toPersianDigits, computeAutoTaskStatus, formatToJalali } from '../utils/helpers';
 import { JalaliDateTimePicker } from './JalaliDateTimePicker';
-import { endOfTodayISO, getNowISO, iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
+import { endOfTodayISO, getNowISO, iranDateTimeToISO, isoToIranDateTimeParts, schedulingBlockReason } from '../utils/jalali';
 import { fetchUserTeamsPB, fetchUserTeamsAsyncPB, fetchAllUsersPB } from '../services/dataService';
 import { generateRecurringOccurrences } from '../utils/recurring';
 import {
@@ -175,7 +175,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const [availableTeams, setAvailableTeams] = useState<WorkTeam[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [errors, setErrors] = useState<{ title?: string; assignee?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; assignee?: string; dueDate?: string }>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -565,6 +565,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     e.preventDefault();
     if (!title.trim()) {
       setErrors({ title: isProject ? 'عنوان پروژه الزامی است' : 'عنوان فعالیت الزامی است' });
+      return;
+    }
+    // No past days, Fridays or official holidays for new work (the server enforces this too); an unchanged old date stays.
+    const dueDateProblem = !hideDueDate && (!taskToEdit || isoToIranDateTimeParts(dueDateISO)?.date !== isoToIranDateTimeParts(taskToEdit.dueDate)?.date)
+      ? schedulingBlockReason(dueDateISO) : null;
+    if (dueDateProblem) {
+      setErrors({ dueDate: dueDateProblem });
       return;
     }
     // Every new task needs someone responsible for doing it (the server enforces this too).
@@ -1411,6 +1418,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   disabled={isStatusOnlyEdit}
                   required
                 />
+                {errors.dueDate && <p className="text-xs text-red-500 font-medium mt-1">{errors.dueDate}</p>}
               </div>
             )}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from
 import { TaskTitleContext } from './components/TaskCardList';
 import { Task, TaskStatus, Priority, Attachment, User, WorkTeam, AppTheme, AppColorPalette, TaskComment, STATUSES, PRIORITIES, AppNotification, setMaxAttachmentBytes, SubTaskProgress } from './types';
 import { getUploadPolicy, refreshUploadPolicy } from './utils/uploadPolicy';
+import { iranDateTimeToISO, schedulingBlockReason } from './utils/jalali';
 import { isOverdue, toPersianDigits, formatToJalali, getTaskLastModifiedTime, computeAutoTaskStatus } from './utils/helpers';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
@@ -1395,9 +1396,11 @@ export default function App() {
             {activeTab === 'calendar' && canOpenTab(currentUser, 'calendar') && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
                 <JalaliCalendarView
+                  registeredUsers={allUsers}
                   tasks={visibleTasks}
                   currentUser={currentUser}
                   onOpenCreateForDate={canCreateTask ? (isoDate) => handleOpenCreateModal('todo', isoDate) : undefined}
+                  onConvertMeetingToTask={canCreateTask ? (title, meetingDate) => handleOpenCreateModal('todo', meetingDate && !schedulingBlockReason(meetingDate) ? iranDateTimeToISO(meetingDate, '23:59') : undefined, title) : undefined}
                   onEditTask={handleOpenEditModal}
                   onDeleteTask={handleDeleteTask}
                   onStatusChange={handleStatusChange}

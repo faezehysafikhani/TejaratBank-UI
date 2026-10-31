@@ -124,8 +124,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   // Load comments & activity logs from the server
   const toldGoneRef = useRef(false);
+  const [conversationDenied, setConversationDenied] = useState(false);
+  useEffect(() => { setConversationDenied(false); }, [task?.id]);
   useEffect(() => {
     if (task && task.id) {
+      // The conversation belongs to the owner and the responsible people only; everything else loads for all.
+      if (canUseConversation) {
       setIsLoadingComments(true);
       fetchCommentsForTaskPB(task.id)
         .then((fetched) => {
@@ -136,15 +140,11 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           onUpdateComments(task.id, sorted);
         })
         .catch((err) => {
-          // The server no longer shows this task to the user (taken off it, or deleted) - e.g.
-          // opened from an old notification: say so instead of showing what the screen had.
+          // The server keeps the conversation for the owner and the responsible people: a 404 here
+          // means this user is not one of them (the task itself being gone is read from its log below).
           if (err instanceof NexusApiError && err.httpStatus === 404) {
-            // Once, even if the comments were asked for twice.
-            if (!toldGoneRef.current) {
-              toldGoneRef.current = true;
-              showToast('این فعالیت دیگر در دسترس شما نیست.', 'info');
-            }
-            onClose();
+            setConversationDenied(true);
+            setCommentsList([]);
             return;
           }
           const sorted = [...(task.comments || [])].sort(
@@ -155,6 +155,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         .finally(() => {
           setIsLoadingComments(false);
         });
+      }
 
       setIsLoadingLogs(true);
       fetchTaskLogsPB(task.id)
@@ -165,7 +166,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           );
           setLogsList([...filtered, ...fakeLogs(task.id)]);
         })
-        .catch(() => {
+        .catch((err) => {
+          // The server no longer shows this task to the user (taken off it, or deleted) - e.g.
+          // opened from an old notification: say so instead of showing what the screen had.
+          if (err instanceof NexusApiError && err.httpStatus === 404) {
+            if (!toldGoneRef.current) {
+              toldGoneRef.current = true;
+              showToast('این فعالیت دیگر در دسترس شما نیست.', 'info');
+            }
+            onClose();
+            return;
+          }
           const filtered = (task.logs || []).filter(
             (l) => !l.action.includes('نظر') && !l.action.includes('گفتگو') && !l.action.includes('پیام')
           );
@@ -204,6 +215,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   // Real Owner: Creator OR OwnerByDetails when NOT an assignee/team member assigned by another user
   const isTaskOwner = isTaskCreator || isOwnerByDetails;
   const isOwnerOrAdmin = isAdmin || isTaskOwner;
+  // Same rule as the server: only the owner and the responsible people see and use the conversation.
+  const canUseConversation = isTaskOwner || isAssignee || !!task.standIns?.some((s) => s.userId === currentUser?.id);
 
   const allowStatusUpdateForAssignee = task.allowAssigneeStatusUpdate !== false;
 
@@ -753,6 +766,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
           )}
 
           {/* Discussion & Chat Section */}
+          {canUseConversation && !conversationDenied ? (
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -770,7 +784,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <div className="px-3 py-1.5 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 rounded-xl flex items-center gap-2 text-[11px] text-indigo-700 dark:text-indigo-300 font-medium">
               <Users className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               <span>
-                گفتگوهای این فعالیت برای تمامی افراد شامل مالک ({task.ownerName || 'سازنده'})، مسئولان ({responsibleNamesOf(task) || 'بدون مسئول'}) و اعضای تیم قابل مشاهده است.
+                گفتگوهای این فعالیت فقط برای مالک ({task.ownerName || 'سازنده'}) و مسئولان تعیین‌شده ({responsibleNamesOf(task) || 'بدون مسئول'}) قابل مشاهده است؛ عضویت در تیم به‌تنهایی دسترسی گفتگو ایجاد نمی‌کند.
               </span>
             </div>
 
@@ -1179,6 +1193,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             )}
 
           </div>
+          ) : (
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800"><div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300 font-medium"><Users className="w-3.5 h-3.5 shrink-0" />گفتگوی این فعالیت فقط برای مالک و مسئولان تعیین‌شده قابل مشاهده است.</div></div>
+          )}
 
           {/* Activity Log / Change History Timeline */}
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">

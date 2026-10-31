@@ -63,6 +63,8 @@ export interface HeldPosition { unitPositionId: string; unitId: string | null; u
  * without it, positionId is their main position in unitId and their other positions stay.
  */
 export interface AssignmentInput {
+  startDate?: string | null;
+  endDate?: string | null;
   companyId: string;
   unitId: string | null;
   positionId: string | null;

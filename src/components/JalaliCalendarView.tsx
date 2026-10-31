@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Task, TaskStatus, Priority, Attachment, User } from '../types';
 import {
   PERSIAN_MONTH_NAMES,
@@ -9,6 +9,7 @@ import {
   parseISOToJalali,
   jalaliToISO,
   getJalaliHoliday,
+  isPastDay,
 } from '../utils/jalali';
 import { toPersianDigits, getTaskLastModifiedTime } from '../utils/helpers';
 import {
@@ -24,16 +25,27 @@ import {
   Trash2,
   AlertCircle,
   Check,
-  Lock
+  Lock,
+  Eye,
 } from 'lucide-react';
 import { can, isTaskAdmin, PERMISSIONS } from '../utils/permissions';
 import { isResponsibleFor, responsibleNamesOf } from '../utils/taskPeople';
-import { appAlert } from '../utils/appDialog';
+import { appAlert, appConfirm } from '../utils/appDialog';
+import { Meeting, MeetingPeopleOptions, getMeetingPeople, listMeetings, deleteMeeting } from '../services/meetingApi';
+import { MeetingFormModal } from './MeetingFormModal';
+import { CalendarCreateMenu } from './CalendarCreateMenu';
+import { isoToIranDateTimeParts } from '../utils/jalali';
+import { Notice } from './admin/AdminUi';
+import { userErrorMessage } from '../utils/errorMessages';
+import { showToast } from '../utils/toast';
 
 interface JalaliCalendarViewProps {
   tasks: Task[];
+  registeredUsers?: User[];
   currentUser?: User | null;
   onOpenCreateForDate?: (isoDateString: string) => void;
+  /** Opens the new-task form for a meeting: its title as the default, its day when still open for new work. */
+  onConvertMeetingToTask?: (title: string, isoDate?: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
@@ -246,8 +258,10 @@ const CalendarTaskCardItem: React.FC<{
 
 export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
   tasks,
+  registeredUsers = [],
   currentUser,
   onOpenCreateForDate,
+  onConvertMeetingToTask,
   onEditTask,
   onDeleteTask,
   onStatusChange,
@@ -263,6 +277,46 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
 
   const [showAllTasks, setShowAllTasks] = useState<boolean>(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(false);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+  const [reloadMeetings, setReloadMeetings] = useState(0);
+  const [meetingDate, setMeetingDate] = useState<string | null>(null);
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | undefined>();
+  const [createMenu, setCreateMenu] = useState<{day:number;anchor:DOMRect} | null>(null);
+  const [meetingPeople, setMeetingPeople] = useState<MeetingPeopleOptions | null>(null);
+  const [meetingPeopleError, setMeetingPeopleError] = useState<string | null>(null);
+  useEffect(()=>{
+    let alive=true;setMeetingPeople(null);setMeetingPeopleError(null);
+    if(currentUser?.id) getMeetingPeople().then(value=>{if(alive)setMeetingPeople(value);})
+      .catch(e=>{if(alive)setMeetingPeopleError(userErrorMessage(e,'دریافت دسترسی ایجاد جلسه انجام نشد.'));});
+    return()=>{alive=false;};
+  },[currentUser?.id,reloadMeetings]);
+  useEffect(() => {
+    setSelectedDay(day => Math.min(day, getJalaliMonthDays(viewYear, viewMonth)));
+  }, [viewYear, viewMonth]);
+  const dayDate = (day: number) => isoToIranDateTimeParts(jalaliToISO(viewYear,viewMonth,day))!.date;
+  useEffect(() => {
+    if (!currentUser?.id || !can(currentUser, PERMISSIONS.meetingsView)) {setMeetings([]);setMeetingError(null); return;}
+    let alive = true; setMeetingsLoading(true); setMeetingError(null);
+    const from = isoToIranDateTimeParts(jalaliToISO(viewYear,viewMonth,1))!.date;
+    const to = isoToIranDateTimeParts(jalaliToISO(viewMonth === 12 ? viewYear+1 : viewYear,viewMonth === 12 ? 1 : viewMonth+1,1))!.date;
+    listMeetings(from,to).then(rows => {if(alive)setMeetings(rows);}).catch(e => {if(alive){setMeetings([]);setMeetingError(userErrorMessage(e,'دریافت جلسه‌ها انجام نشد.'));}}).finally(()=>{if(alive)setMeetingsLoading(false);});
+    return () => {alive=false;};
+  }, [viewYear,viewMonth,currentUser?.id,reloadMeetings]);
+  const dayMeetings = meetings.filter(m => m.details.date === dayDate(Math.min(selectedDay,getJalaliMonthDays(viewYear,viewMonth))));
+  const openCreateMenu = (day:number,button:HTMLButtonElement) => {setSelectedDay(day);setCreateMenu({day,anchor:button.getBoundingClientRect()});};
+  const savedMeeting = (m:Meeting) => {
+    setMeetings(rows => [...rows.filter(old=>old.id!==m.id),m]);
+    const date=parseISOToJalali(m.details.date);setViewYear(date.jy);setViewMonth(date.jm);setSelectedDay(date.jd);
+    setMeetingDate(null);setEditingMeeting(undefined);setReloadMeetings(n=>n+1);showToast(m.notice || 'جلسه ذخیره شد.',m.notice ? 'info' : 'ok');
+  };
+  const removeMeeting = async (m:Meeting) => {
+    if(!await appConfirm('جلسه «'+m.details.title+'» حذف شود؟'))return;
+    try {await deleteMeeting(m);setMeetings(rows=>rows.filter(row=>row.id!==m.id));showToast('جلسه حذف شد.','ok');}
+    catch(e){setMeetingError(userErrorMessage(e,'حذف جلسه انجام نشد.'));}
+  };
 
   // Permission calculation helper for a task
   const checkTaskPermissions = (task: Task) => {
@@ -543,7 +597,7 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
             <div
               key={dayName}
               className={`py-1.5 text-xs font-bold rounded-xl ${
-                idx === 5 || idx === 6
+                idx === 6
                   ? 'text-rose-600 bg-rose-50/70 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/40'
                   : 'text-slate-600 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-700/60'
               }`}
@@ -575,12 +629,13 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
               currentJ.jd === dayNum;
             const isSelected = selectedDay === dayNum;
             const dayItems = dayItemsMap[dayNum] || [];
-            const itemCount = dayItems.length;
+            const itemCount = dayItems.length + meetings.filter(m => m.details.date === dayDate(dayNum)).length;
 
             const dayOfWeekIdx = (firstDayOfWeek + i) % 7;
-            const isThursdayOrFriday = dayOfWeekIdx === 5 || dayOfWeekIdx === 6;
+            const isFriday = dayOfWeekIdx === 6;
             const holidayInfo = getJalaliHoliday(viewYear, viewMonth, dayNum);
-            const isRedDay = isThursdayOrFriday || holidayInfo.isHoliday;
+            const isRedDay = isFriday || holidayInfo.isHoliday;
+            const creationBlocked = isRedDay || isPastDay(dayDate(dayNum));
 
             return (
               <div
@@ -631,13 +686,13 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
                       <span className={`w-1.5 h-1.5 rounded-full ${isRedDay ? 'bg-rose-600 dark:bg-rose-400' : 'bg-indigo-600 dark:bg-indigo-400'}`} />
                     )}
                     {/* New activity on this day: the only way a day opens the form */}
-                    {onOpenCreateForDate && (
+                    {(!!onOpenCreateForDate || !!meetingPeople?.canCreate) && !creationBlocked && (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedDay(dayNum);
-                          openCreateForDay(dayNum);
+                          openCreateMenu(dayNum,e.currentTarget);
                         }}
                         title="افزودن فعالیت در این روز"
                         aria-label={`افزودن فعالیت در روز ${toPersianDigits(dayNum)}`}
@@ -687,7 +742,9 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
       {(() => {
         const selectedHolidayInfo = getJalaliHoliday(viewYear, viewMonth, selectedDay);
         const selectedDayOfWeekIdx = (firstDayOfWeek + selectedDay - 1) % 7;
-        const isSelectedThursdayOrFriday = selectedDayOfWeekIdx === 5 || selectedDayOfWeekIdx === 6;
+        const isSelectedFriday = selectedDayOfWeekIdx === 6;
+        const isSelectedPast = isPastDay(dayDate(selectedDay));
+        const selectedCreationBlocked = selectedHolidayInfo.isHoliday || isSelectedFriday || isSelectedPast;
 
         return (
           <div className="lg:col-span-5 xl:col-span-4 bg-white dark:bg-slate-800/90 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-4 sm:p-5 space-y-4">
@@ -700,16 +757,16 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
                     روز {toPersianDigits(selectedDay)} {PERSIAN_MONTH_NAMES[viewMonth - 1]}
                   </h3>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {toPersianDigits(selectedDayItems.length)} فعالیت ثبت‌شده
+                    {toPersianDigits(selectedDayItems.length)} وظیفه · {toPersianDigits(dayMeetings.length)} جلسه
                   </span>
                 </div>
               </div>
 
               {/* Quick Create for this Day */}
-              {onOpenCreateForDate && (
+              {(!!onOpenCreateForDate || !!meetingPeople?.canCreate) && !selectedCreationBlocked && (
                 <button
                   type="button"
-                  onClick={() => openCreateForDay(selectedDay)}
+                  onClick={e => openCreateMenu(selectedDay,e.currentTarget)}
                   className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-950 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-800 transition-colors cursor-pointer shrink-0"
                   title="افزودن فعالیت جدید"
                 >
@@ -725,13 +782,29 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 animate-pulse"></span>
                 <span>تعطیل رسمی: {selectedHolidayInfo.title}</span>
               </div>
-            ) : isSelectedThursdayOrFriday ? (
+            ) : isSelectedFriday ? (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-rose-50/80 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
-                <span>تعطیل پایان هفته ({PERSIAN_WEEK_DAYS[selectedDayOfWeekIdx]})</span>
+                <span>تعطیل پایان هفته (جمعه)؛ امکان ایجاد وظیفه یا جلسه وجود ندارد.</span>
+              </div>
+            ) : isSelectedPast ? (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>
+                <span>روز گذشته؛ امکان ایجاد وظیفه یا جلسه وجود ندارد.</span>
               </div>
             ) : null}
 
+        <section className="space-y-2" aria-label="جلسات روز انتخاب‌شده">
+          <div className="flex items-center justify-between"><h4 className="text-sm font-bold text-sky-700 dark:text-sky-300">جلسات</h4><button type="button" onClick={()=>setReloadMeetings(n=>n+1)} className="text-xs text-slate-400 hover:text-indigo-600">تازه‌سازی</button></div>
+          {meetingError && <Notice type="error">{meetingError}</Notice>}
+          {meetingsLoading && <p className="text-xs text-slate-400">در حال دریافت جلسات…</p>}
+          {!meetingsLoading && !meetingError && dayMeetings.length === 0 && <p className="text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-3">جلسه‌ای برای این روز ثبت نشده است.</p>}
+          {dayMeetings.map(m=><div key={m.id} className="rounded-2xl border border-sky-200 dark:border-sky-900 bg-sky-50/60 dark:bg-sky-950/30 p-3 space-y-2">
+            <div className="flex items-start justify-between gap-2"><span className="text-right font-bold text-sm text-sky-900 dark:text-sky-200">{m.details.title}</span><span className="flex items-center gap-1 shrink-0"><button type="button" title={m.canEdit ? 'جزئیات و ویرایش جلسه' : 'مشاهده جزئیات جلسه'} aria-label={(m.canEdit ? 'جزئیات و ویرایش جلسه ' : 'مشاهده جلسه ')+m.details.title} onClick={()=>{setEditingMeeting(m);setMeetingDate(m.details.date);}} className="p-1 rounded-lg text-sky-600 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 cursor-pointer"><Eye className="w-4 h-4" /></button>{m.canDelete && <button type="button" title="حذف جلسه" aria-label={'حذف جلسه '+m.details.title} onClick={()=>removeMeeting(m)} className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"><Trash2 className="w-4 h-4" /></button>}</span></div>
+            <p className="text-xs text-sky-700 dark:text-sky-300">{toPersianDigits(m.details.startTime)} تا {toPersianDigits(m.details.endTime)}{m.details.location && ' · '+m.details.location}</p>
+            <p className="text-[11px] text-slate-500">{toPersianDigits(m.details.participantIds.length)} فرد مرتبط · {toPersianDigits(m.details.agenda.length)} بند</p>          </div>)}
+        </section>
+        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200 border-t border-slate-100 dark:border-slate-700 pt-3">وظایف</h4>
         {/* Tasks List */}
         {selectedDayItems.length > 0 ? (
           <div className="space-y-2 max-h-[520px] overflow-y-auto pr-0.5">
@@ -769,7 +842,7 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
           <div className="text-center py-8 px-3 bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
             <CalendarIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
             <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-              هیچ فعالیتی برای این تاریخ ثبت نشده است.
+              هیچ وظیفه‌ای برای این تاریخ ثبت نشده است.
             </p>
           </div>
         )}
@@ -777,6 +850,8 @@ export const JalaliCalendarView: React.FC<JalaliCalendarViewProps> = ({
     );
   })()}
 
+      {createMenu && <CalendarCreateMenu anchor={createMenu.anchor} canCreateMeeting={!!meetingPeople?.canCreate} canCreateTask={!!onOpenCreateForDate} meetingReason={meetingPeopleError || meetingPeople?.message || (!meetingPeople?'در حال بررسی دسترسی…':!meetingPeople.canCreate?'دسترسی ایجاد جلسه ندارید.':undefined)} onClose={()=>setCreateMenu(null)} onTask={()=>{const day=createMenu.day;setCreateMenu(null);openCreateForDay(day);}} onMeeting={()=>{if(!meetingPeople?.canCreate)return;setEditingMeeting(undefined);setMeetingDate(dayDate(createMenu.day));setCreateMenu(null);}} />}
+      {meetingDate && currentUser && <MeetingFormModal initialDate={meetingDate} meeting={editingMeeting} currentUser={currentUser} people={registeredUsers} tasks={tasks} onClose={()=>{setMeetingDate(null);setEditingMeeting(undefined);}} onSaved={savedMeeting} onConvertToTask={onConvertMeetingToTask && ((title,isoDate)=>onConvertMeetingToTask(title,isoDate))} />}
       {/* Delete Confirmation Modal */}
       {deletingTaskId && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">

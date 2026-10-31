@@ -45,9 +45,9 @@ export function SegmentedTabs<T extends string>({ tabs, active, onChange }: { ta
 }
 
 /** Secondary navigation inside a tab: separate pills, the active one filled. */
-export function PillTabs<T extends string>({ tabs, active, onChange }: { tabs: TabItem<T>[]; active: T; onChange: (id: T) => void }) {
+export function PillTabs<T extends string>({ tabs, active, onChange, compact = false }: { tabs: TabItem<T>[]; active: T; onChange: (id: T) => void; compact?: boolean }) {
   return (
-    <div className="flex flex-wrap gap-2" role="tablist">
+    <div className={compact ? "grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-slate-100/80 dark:bg-slate-800/70 p-1" : "flex flex-wrap gap-2"} role="tablist">
       {tabs.map(({ id, label, icon: Icon }) => {
         const selected = id === active;
         return (
@@ -57,7 +57,7 @@ export function PillTabs<T extends string>({ tabs, active, onChange }: { tabs: T
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+            className={`flex items-center justify-center gap-1.5 rounded-lg font-bold border transition-all cursor-pointer ${compact ? 'px-2 py-2 text-xs' : 'px-4 py-2.5 text-sm'} ${
               selected
                 ? 'bg-indigo-800 border-indigo-800 text-white shadow-sm dark:bg-indigo-600 dark:border-indigo-600'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-300'
@@ -211,7 +211,7 @@ export const Notice: React.FC<{ type: 'success' | 'error' | 'info'; children: Re
 };
 
 /** A modal dialog for the administration forms. */
-export const AdminDialog: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode; wide?: boolean }> = ({ title, onClose, children, footer, wide }) => {
+export const AdminDialog: React.FC<{ title: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode; wide?: boolean; compact?: boolean }> = ({ title, onClose, children, footer, wide, compact = false }) => {
   const box = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     // Focus lands in the dialog (its first field, else the dialog itself) so the keyboard — Esc included — works at once.
@@ -220,15 +220,15 @@ export const AdminDialog: React.FC<{ title: string; onClose: () => void; childre
   }, []);
   return (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs" onClick={(e) => e.target === e.currentTarget && onClose()}>
-    <div ref={box} tabIndex={-1} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} role="dialog" aria-modal="true" aria-label={title} className={`w-full ${wide ? 'max-w-3xl' : 'max-w-xl'} max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 focus:outline-hidden`}>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+    <div ref={box} tabIndex={-1} onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} role="dialog" aria-modal="true" aria-label={title} className={`w-full ${compact ? 'max-w-2xl' : wide ? 'max-w-3xl' : 'max-w-xl'} max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 focus:outline-hidden`}>
+      <div className={`flex items-center justify-between border-b border-slate-100 dark:border-slate-800 ${compact ? 'px-4 py-3' : 'px-5 py-4'}`}>
         <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{title}</h3>
         <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer" aria-label="بستن">
           <X className="w-5 h-5" />
         </button>
       </div>
-      <div className="px-5 py-4 overflow-y-auto flex-1 space-y-4">{children}</div>
-      <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3.5 border-t border-slate-100 dark:border-slate-800">{footer}</div>
+      <div className={compact ? "px-4 py-3 overflow-y-auto overscroll-contain flex-1 space-y-3" : "px-5 py-4 overflow-y-auto flex-1 space-y-4"}>{children}</div>
+      <div className={`flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800 ${compact ? 'px-4 py-2.5' : 'px-5 py-3.5'}`}>{footer}</div>
     </div>
   </div>
   );

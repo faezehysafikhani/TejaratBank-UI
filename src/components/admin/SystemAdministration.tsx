@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { getKnownPermissions, getMyPermissions, changeMyPassword, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
@@ -99,6 +99,8 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
 
 /** The signed-in user's own password change (the system administrator included). */
 export const ChangePasswordCard: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -124,11 +126,21 @@ export const ChangePasswordCard: React.FC = () => {
 
   return (
     <AdminCard className="p-5 sm:p-6">
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex items-center gap-2">
-          <KeyRound className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
-          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">تغییر رمز عبور</h3>
-        </div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(value => !value)}
+        className={`w-full flex items-center justify-between text-slate-900 dark:text-white font-bold text-sm select-none cursor-pointer group ${open ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : ''}`}
+      >
+        <span className="flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+          <span>تغییر رمز عبور</span>
+        </span>
+        {open ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+      </button>
+      <div id={panelId} hidden={!open}>
+      <form onSubmit={submit} className="space-y-4 pt-4">
         {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="رمز عبور فعلی" required>
@@ -148,6 +160,7 @@ export const ChangePasswordCard: React.FC = () => {
           </PrimaryButton>
         </div>
       </form>
+      </div>
     </AdminCard>
   );
 };
