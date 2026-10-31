@@ -777,3 +777,28 @@ export const getUserPositionHistory = (userId: string) => apiRequest<Appointment
 /** Where an appointment stands now: «current», «waiting» (starts later) or «ended». */
 export const appointmentState = (a: Pick<Appointment, 'isActive' | 'startDate' | 'endDate'>, now = Date.now()): 'current' | 'waiting' | 'ended' =>
   a.isActive ? 'current' : a.startDate && Date.parse(a.startDate) > now ? 'waiting' : 'ended';
+
+// ---------------------------------------------------------------- the simple chart (org / unit / position)
+export type OrgKind = 'unit' | 'position';
+export interface KindPerson { userId: string; displayName: string; isPrimary: boolean }
+export interface KindNode {
+  id: string;
+  name: string;
+  kind: OrgKind;
+  parentNodeId: string | null;
+  companyId: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  rowVersion: string;
+  /** A unit's head: one of its direct positions. */
+  headNodeId: string | null;
+  persons: KindPerson[];
+}
+export interface KindTypes { unitTypeId: string; positionTypeId: string }
+
+export const ensureKinds = () => apiRequest<KindTypes>('POST', `${BASE}/kinds/ensure`);
+export const getKindChart = () => apiRequest<{ nodes: KindNode[] }>('GET', `${BASE}/kinds/chart`).then((r) => r.nodes);
+export const addNodePerson = (nodeId: string, userId: string) => apiRequest<void>('POST', `${BASE}/kinds/nodes/${nodeId}/persons`, { body: { userId } });
+export const removeNodePerson = (nodeId: string, userId: string) => apiRequest<void>('DELETE', `${BASE}/kinds/nodes/${nodeId}/persons/${userId}`);
+export const setPrimaryNodePerson = (nodeId: string, userId: string) => apiRequest<void>('PUT', `${BASE}/kinds/nodes/${nodeId}/persons/${userId}/primary`);
+export const setNodeHead = (unitId: string, headNodeId: string | null) => apiRequest<void>('PUT', `${BASE}/kinds/nodes/${unitId}/head`, { body: { headNodeId } });

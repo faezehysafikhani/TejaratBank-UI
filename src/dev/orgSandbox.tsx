@@ -15,12 +15,17 @@ import { NodeTypeRulesMatrix, ruleUsage, type NodeTypeRule } from '../components
 import { MergeNodesForm, type MergeNodesInput } from '../components/admin/orgStructure/nodes/MergeNodesForm';
 import { OrgChartBoard } from '../components/admin/orgStructure/OrgChartBoard';
 import { createMockServer } from './orgMockServer';
+import { installKindsMock } from './kindsMock';
+import { KindsChart } from '../components/admin/orgStructure/kinds/KindsChart';
 import { OrgStructureSection } from '../components/admin/orgStructure/OrgStructureSection';
 
 const params = new URLSearchParams(location.search);
 const mockName = (params.get('mock') as OrgChartMockName) in ORG_CHART_MOCKS ? (params.get('mock') as OrgChartMockName) : 'postBank';
 const boardView = params.get('view') === 'board' || params.get('view') === 'section';
 const sectionView = params.get('view') === 'section';
+// ?view=kinds: the simple chart (org / unit / position) on an in-memory mock; ?empty=1 starts with no organization.
+const kindsView = params.get('view') === 'kinds';
+if (kindsView) installKindsMock({ empty: params.get('empty') === '1' });
 
 if (boardView) {
   // This page only: the chart board's requests are answered from the mock, in memory (src/dev/orgMockServer.ts).
@@ -125,4 +130,4 @@ const Sandbox: React.FC = () => {
   );
 };
 
-createRoot(document.getElementById('root')!).render(boardView ? <BoardView /> : <Sandbox />);
+createRoot(document.getElementById('root')!).render(kindsView ? <div className="p-4"><KindsChart can={() => true} /></div> : boardView ? <BoardView /> : <Sandbox />);
