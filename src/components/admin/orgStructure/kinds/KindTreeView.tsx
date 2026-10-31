@@ -5,9 +5,9 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Crosshair, Expand, Maximize2, Minimize2, Minus, Plus } from 'lucide-react';
 import { toPersianDigits } from '../../../../utils/helpers';
-import { usePanZoom } from '../usePanZoom';
-import { type PanZoomView, isInSight } from '../panMath';
-import { KIND_INFO, type KindTreeNode, countBelow, leafColumns, matches, splitChildren } from './orgKinds';
+import { localRect, usePanZoom } from '../usePanZoom';
+import { type PanZoomView, fitScaleFor, fitTop, rectVisible } from '../panMath';
+import { BRANCHES_PER_ROW, KIND_INFO, type KindTreeNode, countBelow, inRows, leafColumns, matches, shownChildren, splitChildren } from './orgKinds';
 import { HeadChip, PersonChips } from './kindsUi';
 import type { KindViewProps } from './KindListView';
 
@@ -15,16 +15,19 @@ import type { KindViewProps } from './KindListView';
 const BRANCH_PAGE = 30;
 const LEAF_PAGE = 24;
 /** The chart is never fitted smaller than this (the cards would not be readable): it is centred on the organization instead. */
-const MIN_FIT = 0.35;
+const MIN_FIT = 0.3;
 
 /** Lets a deep card ask the canvas to move to a node (after «+N گره‌ی دیگر»). */
 const FocusContext = createContext<(id: string) => void>(() => undefined);
+/** How many branches fit in a row for this canvas width (more go on the next row): the canvas is shown at about 60%, a card is about 170px. */
+const RowContext = createContext<number>(BRANCHES_PER_ROW);
+export const perRowFor = (canvasWidth: number): number => Math.max(3, Math.floor(canvasWidth / (170 * 0.6)));
 
 const CSS = `
 .kt-shell{position:relative}
 .kt-shell:fullscreen{background:#fff;padding:12px}
 .kt-shell:fullscreen .kt-vp{height:calc(100vh - 24px)}
-.kt-vp{position:relative;overflow:hidden;height:max(420px,calc(100dvh - 250px));border:1px solid #e6e3f3;border-radius:16px;background:#faf9ff;cursor:grab;touch-action:none;outline:none}
+.kt-vp{position:relative;overflow:hidden;height:max(480px,calc(100dvh - 210px));border:1px solid #e6e3f3;border-radius:16px;background:#faf9ff;cursor:grab;touch-action:none;outline:none}
 .kt-vp:focus-visible{box-shadow:0 0 0 3px #6a4fe033}
 .kt-vp[data-dragging=true]{cursor:grabbing;user-select:none}
 .kt-vp[data-dragging=true] *{cursor:grabbing!important}
@@ -32,26 +35,23 @@ const CSS = `
 .kt-vp button[data-nopan]{cursor:pointer}
 .kt-content{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
 .kt{direction:ltr;width:max-content;padding:10px 20px 40px}
-.kt ul{display:flex;justify-content:center;padding-top:26px;position:relative;margin:0;padding-left:0;padding-right:0}
-.kt li{list-style:none;text-align:center;position:relative;padding:26px 8px 0;display:flex;flex-direction:column;align-items:center}
-.kt li::before,.kt li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #d3cbf5;width:50%;height:26px}
+.kt ul{display:flex;justify-content:center;padding-top:20px;position:relative;margin:0;padding-left:0;padding-right:0}
+.kt li{list-style:none;text-align:center;position:relative;padding:20px 8px 0;display:flex;flex-direction:column;align-items:center}
+.kt li::before,.kt li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #d3cbf5;width:50%;height:20px}
 .kt li::after{right:auto;left:50%;border-left:2px solid #d3cbf5}
-.kt li:only-child::before,.kt li:only-child::after{display:none}.kt li:only-child{padding-top:26px}
+.kt li:only-child::before,.kt li:only-child::after{display:none}.kt li:only-child{padding-top:20px}
 .kt li:first-child::before,.kt li:last-child::after{border:0 none}
 .kt li:last-child::before{border-right:2px solid #d3cbf5;border-radius:0 8px 0 0}.kt li:first-child::after{border-radius:8px 0 0 0}
-.kt ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #d3cbf5;height:26px}
+.kt-rows{display:flex;flex-direction:column;align-items:center;gap:8px}
+.kt-row{position:relative;display:flex;justify-content:center}
+.kt-row>ul{position:relative;z-index:1}
+.kt-row-more::after{content:'';position:absolute;left:50%;top:0;bottom:-8px;border-left:2px solid #d3cbf5;z-index:0}
+.kt ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #d3cbf5;height:20px}
 .kt>ul{padding-top:0}.kt>ul>li{padding-top:0}.kt>ul>li::before,.kt>ul>li::after{display:none}
 `;
 
-/** What the tree shows under a node: the head, then the node's other children under it (display only). */
-function shownChildren(node: KindTreeNode): KindTreeNode[] {
-  const head = node.headNodeId ? node.children.find((c) => c.id === node.headNodeId) : null;
-  if (!head) return node.children;
-  return [{ ...head, children: [...head.children, ...node.children.filter((c) => c !== head)] }];
-}
-
 const AddButton: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
-  <button type="button" data-nopan onClick={onClick} aria-label={label} title="افزودن زیرمجموعه" className="absolute -bottom-3.5 left-[calc(50%-13px)] z-[2] w-[26px] h-[26px] grid place-items-center rounded-full border-[1.5px] border-indigo-300 bg-white dark:bg-slate-900 text-indigo-600 hover:bg-indigo-600 hover:text-white cursor-pointer"><Plus className="w-4 h-4" /></button>
+  <button type="button" data-nopan onClick={onClick} aria-label={label} title="افزودن زیرمجموعه" className="absolute -bottom-3.5 left-[calc(50%-13px)] z-[2] w-[20px] h-[20px] grid place-items-center rounded-full border-[1.5px] border-indigo-300 bg-white dark:bg-slate-900 text-indigo-600 hover:bg-indigo-600 hover:text-white cursor-pointer"><Plus className="w-4 h-4" /></button>
 );
 
 type CardProps = { node: KindTreeNode; parent: KindTreeNode | null; real: KindTreeNode } & Omit<KindViewProps, 'roots'>;
@@ -84,6 +84,7 @@ const MoreButtons: React.FC<{ hidden: number; step: number; onMore: () => void; 
 const Branch: React.FC<CardProps> = (props) => {
   const { node, query, isOpen, onToggle } = props;
   const focusNode = useContext(FocusContext);
+  const perRow = useContext(RowContext);
   const [branchLimit, setBranchLimit] = useState(BRANCH_PAGE);
   const [leafLimit, setLeafLimit] = useState(LEAF_PAGE);
   const open = query.trim() ? true : isOpen(node.id);
@@ -113,7 +114,14 @@ const Branch: React.FC<CardProps> = (props) => {
   return (
     <>
       <Card {...props} open={open} toggle={() => onToggle(node.id)} />
-      {open && items.length > 0 && <ul>{[...items].reverse()}</ul>}
+      {open && items.length > 0 && (
+        // At most five in a row; more go on the next row, so the chart stays narrow.
+        <div className="kt-rows">
+          {inRows(items, perRow).map((row, i, rows) => (
+            <div key={i} className={`kt-row${i < rows.length - 1 ? ' kt-row-more' : ''}`}><ul>{[...row].reverse()}</ul></div>
+          ))}
+        </div>
+      )}
     </>
   );
 };
@@ -126,15 +134,31 @@ export const KindTreeView: React.FC<KindViewProps & { orgName: string; onAddRoot
   const rootCard = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [perRow, setPerRow] = useState(BRANCHES_PER_ROW);
   // The wheel zooms around the pointer (10% to 200%); dragging the background pans; cards and buttons do not start a pan.
   const pz = usePanZoom(viewport, content, ready, { wheel: 'zoom', noPan: '[data-nopan]', minScale: 0.1, maxScale: 2 });
   const tops = roots.filter((r) => matches(r, rest.query));
 
   useEffect(() => setReady(true), []);
+  // The number of branches in a row follows the canvas width (wide screen: one long row, phone: short rows).
+  useEffect(() => {
+    const vp = viewport.current;
+    if (!vp) return;
+    const update = () => setPerRow(perRowFor(vp.clientWidth));
+    update();
+    const watch = new ResizeObserver(update);
+    watch.observe(vp);
+    return () => watch.disconnect();
+  }, []);
 
-  /** The whole chart if it is readable that way, else the organization at the top at the smallest readable zoom. */
+  /** The whole chart at the top of the canvas if it is readable that way, else the organization at the top at the smallest readable zoom. */
   const fitOrCenter = (animate: boolean) => {
-    if (pz.fitScale() >= MIN_FIT) pz.fit(animate, true);
+    const vp = viewport.current;
+    const el = content.current;
+    if (!vp || !el || !el.offsetWidth) return;
+    const canvas = { w: vp.clientWidth, h: vp.clientHeight };
+    const size = { w: el.offsetWidth, h: el.offsetHeight };
+    if (fitScaleFor(size, canvas, 24, 64) >= MIN_FIT) pz.setView(fitTop(size, canvas, 24, 64), animate);
     else if (rootCard.current) pz.centerOn(rootCard.current, MIN_FIT, animate);
   };
 
@@ -151,15 +175,12 @@ export const KindTreeView: React.FC<KindViewProps & { orgName: string; onAddRoot
       if (!vp || !el) return;
       if ((!vp.clientWidth || !vp.clientHeight || !el.offsetWidth) && frames++ < 60) { frame = requestAnimationFrame(tryOpen); return; }
       opened.current = true;
+      // Where the user left the chart comes back only when the organization is in sight there; any other old view
+      // (a default one, or a place the chart no longer fills) would open an empty canvas, so the chart is fitted instead.
       const stored = viewStore.current;
-      if (stored && isInSight(stored, { w: el.offsetWidth, h: el.offsetHeight }, { w: vp.clientWidth, h: vp.clientHeight })) {
+      const root = rootCard.current;
+      if (stored && root && rectVisible(stored, localRect(root, el), { w: vp.clientWidth, h: vp.clientHeight })) {
         pz.setView(stored);
-        // The organization (or at least a card) must be in sight, else the canvas looks empty: fit instead.
-        requestAnimationFrame(() => {
-          const box = vp.getBoundingClientRect();
-          const anyCard = Array.from(el.querySelectorAll<HTMLElement>('[data-node]')).some((c: HTMLElement) => { const r = c.getBoundingClientRect(); return r.right > box.left && r.left < box.right && r.bottom > box.top && r.top < box.bottom; });
-          if (!anyCard) fitOrCenter(false);
-        });
         return;
       }
       fitOrCenter(false);
@@ -168,7 +189,7 @@ export const KindTreeView: React.FC<KindViewProps & { orgName: string; onAddRoot
     return () => cancelAnimationFrame(frame);
   });
   // Keep the view for when the list is shown and then the tree again.
-  useEffect(() => () => { viewStore.current = pz.getView(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (opened.current) viewStore.current = pz.getView(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard focus on a card or button out of sight moves the chart to it (the canvas itself never scrolls).
   useEffect(() => {
@@ -214,6 +235,7 @@ export const KindTreeView: React.FC<KindViewProps & { orgName: string; onAddRoot
           <button type="button" data-nopan className={control} aria-label={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'} title={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'} onClick={toggleFullscreen}>{fullscreen ? <Minimize2 className="w-4 h-4" /> : <Expand className="w-4 h-4" />}</button>
         </div>
         <FocusContext.Provider value={focusNode}>
+          <RowContext.Provider value={perRow}>
           <div className="kt-content" ref={content}>
             <div className="kt">
               <ul>
@@ -232,6 +254,7 @@ export const KindTreeView: React.FC<KindViewProps & { orgName: string; onAddRoot
               </ul>
             </div>
           </div>
+          </RowContext.Provider>
         </FocusContext.Provider>
       </div>
     </div>

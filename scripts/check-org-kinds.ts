@@ -93,7 +93,9 @@ assert.equal(splitChildren(nineteen.slice(0, 2)).grid, false, 'two children stay
 assert.equal(splitChildren(nineteen.slice(0, 4)).grid, true, 'four leaves under a node make a block (a narrow chart)');
 assert.equal(splitChildren([nineteen[10], nineteen[11], ...nineteen.slice(0, 3)]).grid, false, 'two branches and three leaves: five children stay in a row');
 assert.equal(leafColumns(3), 1);
+assert.equal(leafColumns(7), 2);
 assert.equal(leafColumns(10), 2);
+assert.equal(leafColumns(100), 4);
 assert.equal(leafColumns(100), 4, 'at most four columns');
 
 // ---- order: the server's order, and several moving together keep the list's order

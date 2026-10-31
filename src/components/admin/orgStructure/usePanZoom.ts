@@ -332,7 +332,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
 
   /** The view as it is (to keep it while another drawing is shown) and putting one back. */
   const getView = useCallback((): PanZoomView => ({ ...view.current }), []);
-  const setView = useCallback((next: PanZoomView) => { moved.current = true; set(next); }, [set]);
+  const setView = useCallback((next: PanZoomView, animate = false) => { moved.current = true; set(next, animate); }, [set]);
 
   /** Puts an element at the top middle of the canvas at exactly this zoom. */
   const centerOn = useCallback((el: HTMLElement, scale: number, animate = true) => {

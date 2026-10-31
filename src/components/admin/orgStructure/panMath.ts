@@ -22,6 +22,19 @@ export function centerTop(r: { x: number; y: number; w: number; h: number }, s: 
   return { s, x: canvas.w / 2 - (r.x + r.w / 2) * s, y: top - r.y * s };
 }
 
+/** Whether a rectangle of the content (content pixels) is wholly or partly on the canvas under `view`. */
+export function rectVisible(view: PanZoomView, r: { x: number; y: number; w: number; h: number }, canvas: { w: number; h: number }): boolean {
+  const left = view.x + r.x * view.s;
+  const top = view.y + r.y * view.s;
+  return left + r.w * view.s > 0 && top + r.h * view.s > 0 && left < canvas.w && top < canvas.h;
+}
+
+/** The view that shows all the content at the top of the canvas, centred sideways (never bigger than 100%). */
+export function fitTop(content: { w: number; h: number }, canvas: { w: number; h: number }, pad: number, top: number): PanZoomView {
+  const s = fitScaleFor(content, canvas, pad, top);
+  return { s, x: (canvas.w - content.w * s) / 2, y: top };
+}
+
 /** Whether any part of the content rectangle (content pixels) is inside the canvas under `view`. */
 export function isInSight(view: PanZoomView, content: { w: number; h: number }, canvas: { w: number; h: number }): boolean {
   const left = view.x;

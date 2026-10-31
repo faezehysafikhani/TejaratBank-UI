@@ -191,6 +191,8 @@ require('node:fs').mkdirSync(shots, { recursive: true });
   await bank.getByRole('tab', { name: 'چارت درختی' }).click();
   await bank.waitForTimeout(600);
   assert.ok(await cardsInSight() > 3, 'after the list, the tree is not empty');
+  const rootInSight = await bank.evaluate(() => { const vp = document.querySelector('.kt-vp').getBoundingClientRect(); const r = document.querySelector('.kt-vp [data-node]').getBoundingClientRect(); return r.right > vp.left && r.left < vp.right && r.bottom > vp.top && r.top < vp.bottom; });
+  assert.ok(rootInSight, 'the organization card is in sight after coming back from the list');
   // zoom keeps the point under the pointer
   const vpBox = await bank.locator('.kt-vp').boundingBox();
   const s0 = await scaleOf();
@@ -217,6 +219,17 @@ require('node:fs').mkdirSync(shots, { recursive: true });
   await bank.waitForTimeout(400);
   const full = await bank.evaluate(() => !!document.fullscreenElement);
   if (full) { await bank.getByRole('button', { name: 'خروج از تمام‌صفحه' }).click(); await bank.waitForTimeout(300); }
+
+  // PDF of the whole chart, from the list and from the tree
+  for (const [tab, name] of [['چارت مرتب', /org-chart-list-/], ['چارت درختی', /org-chart-tree-/]]) {
+    await bank.getByRole('tab', { name: tab }).click();
+    const [file] = await Promise.all([bank.waitForEvent('download', { timeout: 120000 }), bank.getByRole('button', { name: 'دریافت PDF' }).click()]);
+    assert.match(file.suggestedFilename(), name);
+    const bytes = require('node:fs').readFileSync(await file.path());
+    assert.equal(bytes.subarray(0, 5).toString(), '%PDF-', 'a real PDF');
+    assert.ok(bytes.length > 20000, 'with the chart drawn in it');
+  }
+  await bank.getByRole('tab', { name: 'چارت مرتب' }).click();
 
   // order: the down arrow on the first unit moves it below the second
   await bank.getByRole('tab', { name: 'چارت مرتب' }).click();

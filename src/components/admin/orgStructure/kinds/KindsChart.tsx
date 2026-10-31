@@ -1,7 +1,7 @@
 // «چارت سازمانی»: the one place the organization is built and edited. «چارت مرتب» is where nodes are made;
 // «چارت درختی» draws the same data. The organization is the company; units and positions are its nodes.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, ChevronsDownUp, ChevronsUpDown, Loader2, Plus, Search, UserX } from 'lucide-react';
+import { Building2, ChevronsDownUp, ChevronsUpDown, FileDown, Loader2, Plus, Search, UserX } from 'lucide-react';
 import { AdminCard, Notice, PrimaryButton, SecondaryButton, inputClass } from '../../AdminUi';
 import {
   type Company, type KindNode, type KindTypes, type UnplacedUser, ORG_STRUCTURE_PERMISSIONS as P, addNodePerson, canNode, createNode, deactivateNode,
@@ -18,6 +18,7 @@ import { KindListView } from './KindListView';
 import { KindTreeView } from './KindTreeView';
 import { KindMoveDialog } from './KindMoveDialog';
 import { NewOrgDialog } from './NewOrgDialog';
+import { downloadListPdf, downloadTreePdf } from './kindsPdf';
 import type { PanZoomView } from '../usePanZoom';
 import type { KindActions } from './kindsUi';
 
@@ -48,6 +49,8 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
   const [progress, setProgress] = useState<string | null>(null);
   /** Buttons wait while the list settles after a change (no click lands on a row that moved). */
   const [settling, setSettling] = useState(false);
+  /** The PDF being made (what it is doing now), or null. */
+  const [exporting, setExporting] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [orgDialog, setOrgDialog] = useState<'new' | 'edit' | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -192,6 +195,19 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
     }, 'حذف انجام نشد.');
   };
 
+  /** «دریافت PDF»: the chart on screen, whole (every node, however it is opened or searched here). */
+  const exportPdf = async () => {
+    if (!company || exporting) return;
+    setExporting('در حال آماده‌سازی...');
+    try {
+      await (view === 'tree' ? downloadTreePdf(roots, company.name, setExporting) : downloadListPdf(roots, company.name, setExporting));
+    } catch (err) {
+      showToast(userErrorMessage(err, 'ساخت PDF انجام نشد.'), 'error');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const moveNodes = async (list: KindTreeNode[], targetId: string | null, report: (text: string) => void) => {
     if (!company) return;
     const fresh = new Map((await getKindChart()).map((n) => [n.id, n]));
@@ -303,6 +319,11 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
           </select>
         )}
         <span className="flex-1" />
+        {company && roots.length > 0 && (
+          <SecondaryButton type="button" onClick={() => void exportPdf()} disabled={!!exporting} title={view === 'tree' ? 'دریافت PDF کامل چارت درختی' : 'دریافت PDF کامل چارت مرتب'}>
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />} {exporting ?? 'دریافت PDF'}
+          </SecondaryButton>
+        )}
         {company && can(P.manageCompanies) && <SecondaryButton type="button" onClick={() => setOrgDialog('edit')}>ویرایش اطلاعات سازمان</SecondaryButton>}
         {can(P.manageCompanies) && <PrimaryButton type="button" onClick={() => setOrgDialog('new')}><Plus className="w-4 h-4" /> ساخت سازمان</PrimaryButton>}
       </div>

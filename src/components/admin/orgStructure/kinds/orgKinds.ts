@@ -172,6 +172,23 @@ export const MIN_LEAVES_FOR_BLOCK = 3;
 export const LEAVES_PER_COLUMN = 6;
 export const MAX_COLUMNS = 4;
 
+/** At most this many branches (and the leaf block) in a row; more go on a second row, so the chart stays narrow. */
+export const BRANCHES_PER_ROW = 5;
+
+/** Items in rows of at most `size`. */
+export function inRows<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) rows.push(items.slice(i, i + size));
+  return rows;
+}
+
+/** What the tree shows under a node: the head, then the node's other children under it (display only, the data is not changed). */
+export function shownChildren(node: KindTreeNode): KindTreeNode[] {
+  const head = node.headNodeId ? node.children.find((c) => c.id === node.headNodeId) : null;
+  if (!head) return node.children;
+  return [{ ...head, children: [...head.children, ...node.children.filter((c) => c !== head)] }];
+}
+
 /** What the tree draws under a node: the nodes that have children first (each a branch of its own), then the leaves; each group in its order. */
 export function splitChildren(children: KindTreeNode[]): { branches: KindTreeNode[]; leaves: KindTreeNode[]; grid: boolean } {
   const branches = children.filter((c) => c.children.length > 0);
