@@ -9,6 +9,7 @@
     "check:org-rules": "tsx scripts/check-org-rules.ts",
     "check:org-tidy": "tsx scripts/check-org-tidy.ts",
     "check:org-kinds": "tsx scripts/check-org-kinds.ts",
+    "e2e:org-kinds": "node scripts/e2e-org-kinds.cjs",
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",

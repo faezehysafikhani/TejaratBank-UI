@@ -135,7 +135,7 @@ export const KindNodeDialog: React.FC<{
     }
   };
 
-  const title = mode === 'edit' ? `ویرایش «${initial!.name}»` : parentKind === 'org' && path.length <= 1 ? `افزودن زیر «${parentName}»` : `افزودن زیر «${parentName}»`;
+  const title = mode === 'edit' ? `ویرایش «${initial!.name}»` : `افزودن زیر «${parentName}»`;
   const showHead = kind === 'position' && headAllowedUnder && (mode === 'add' || canHaveHead('unit'));
 
   return createPortal(
