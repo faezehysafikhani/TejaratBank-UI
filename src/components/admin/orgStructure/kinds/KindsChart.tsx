@@ -1,11 +1,11 @@
 // «چارت سازمانی»: the one place the organization is built and edited. «چارت مرتب» is where nodes are made;
 // «چارت درختی» draws the same data. The organization is the company; units and positions are its nodes.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, ChevronsDownUp, ChevronsUpDown, Loader2, Minus, Plus, Search, UserX } from 'lucide-react';
+import { Building2, ChevronsDownUp, ChevronsUpDown, Loader2, Plus, Search, UserX } from 'lucide-react';
 import { AdminCard, Notice, PrimaryButton, SecondaryButton, inputClass } from '../../AdminUi';
 import {
   type Company, type KindNode, type KindTypes, type UnplacedUser, ORG_STRUCTURE_PERMISSIONS as P, addNodePerson, canNode, createNode, deactivateNode,
-  ensureKinds, getKindChart, listCompanies, listUnplacedUsers, removeNodePerson, setNodeHead, setPrimaryNodePerson, updateNode,
+  ensureKinds, getKindChart, listCompanies, listUnplacedUsers, moveNode, removeNodePerson, setNodeHead, setPrimaryNodePerson, updateNode,
 } from '../../../../services/orgStructureApi';
 import { userErrorMessage } from '../../../../utils/errorMessages';
 import { appConfirm } from '../../../../utils/appDialog';
@@ -16,6 +16,9 @@ import { KIND_INFO, TEMPLATES, buildTree, canHaveHead, countBelow, parseOutline,
 import { KindNodeDialog, type KindFormValues } from './KindNodeDialog';
 import { KindListView } from './KindListView';
 import { KindTreeView } from './KindTreeView';
+import { KindMoveDialog } from './KindMoveDialog';
+import { NewOrgDialog } from './NewOrgDialog';
+import type { PanZoomView } from '../usePanZoom';
 import type { KindActions } from './kindsUi';
 
 type View = 'list' | 'tree';
@@ -38,7 +41,13 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
   const [view, setView] = useState<View>(readStored(VIEW_KEY) === 'tree' ? 'tree' : 'list');
   const [query, setQuery] = useState('');
   const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
-  const [zoom, setZoom] = useState(1);
+  /** Where the tree chart was left (kept while the list is shown). */
+  const treeView = useRef<PanZoomView | null>(null);
+  const [moving, setMoving] = useState<KindTreeNode | null>(null);
+  /** What the open form's save is doing now. */
+  const [progress, setProgress] = useState<string | null>(null);
+  /** Buttons wait while the list settles after a change (no click lands on a row that moved). */
+  const [settling, setSettling] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [orgDialog, setOrgDialog] = useState<'new' | 'edit' | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -48,7 +57,7 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
   const pendingTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const allow = useMemo(() => ({
-    create: canNode(can, 'create'), update: canNode(can, 'update'), remove: canNode(can, 'deactivate'), assign: canNode(can, 'assign'),
+    create: canNode(can, 'create'), update: canNode(can, 'update'), remove: canNode(can, 'deactivate'), assign: canNode(can, 'assign'), move: canNode(can, 'move'),
   }), [can]);
 
   const reload = useCallback(async () => {
@@ -99,6 +108,20 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
     setTimeout(() => setFlashId((current) => (current === id ? null : current)), 1800);
   };
 
+  /** Runs `mutate` (a state change that moves rows) and then puts the page back so the row `id` stays where the eye was. */
+  const keepPosition = (id: string, mutate: () => void) => {
+    const row = document.getElementById(`kind-${id}`);
+    const before = row?.getBoundingClientRect().top;
+    mutate();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const after = document.getElementById(`kind-${id}`)?.getBoundingClientRect().top;
+      if (before == null || after == null || Math.abs(after - before) < 1) return;
+      let holder: HTMLElement | null = row?.parentElement ?? null;
+      while (holder && !(holder.scrollHeight > holder.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(holder).overflowY))) holder = holder.parentElement;
+      if (holder) holder.scrollTop += after - before; else window.scrollBy(0, after - before);
+    }));
+  };
+
   /** Runs a change that reloads the chart; a failure is shown as a toast. */
   const run = async (action: () => Promise<void>, fallback: string): Promise<boolean> => {
     setBusy(true);
@@ -139,9 +162,14 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
     try {
       if (values.names[0] !== node.name) await updateNode(node.id, { name: values.names[0], rowVersion: node.rowVersion });
       const wanted = new Set(values.persons.map((p) => p.userId));
-      for (const old of node.persons) if (!wanted.has(old.userId)) await removeNodePerson(node.id, old.userId);
       const had = new Set(node.persons.map((p) => p.userId));
-      for (const person of values.persons) if (!had.has(person.userId)) await addNodePerson(node.id, person.userId);
+      const removing = node.persons.filter((old) => !wanted.has(old.userId));
+      const adding = values.persons.filter((person) => !had.has(person.userId));
+      let step = 0;
+      const tick = (what: string) => setProgress(`${what} (${toPersianDigits(++step)} از ${toPersianDigits(removing.length + adding.length)})`);
+      for (const old of removing) { tick('حذف شخص'); await removeNodePerson(node.id, old.userId); }
+      for (const person of adding) { tick('ثبت شخص'); await addNodePerson(node.id, person.userId); }
+      setProgress(null);
       const wasHead = !!parent && parent.headNodeId === node.id;
       if (parent && canHaveHead(parent.kind) && values.isHead !== wasHead) await setNodeHead(parent.id, values.isHead ? node.id : null);
     } finally {
@@ -164,6 +192,22 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
     }, 'حذف انجام نشد.');
   };
 
+  const moveNodes = async (list: KindTreeNode[], targetId: string | null, report: (text: string) => void) => {
+    if (!company) return;
+    const fresh = new Map((await getKindChart()).map((n) => [n.id, n]));
+    try {
+      for (const [index, n] of list.entries()) {
+        report(`انتقال «${n.name}» (${toPersianDigits(index + 1)} از ${toPersianDigits(list.length)})`);
+        await moveNode(n.id, { parentNodeId: targetId, companyId: targetId ? null : company.id, rowVersion: fresh.get(n.id)?.rowVersion ?? n.rowVersion });
+      }
+    } finally {
+      await reload();
+    }
+    if (targetId) setOpenMap((m) => ({ ...m, [targetId]: true }));
+    flash(list[0].id);
+    showToast(list.length > 1 ? `${toPersianDigits(list.length)} گره منتقل شد.` : `«${list[0].name}» منتقل شد.`, 'ok');
+  };
+
   const actions: KindActions = {
     can: allow,
     onAdd: (parent) => setDialog({ mode: 'add', parent }),
@@ -172,8 +216,19 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
     onSetPrimary: (node, userId) => { void run(() => setPrimaryNodePerson(node.id, userId), 'تغییر شخص رسمی انجام نشد.'); },
     onToggleHead: (node, parent) => {
       const was = parent.headNodeId === node.id;
-      void run(() => setNodeHead(parent.id, was ? null : node.id), 'تغییر رئیس انجام نشد.').then((ok) => ok && (flash(node.id), showToast(was ? 'رئیس برداشته شد.' : `«${node.name}» رئیس «${parent.name}» شد.`, 'ok')));
+      const previous = nodes;
+      // At once, on the screen; the server is told meanwhile, and the screen goes back if it refuses.
+      setSettling(true);
+      keepPosition(node.id, () => setNodes((all) => all.map((n) => (n.id === parent.id ? { ...n, headNodeId: was ? null : node.id } : n))));
+      setFlashId(node.id);
+      setTimeout(() => setFlashId((current) => (current === node.id ? null : current)), 1800);
+      showToast(was ? 'رئیس برداشته شد.' : `«${node.name}» رئیس «${parent.name}» شد.`, 'ok');
+      setNodeHead(parent.id, was ? null : node.id)
+        .then(() => reload())
+        .catch((err) => { setNodes(previous); showToast(userErrorMessage(err, 'تغییر رئیس انجام نشد.'), 'error'); })
+        .finally(() => setTimeout(() => setSettling(false), 350));
     },
+    onMove: (node) => setMoving(node),
     onDelete: (node) => {
       clearTimeout(pendingTimer.current);
       if (pendingDelete === node.id) { setPendingDelete(null); void removeBranch(node); return; }
@@ -223,12 +278,6 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
         </div>
         <SecondaryButton type="button" onClick={() => setAll(true)} title="باز کردن همه"><ChevronsUpDown className="w-4 h-4" /> باز کردن همه</SecondaryButton>
         <SecondaryButton type="button" onClick={() => setAll(false)} title="بستن همه"><ChevronsDownUp className="w-4 h-4" /> بستن همه</SecondaryButton>
-        {view === 'tree' && (
-          <span className="inline-flex gap-1">
-            <SecondaryButton type="button" aria-label="کوچک‌نمایی" onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}><Minus className="w-4 h-4" /></SecondaryButton>
-            <SecondaryButton type="button" aria-label="بزرگ‌نمایی" onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))}><Plus className="w-4 h-4" /></SecondaryButton>
-          </span>
-        )}
         {allow.create && company && (
           <select aria-label="شروع از قالب" className={`${inputClass} !w-auto`} value="" onChange={(e) => { if (e.target.value) void applyTemplate(e.target.value); }}>
             <option value="">شروع از قالب…</option>
@@ -236,7 +285,7 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
           </select>
         )}
         <span className="flex-1" />
-        {company && can(P.manageCompanies) && <SecondaryButton type="button" onClick={() => setOrgDialog('edit')}>ویرایش سازمان</SecondaryButton>}
+        {company && can(P.manageCompanies) && <SecondaryButton type="button" onClick={() => setOrgDialog('edit')}>ویرایش اطلاعات سازمان</SecondaryButton>}
         {can(P.manageCompanies) && <PrimaryButton type="button" onClick={() => setOrgDialog('new')}><Plus className="w-4 h-4" /> ساخت سازمان</PrimaryButton>}
       </div>
 
@@ -267,6 +316,7 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
               {allow.create && <button type="button" onClick={() => actions.onAdd(null)} title={`افزودن زیر ${company.name}`} aria-label={`افزودن زیرمجموعه به ${company.name}`} className="w-7 h-7 grid place-items-center rounded-full border-[1.5px] border-indigo-300 text-indigo-600 bg-white dark:bg-slate-900 hover:bg-indigo-600 hover:text-white cursor-pointer"><Plus className="w-4 h-4" /></button>}
             </div>
           )}
+          <div aria-busy={busy || settling} className={busy || settling ? 'pointer-events-none opacity-80 transition-opacity' : 'transition-opacity'}>
           {roots.length === 0 ? (
             <div className="text-center py-10 text-sm text-slate-500">
               این سازمان هنوز گره‌ای ندارد. {allow.create ? 'با «+» شروع کنید یا از «شروع از قالب» یکی را بارگذاری کنید.' : ''}
@@ -274,8 +324,9 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
           ) : view === 'list' ? (
             <KindListView roots={roots} query={query} isOpen={isOpenNow} onToggle={(id) => setOpenMap((m) => ({ ...m, [id]: !isOpenNow(id) }))} flashId={flashId} pendingDelete={pendingDelete} actions={actions} />
           ) : (
-            <KindTreeView roots={roots} zoom={zoom} orgName={company.name} onAddRoot={() => actions.onAdd(null)} query={query} isOpen={isOpenNow} onToggle={(id) => setOpenMap((m) => ({ ...m, [id]: !isOpenNow(id) }))} flashId={flashId} pendingDelete={pendingDelete} actions={actions} />
+            <KindTreeView roots={roots} viewStore={treeView} orgName={company.name} onAddRoot={() => actions.onAdd(null)} query={query} isOpen={isOpenNow} onToggle={(id) => setOpenMap((m) => ({ ...m, [id]: !isOpenNow(id) }))} flashId={flashId} pendingDelete={pendingDelete} actions={actions} />
           )}
+          </div>
           {childCompanies.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs font-bold text-slate-500">سازمان‌های تابعه</p>
@@ -310,13 +361,25 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
           initial={dialog.mode === 'edit' ? { kind: dialog.node.kind, name: dialog.node.name, persons: dialog.node.persons.map((p) => ({ userId: p.userId, displayName: p.displayName })), isHead: !!dialog.parent && dialog.parent.headNodeId === dialog.node.id } : undefined}
           headAllowedUnder={dialog.mode === 'add' ? dialog.parent?.kind === 'unit' : dialog.parent?.kind === 'unit'}
           focusPeople={dialog.mode === 'edit' && dialog.focusPeople}
+          progress={progress}
           onSubmit={(values, keepOpen) => (dialog.mode === 'add' ? submitAdd(dialog.parent, values, keepOpen) : submitEdit(dialog.node, dialog.parent, values))}
           onClose={() => setDialog(null)}
         />
       )}
-      {orgDialog && (
+      {moving && company && (
+        <KindMoveDialog
+          node={moving}
+          siblings={(parentOf(roots, moving)?.children ?? roots).filter((n) => n.id !== moving.id && n.kind === moving.kind)}
+          roots={roots}
+          orgName={company.name}
+          onMove={moveNodes}
+          onClose={() => setMoving(null)}
+        />
+      )}
+      {orgDialog === 'new' && <NewOrgDialog parents={companies} onCreated={async (saved) => { await reload(); pickCompany(saved.id); showToast(`سازمان «${saved.name}» ساخته شد.`, 'ok'); }} onClose={() => setOrgDialog(null)} />}
+      {orgDialog === 'edit' && (
         <CompanyFormDialog
-          company={orgDialog === 'edit' ? company : null}
+          company={company}
           parentChoices={companies}
           canLinkUnits={false}
           onSaved={async (saved) => { await reload(); pickCompany(saved.id); }}

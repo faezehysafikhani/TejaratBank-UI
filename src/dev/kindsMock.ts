@@ -8,7 +8,7 @@ const problem = (status: number, message: string) => new Response(JSON.stringify
 
 const USERS = ['نیما قهرمانیان', 'سارا احمدی', 'علی رضایی', 'مریم کریمی', 'حسین موسوی', 'زهرا صادقی'].map((displayName, i) => ({ id: `u${i + 1}`, displayName }));
 
-export function installKindsMock(options: { empty?: boolean } = {}): { nodes: () => KindNode[] } {
+export function installKindsMock(options: { empty?: boolean; seed?: number } = {}): { nodes: () => KindNode[] } {
   const TYPE_UNIT = 'type-unit';
   const TYPE_POSITION = 'type-position';
   const companies = options.empty ? [] : [
@@ -23,6 +23,19 @@ export function installKindsMock(options: { empty?: boolean } = {}): { nodes: ()
   const view = (): KindNode[] => nodes.map((n) => ({ ...n, headNodeId: (() => { const h = heads.get(n.id); const hn = h ? find(h) : undefined; return hn && hn.parentNodeId === n.id && hn.isActive ? hn.id : null; })() }));
   const orgNode = (n: KindNode) => ({ id: n.id, name: n.name, parentNodeId: n.parentNodeId, nodeTypeId: n.kind === 'position' ? TYPE_POSITION : TYPE_UNIT, nodeTypeName: '', companyId: n.companyId, managerUserId: null, isActive: n.isActive, sortOrder: n.sortOrder, childCount: 0, rowVersion: n.rowVersion });
   const companyOf = (n: KindNode | undefined): string | null => (n ? (n.parentNodeId ? companyOf(find(n.parentNodeId)) : n.companyId) : null);
+
+  // ?seed=N: a big chart to measure with: a chain of positions, then N units each with 12 branches (a unit may sit under a position).
+  if (options.seed && companies.length) {
+    const add = (name: string, kind: 'unit' | 'position', parent: string | null) => { const n: KindNode = { id: `n${seq++}`, name, kind, parentNodeId: parent, companyId: parent ? null : 'c1', isActive: true, sortOrder: nodes.length, rowVersion: '1', headNodeId: null, persons: [] }; nodes.push(n); return n; };
+    const assembly = add('مجمع عمومی', 'position', null);
+    const board = add('هیأت مدیره', 'position', assembly.id);
+    const ceo = add('مدیرعامل', 'position', board.id);
+    ceo.persons.push({ userId: 'u1', displayName: USERS[0].displayName, isPrimary: true });
+    for (let i = 1; i <= options.seed; i++) {
+      const unit = add(`مدیریت شعب ${i}`, 'unit', ceo.id);
+      for (let j = 1; j <= 12; j++) add(`شعبه ${i}-${j}`, 'position', unit.id);
+    }
+  }
 
   const handle = async (url: URL, init?: RequestInit): Promise<Response | null> => {
     const method = (init?.method || 'GET').toUpperCase();
@@ -42,11 +55,20 @@ export function installKindsMock(options: { empty?: boolean } = {}): { nodes: ()
       const kind = kindOfType(body.nodeTypeId);
       const parent = body.parentNodeId ? find(body.parentNodeId) : undefined;
       const parentKind = parent ? parent.kind : 'org';
-      if (parentKind === 'position' && kind !== 'position') return problem(422, 'این جزء چارت زیر این گره مجاز نیست.');
+      if (parentKind === 'position' && kind !== 'position' && kind !== 'unit') return problem(422, 'این جزء چارت زیر این گره مجاز نیست.');
       if (nodes.some((n) => n.parentNodeId === (body.parentNodeId ?? null) && n.isActive && n.name === body.name && (body.parentNodeId || n.companyId === body.companyId))) return problem(422, 'هم‌نام در همین سطح وجود دارد.');
       const node: KindNode = { id: `n${seq++}`, name: body.name, kind, parentNodeId: body.parentNodeId ?? null, companyId: body.parentNodeId ? null : body.companyId, isActive: true, sortOrder: nodes.length, rowVersion: '1', headNodeId: null, persons: [] };
       nodes.push(node);
       return json(orgNode(node));
+    }
+    const moveMatch = path.match(/^\/nodes\/([^/]+)\/move$/);
+    if (moveMatch && method === 'POST') {
+      const n = find(moveMatch[1]); if (!n) return problem(404, 'گره پیدا نشد.');
+      const target = body.parentNodeId ? find(body.parentNodeId) : undefined;
+      for (let up: KindNode | undefined = target; up; up = up.parentNodeId ? find(up.parentNodeId) : undefined) if (up.id === n.id) return problem(422, 'گره را نمی‌شود زیر خودش یا زیرمجموعه‌هایش برد.');
+      if (target?.kind === 'unit' || !target) { /* a unit or the organization holds both kinds */ } else if (target.kind === 'position' && n.kind !== 'position' && n.kind !== 'unit') return problem(422, 'مجاز نیست.');
+      n.parentNodeId = target ? target.id : null; n.companyId = target ? null : body.companyId;
+      return json(orgNode(n));
     }
     const nodeMatch = path.match(/^\/nodes\/([^/]+)(\/deactivate)?$/);
     if (nodeMatch && method === 'PUT') { const n = find(nodeMatch[1]); if (!n) return problem(404, 'گره پیدا نشد.'); n.name = body.name; return json(orgNode(n)); }

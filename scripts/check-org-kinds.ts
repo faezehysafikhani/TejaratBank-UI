@@ -1,12 +1,13 @@
 // Checks the simple chart's kinds table, tree building, search and the outline (templates).
 import assert from 'node:assert/strict';
 import type { KindNode } from '../src/services/orgStructureApi';
-import { ALLOWED_CHILDREN, DEFAULT_CHILD, TEMPLATES, buildTree, canContain, countBelow, matches, parseOutline, pathsToMatches } from '../src/components/admin/orgStructure/kinds/orgKinds';
+import { ALLOWED_CHILDREN, DEFAULT_CHILD, TEMPLATES, buildTree, canContain, countBelow, isSelfOrBelow, matches, moveTargets, parseOutline, pathsToMatches } from '../src/components/admin/orgStructure/kinds/orgKinds';
 
 // The same table as OrgNodeKinds.cs (Pairs): 5 allowed pairs.
 const pairs = (['org', 'unit', 'position'] as const).flatMap((p) => ALLOWED_CHILDREN[p].map((c) => `${p}>${c}`)).sort();
-assert.deepEqual(pairs, ['org>position', 'org>unit', 'position>position', 'unit>position', 'unit>unit']);
-assert.equal(canContain('position', 'unit'), false);
+assert.deepEqual(pairs, ['org>position', 'org>unit', 'position>position', 'position>unit', 'unit>position', 'unit>unit']);
+assert.equal(canContain('position', 'unit'), true, 'a position may hold units (a CEO with deputies)');
+assert.equal(canContain('unit', 'position'), true);
 assert.deepEqual(DEFAULT_CHILD, { org: 'unit', unit: 'position', position: 'position' });
 
 const node = (id: string, name: string, kind: 'unit' | 'position', parent: string | null, extra: Partial<KindNode> = {}): KindNode => ({
@@ -31,7 +32,27 @@ assert.deepEqual([...pathsToMatches(tree, 'حسابدار')].sort(), ['p1', 'u1'
 const ok = parseOutline('معاونت\n  سمت: مدیر\n    سمت: کارشناس', 'org');
 assert.deepEqual(ok.errors, []);
 assert.deepEqual(ok.lines.map((l) => [l.depth, l.kind]), [[0, 'unit'], [1, 'position'], [2, 'position']]);
-assert.equal(parseOutline('سمت: مدیر\n  معاونت').errors.length, 1, 'a unit under a position is refused');
+assert.deepEqual(parseOutline('سمت: مدیرعامل\n  معاونت\n    اداره کل').errors, [], 'units under a position are allowed');
 assert.equal(parseOutline('معاونت\n    سمت: مدیر').errors.length, 1, 'a jump of two levels is refused');
 for (const t of TEMPLATES) assert.deepEqual(parseOutline(t.text).errors, [], `template ${t.id} is valid`);
+
+// A bank chain: مجمع عمومی ← هیأت مدیره ← مدیرعامل ← معاونت ← اداره کل
+const chain = parseOutline('سمت: مجمع عمومی\n  سمت: هیأت مدیره\n    سمت: مدیرعامل\n      معاونت اعتباری\n        اداره کل وصول', 'org');
+assert.deepEqual(chain.errors, []);
+assert.deepEqual(chain.lines.map((l) => l.kind), ['position', 'position', 'position', 'unit', 'unit']);
+
+// Moving: never itself or what is below it; a unit may go under a position, a position under a unit.
+const tree2 = buildTree([
+  node('ceo', 'مدیرعامل', 'position', null),
+  node('d1', 'معاونت مالی', 'unit', null),
+  node('d1a', 'اداره کل حسابداری', 'unit', 'd1'),
+  node('d1p', 'مدیر مالی', 'position', 'd1'),
+], 'c1');
+const d1 = tree2.find((n) => n.id === 'd1')!;
+const targets = moveTargets(tree2, d1, 'بانک').map((t) => t.id);
+assert.ok(targets.includes(null), 'the organization (top) is a place');
+assert.ok(targets.includes('ceo'), 'a unit may go under the CEO (a position)');
+assert.ok(!targets.includes('d1') && !targets.includes('d1a') && !targets.includes('d1p'), 'never itself or below it');
+assert.equal(isSelfOrBelow(tree2, 'd1', 'd1a'), true);
+assert.equal(isSelfOrBelow(tree2, 'd1a', 'd1'), false);
 console.log('org kinds OK');

@@ -46,7 +46,9 @@ const PeopleField: React.FC<{ value: PersonChip[]; onChange: (next: PersonChip[]
   const add = (user: Found) => {
     if (!value.some((v) => v.userId === user.id)) onChange([...value, { userId: user.id, displayName: user.displayName }]);
     setQuery('');
-    setFound((prev) => prev.filter((f) => f.id !== user.id));
+    setFound([]);
+    // The list closes after each pick (it comes back when typing or focusing again), so the form below stays in view.
+    setOpen(false);
     inputRef.current?.focus();
   };
 
@@ -68,9 +70,10 @@ const PeopleField: React.FC<{ value: PersonChip[]; onChange: (next: PersonChip[]
         value={query}
         placeholder="جستجوی کاربر؛ Enter برای افزودن..."
         aria-label="جستجوی کاربر"
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => setOpen(true)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onClick={() => setOpen(true)}
         onKeyDown={(e) => {
+          if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); return; }
           if (e.key !== 'Enter' || e.shiftKey) return;
           e.preventDefault();
           e.stopPropagation();
@@ -102,9 +105,11 @@ export const KindNodeDialog: React.FC<{
   headAllowedUnder: boolean;
   /** Focus the people box first (from «+ شخص»). */
   focusPeople?: boolean;
+  /** What the save is doing now («ذخیره‌ی شخص ۲ از ۳»), shown beside the button. */
+  progress?: string | null;
   onSubmit: (values: KindFormValues, keepOpen: boolean) => Promise<void>;
   onClose: () => void;
-}> = ({ mode, parentKind, parentName, path, initial, headAllowedUnder, focusPeople, onSubmit, onClose }) => {
+}> = ({ mode, parentKind, parentName, path, initial, headAllowedUnder, focusPeople, progress, onSubmit, onClose }) => {
   const kinds = mode === 'edit' ? [initial!.kind] : ALLOWED_CHILDREN[parentKind];
   const [kind, setKind] = useState<OrgKind>(initial?.kind ?? DEFAULT_CHILD[parentKind]);
   const [text, setText] = useState(initial?.name ?? '');
@@ -145,11 +150,14 @@ export const KindNodeDialog: React.FC<{
         aria-modal="true"
         aria-label={title}
         dir="rtl"
-        className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 p-5 shadow-2xl max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl max-h-[90vh] flex flex-col"
         onKeyDown={(e) => { if (e.key === 'Escape' && !busy) { e.stopPropagation(); onClose(); } }}
       >
-        <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{title}</h3>
-        <p className="mt-1 mb-4 text-xs text-slate-500">{path.length > 0 ? path.join(' › ') : 'ریشه‌ی چارت'}</p>
+        <div className="shrink-0 px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{title}</h3>
+          <p className="mt-1 text-xs text-slate-500">{path.length > 0 ? path.join(' › ') : 'ریشه‌ی چارت'}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4" data-dialog-body>
         {error && <p role="alert" className="mb-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs px-3 py-2">{error}</p>}
 
         <div className="flex gap-2 mb-3" role="radiogroup" aria-label="نوع گره">
@@ -204,12 +212,14 @@ export const KindNodeDialog: React.FC<{
           </label>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
+        </div>
+        <div className="shrink-0 flex items-center gap-3 border-t border-slate-100 dark:border-slate-800 px-5 py-3 bg-white dark:bg-slate-900 rounded-b-2xl">
           {mode === 'add' && (
             <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
               <input type="checkbox" checked={keepOpen} onChange={(e) => setKeepOpen(e.target.checked)} className="accent-indigo-600" /> ثبت و افزودن بعدی
             </label>
           )}
+          {busy && progress && <span className="text-xs text-slate-500" role="status">{progress}</span>}
           <span className="flex-1" />
           <SecondaryButton type="button" onClick={onClose} disabled={busy}>انصراف</SecondaryButton>
           <PrimaryButton type="button" onClick={() => void send()} disabled={busy}>{busy && <Loader2 className="w-4 h-4 animate-spin" />} {mode === 'add' ? 'افزودن' : 'ذخیره'}</PrimaryButton>

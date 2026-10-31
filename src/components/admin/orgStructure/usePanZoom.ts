@@ -34,7 +34,16 @@ export function localRect(el: HTMLElement, content: HTMLElement) {
  * moves; a drag never counts as a click on the card under it. Lists inside the canvas marked
  * data-scrollable keep scrolling with the wheel while they can. `active`: the viewport is mounted.
  */
-export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean) {
+export interface PanZoomOptions {
+  /** 'zoom' (default): the wheel zooms. 'scroll': the wheel moves the chart (Shift: sideways) and Ctrl + wheel zooms. */
+  wheel?: 'zoom' | 'scroll';
+  /** A drag that starts on an element matching this does not pan (cards, buttons). */
+  noPan?: string;
+}
+
+export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean, options: PanZoomOptions = {}) {
+  const opts = useRef(options);
+  opts.current = options;
   const view = useRef<PanZoomView>({ x: 0, y: 0, s: 1 });
   const listeners = useRef(new Set<(view: PanZoomView) => void>());
   /** The user moved or zoomed since the chart opened (a resize then keeps their view). */
@@ -179,6 +188,15 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
       }
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      if (opts.current.wheel === 'scroll' && !e.ctrlKey) {
+        const { x, y, s } = view.current;
+        moved.current = true;
+        // Shift (or a sideways wheel) moves along, the plain wheel moves up and down.
+        const dx = e.shiftKey ? e.deltaY : e.deltaX;
+        const dy = e.shiftKey ? 0 : e.deltaY;
+        set({ x: x - dx * unit, y: y - dy * unit, s });
+        return;
+      }
       const p = local(e);
       // A pinch on a touchpad arrives as a wheel with ctrl held, in much smaller steps.
       zoomAt(p.x, p.y, Math.exp(-e.deltaY * unit * (e.ctrlKey ? 0.01 : 0.0015)));
@@ -187,6 +205,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if ((e.target as Element).closest('input, select, textarea')) return;
+      if (opts.current.noPan && (e.target as Element).closest(opts.current.noPan)) return;
       pointers.set(e.pointerId, local(e));
       if (pointers.size === 1) {
         start = local(e);
@@ -307,5 +326,9 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     };
   }, [active, clampScale, fit, home, set, viewport, zoomAt, zoomBy]);
 
-  return { fit, home, zoomBy, focus, subscribe };
+  /** The view as it is (to keep it while another drawing is shown) and putting one back. */
+  const getView = useCallback((): PanZoomView => ({ ...view.current }), []);
+  const setView = useCallback((next: PanZoomView) => { moved.current = true; set(next); }, [set]);
+
+  return { fit, home, zoomBy, focus, subscribe, getView, setView };
 }

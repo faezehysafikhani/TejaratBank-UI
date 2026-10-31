@@ -25,7 +25,7 @@ const boardView = params.get('view') === 'board' || params.get('view') === 'sect
 const sectionView = params.get('view') === 'section';
 // ?view=kinds: the simple chart (org / unit / position) on an in-memory mock; ?empty=1 starts with no organization.
 const kindsView = params.get('view') === 'kinds';
-if (kindsView) installKindsMock({ empty: params.get('empty') === '1' });
+if (kindsView) installKindsMock({ empty: params.get('empty') === '1', seed: Number(params.get('seed')) || 0 });
 
 if (boardView) {
   // This page only: the chart board's requests are answered from the mock, in memory (src/dev/orgMockServer.ts).

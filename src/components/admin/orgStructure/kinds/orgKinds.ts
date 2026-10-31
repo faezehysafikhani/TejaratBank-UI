@@ -2,7 +2,7 @@
 // scripts/check-org-kinds.ts keeps this file's rules honest). Pure functions only, so they can be checked.
 //   org      - «سازمان»: the company, the one root; nobody sits in it. Not a node.
 //   unit     - «واحد سازمانی» (e.g. a deputy): no person; may have a head (one of its direct positions).
-//   position - «سمت / پست سازمانی»: one or more people; only positions sit under it.
+//   position - «سمت / پست سازمانی»: one or more people; positions and units sit under it (a CEO with deputies).
 import type { KindNode, OrgKind } from '../../../../services/orgStructureApi';
 
 export type KindKey = 'org' | OrgKind;
@@ -17,7 +17,7 @@ export const KIND_INFO: Record<KindKey, { label: string; color: string; bg: stri
 export const ALLOWED_CHILDREN: Record<KindKey, OrgKind[]> = {
   org: ['unit', 'position'],
   unit: ['unit', 'position'],
-  position: ['position'],
+  position: ['position', 'unit'],
 };
 
 /** The kind that is pre-selected under each kind: under the organization a unit, under a unit a position, under a position a position. */
@@ -141,3 +141,27 @@ export const TEMPLATES: { id: 'small' | 'bank' | 'holding'; title: string; text:
     text: ['سمت: هیأت مدیره هلدینگ', 'شرکت الف', '  سمت: مدیرعامل شرکت الف', '  سمت: مالی', 'شرکت ب', '  سمت: مدیرعامل شرکت ب', 'شرکت ج'].join('\n'),
   },
 ];
+
+/** Whether `id` is `ancestorId` itself or below it (a node cannot be moved there: it would make a loop). */
+export function isSelfOrBelow(roots: KindTreeNode[], ancestorId: string, id: string): boolean {
+  let found = false;
+  walk(roots, (n) => { if (n.id === ancestorId) walk([n], (d) => { if (d.id === id) found = true; }); });
+  return found;
+}
+
+export interface MoveTarget { id: string | null; name: string; path: string; kind: KindKey }
+
+/** Where a node may go: the organization (top), or any node that may hold its kind - never itself or what is below it. */
+export function moveTargets(roots: KindTreeNode[], node: KindTreeNode, orgName: string): MoveTarget[] {
+  const list: MoveTarget[] = [{ id: null, name: orgName, path: orgName, kind: 'org' }];
+  const visit = (nodes: KindTreeNode[], trail: string[]) => {
+    for (const n of nodes) {
+      if (n.id === node.id) continue; // itself and everything under it
+      const path = [...trail, n.name];
+      if (canContain(n.kind, node.kind)) list.push({ id: n.id, name: n.name, path: path.join(' › '), kind: n.kind });
+      visit(n.children, path);
+    }
+  };
+  visit(roots, [orgName]);
+  return list;
+}

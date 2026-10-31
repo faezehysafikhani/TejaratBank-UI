@@ -4,13 +4,14 @@ import { toPersianDigits } from '../../../../utils/helpers';
 import { KIND_INFO, type KindTreeNode, officialOf } from './orgKinds';
 
 export interface KindActions {
-  can: { create: boolean; update: boolean; remove: boolean; assign: boolean };
+  can: { create: boolean; update: boolean; remove: boolean; assign: boolean; move: boolean };
   onAdd: (parent: KindTreeNode | null) => void;
   onEdit: (node: KindTreeNode, focusPeople?: boolean) => void;
   onRemovePerson: (node: KindTreeNode, userId: string) => void;
   onSetPrimary: (node: KindTreeNode, userId: string) => void;
   onToggleHead: (node: KindTreeNode, parent: KindTreeNode) => void;
   onDelete: (node: KindTreeNode) => void;
+  onMove: (node: KindTreeNode) => void;
 }
 
 const initial = (name: string) => (name.trim()[0] || '?').toUpperCase();

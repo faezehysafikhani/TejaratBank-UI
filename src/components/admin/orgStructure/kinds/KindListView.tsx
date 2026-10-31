@@ -1,6 +1,6 @@
 // «چارت مرتب»: the nested list the chart is built in. A «+» is always visible beside every node.
 import React from 'react';
-import { ChevronDown, ChevronLeft, Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, MoveRight, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { toPersianDigits } from '../../../../utils/helpers';
 import { KIND_INFO, type KindTreeNode, canHaveHead, countBelow, matches, self } from './orgKinds';
 import { HeadChip, PersonChips, type KindActions } from './kindsUi';
@@ -42,6 +42,7 @@ const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<K
             </button>
           )}
           {actions.can.update && <button type="button" onClick={() => actions.onEdit(node)} aria-label={`ویرایش ${node.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 cursor-pointer"><Pencil className="w-3.5 h-3.5" /> ویرایش</button>}
+          {actions.can.move && <button type="button" onClick={() => actions.onMove(node)} aria-label={`انتقال ${node.name}`} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 cursor-pointer"><MoveRight className="w-3.5 h-3.5" /> انتقال</button>}
           {actions.can.remove && (
             <button type="button" onClick={() => actions.onDelete(node)} aria-label={confirming ? `تأیید حذف ${node.name}` : `حذف ${node.name}`} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs cursor-pointer ${confirming ? 'bg-rose-100 text-rose-700 font-bold' : 'text-slate-500 hover:bg-slate-100'}`}>
               <Trash2 className="w-3.5 h-3.5" /> {confirming ? (below > 0 ? `مطمئنی؟ با ${toPersianDigits(below)} زیرمجموعه حذف` : 'مطمئنی؟ حذف') : ''}
