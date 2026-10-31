@@ -8,8 +8,10 @@ import { EmptyRow, LoadingRow, useLoad } from './orgShared';
 import { ChartSelection, allUnitsOf, ancestorsOf, companyHeadcount, companyPostsOf, depthsOf, findMember, findPosition, headPostOf, isNested, nodeCount, positionsOf, postTree, unitHeadcount, vacantCount } from './orgChartModel';
 import { NodeTypeIcon, safeColor } from './nodes/nodeTypeStyle';
 import { AddNodeDialog, MoveNodeDialog } from './nodes/NodeDialogs';
+import { QuickBuildDialog } from './nodes/QuickBuildDialog';
 import { AutoLinkChoiceDialog } from './nodes/LinkDialogs';
 import { addableTypes, checkMove } from './orgNodeRules';
+import { ensureSimpleKinds, hasSimpleKinds, typesToOffer } from './nodes/simpleKinds';
 import { atLeast, highestLevel, levelOf } from './orgUiLevel';
 import { PersonAvatar } from './PersonAvatar';
 import { TidyBoundary, TidyOrgChart } from './TidyOrgChart';
@@ -386,6 +388,20 @@ export const OrgChartBoard: React.FC<{
   /** A node being moved (dragged to a place, or from its «جابه‌جایی»), or being added under a node. */
   const [moveRequest, setMoveRequest] = useState<{ unitId: string; parentId?: string | null } | null>(null);
   const [addRequest, setAddRequest] = useState<{ parentId: string | null } | null>(null);
+  const [quickRequest, setQuickRequest] = useState<{ parentId: string | null } | null>(null);
+  /** «افزودن»: the first time, the two kinds (پست / سمت سازمانی) and their rules are made for the user. */
+  const requestAdd = async (parentId: string | null) => {
+    if (canNode(can, 'manageRules') && !hasSimpleKinds(data.data?.nodeTypes || [])) {
+      try { await ensureSimpleKinds(); await data.reload(); } catch (err) { console.error('Simple kinds could not be made:', err); }
+    }
+    setAddRequest({ parentId });
+  };
+  const requestQuick = async (parentId: string | null) => {
+    if (canNode(can, 'manageRules') && !hasSimpleKinds(data.data?.nodeTypes || [])) {
+      try { await ensureSimpleKinds(); await data.reload(); } catch (err) { console.error('Simple kinds could not be made:', err); return; }
+    }
+    setQuickRequest({ parentId });
+  };
   /** Dragging a card: which one, and the card it is over (with whether it may go there). */
   const [dragId, setDragId] = useState<string | null>(null);
   /** The card being dragged over, whether the node may go there, and (if not) why - shown while hovering. */
@@ -448,7 +464,7 @@ export const OrgChartBoard: React.FC<{
   const { fit, home, zoomBy, focus, subscribe } = usePanZoom(viewport, content, !!company && view === 'tree');
   const level = levelOf(company);
   // The display level only hides: simple has no node tools, advanced adds the secondary links.
-  const nodeApi = (data.data?.nodes.length ?? 0) > 0 && atLeast(level, 'normal') && !asOf;
+  const nodeApi = (data.data?.nodes.length ?? 0) > 0 && !asOf;
   const showLinks = atLeast(level, 'advanced');
   const rules = data.data?.nodeRules || [];
   const canMoveNodes = nodeApi && canNode(can, 'move');
@@ -1153,7 +1169,8 @@ export const OrgChartBoard: React.FC<{
         linkTypes={data.data?.linkTypes || []}
         rules={rules}
         onRequestMove={(unitId) => setMoveRequest({ unitId })}
-        onRequestAdd={(parentId) => setAddRequest({ parentId })}
+        onRequestAdd={(parentId) => { void requestAdd(parentId); }}
+        onRequestQuickBuild={(parentId) => { void requestQuick(parentId); }}
         selection={selection}
         onSelect={(next) => choose(next)}
         onChanged={data.reload}
@@ -1179,11 +1196,22 @@ export const OrgChartBoard: React.FC<{
       <AutoLinkChoiceDialog choices={linkChoices} onDone={data.reload} onClose={() => setLinkChoices(null)} />,
       document.body,
     )}
+    {quickRequest && createPortal(
+      <QuickBuildDialog
+        company={company}
+        parent={quickRequest.parentId ? unitById.get(quickRequest.parentId) ?? null : null}
+        types={data.data?.nodeTypes || []}
+        onDone={data.reload}
+        onClose={() => setQuickRequest(null)}
+      />,
+      document.body,
+    )}
     {addRequest && createPortal(
       <AddNodeDialog
         company={company}
         parent={addRequest.parentId ? unitById.get(addRequest.parentId) ?? null : null}
-        types={addableTypes(data.data?.nodeTypes || [], rules, addRequest.parentId ? unitById.get(addRequest.parentId) ?? null : null)}
+        types={typesToOffer(addableTypes(data.data?.nodeTypes || [], rules, addRequest.parentId ? unitById.get(addRequest.parentId) ?? null : null), data.data?.nodeTypes || [], company.uiLevel === 'advanced')}
+        people={data.data?.unplaced || []}
         onCreated={async (node) => {
           await data.reload();
           // Stay on the node the new one was added to, so more can be added there.

@@ -1,7 +1,8 @@
+import { hasSimpleKinds } from './nodes/simpleKinds';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Building2, Network, UserRound, Pencil, Plus, UserPlus, Zap, Loader2, Briefcase, LogOut, ArrowUp, ArrowDown, Trash2, Power, RefreshCw, GitBranch, Move, ChevronsUp, LayoutTemplate, Link2, GitMerge, History, UserCog, UserMinus,
+  Building2, Network, UserRound, Pencil, Plus, UserPlus, Zap, Loader2, Briefcase, LogOut, ArrowUp, ArrowDown, Trash2, Power, RefreshCw, GitBranch, Move, ChevronsUp, LayoutTemplate, Link2, GitMerge, History, UserCog, UserMinus, ListTree,
 } from 'lucide-react';
 import { AdminCard, AdminDialog, Field, Notice, PrimaryButton, SecondaryButton, StatusBadge, Toggle, inputClass } from '../AdminUi';
 import { userErrorMessage } from '../../../utils/errorMessages';
@@ -191,10 +192,14 @@ export const OrgChartDetails: React.FC<{
   /** Opens the move dialog of a node, or the add dialog under a node (null: at the top of the company). */
   onRequestMove?: (unitId: string) => void;
   onRequestAdd?: (parentId: string | null) => void;
+  /** Opens «ساخت سریع» (a whole branch typed as an indented list) under a node, or at the top of the company (null). */
+  onRequestQuickBuild?: (parentId: string | null) => void;
   selection: ChartSelection | null;
   onSelect: (selection: ChartSelection) => void;
   onChanged: () => Promise<void> | void;
-}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, selection, onSelect, onChanged }) => {
+}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, onRequestQuickBuild, selection, onSelect, onChanged }) => {
+  /** The two kinds (پست / سمت) are made by the first add; until then adding is open to whoever may manage the rules. */
+  const kindsToMake = !hasSimpleKinds(nodeTypes) && canNode(can, 'manageRules');
   const [dialog, setDialog] = useState<Dialog | null>(null);
   /** Dialogs that bring their own footer and steps: saving a template, adding or removing a link. */
   const [extra, setExtra] = useState<
@@ -326,17 +331,20 @@ export const OrgChartDetails: React.FC<{
                 setMessage({ type: 'error', text: userErrorMessage(err, 'دریافت اطلاعات شرکت ممکن نشد.') });
               }
             }} />}
-            {nodes.length === 0 && can(P.manageCompanies) && can(U.create) && <ActionTile icon={Plus} label="افزودن معاونت" onClick={() => setDialog({ kind: 'addUnit', company })} />}
+            {nodes.length === 0 && !(onRequestAdd && canNode(can, 'create')) && can(P.manageCompanies) && can(U.create) && <ActionTile icon={Plus} label="افزودن معاونت" onClick={() => setDialog({ kind: 'addUnit', company })} />}
             {atLeast(levelOf(company), 'advanced') && canNode(can, 'manageTemplates') && (
               <ActionTile icon={LayoutTemplate} label="ذخیره به‌عنوان قالب" onClick={() => setExtra({ kind: 'saveTemplate', company })} />
             )}
-            {nodes.length > 0 && canNode(can, 'create') && onRequestAdd && (
+            {canNode(can, 'create') && onRequestAdd && (
               <ActionTile
                 icon={Plus}
-                label="افزودن گره"
-                disabled={addableTypes(nodeTypes, rules, null).length === 0}
+                label="افزودن پست یا سمت"
+                disabled={!kindsToMake && addableTypes(nodeTypes, rules, null).length === 0}
                 onClick={() => onRequestAdd(null)}
               />
+            )}
+            {canNode(can, 'create') && onRequestQuickBuild && (
+              <ActionTile icon={ListTree} label="ساخت سریع" title="ساخت یک شاخه‌ی کامل از روی فهرست تورفته" disabled={!kindsToMake && !hasSimpleKinds(nodeTypes)} onClick={() => onRequestQuickBuild(null)} />
             )}
             {can(P.managePositions) && positions.some((p) => p.companyIds !== undefined) && <ActionTile icon={Briefcase} label="افزودن پست در شرکت" onClick={() => setDialog({ kind: 'addCompanyPost', company })} />}
           </QuickActions>
@@ -495,9 +503,12 @@ export const OrgChartDetails: React.FC<{
                 icon={Plus}
                 label="افزودن زیرمجموعه"
                 title="افزودن زیرمجموعه (روی کارت: کلید N)"
-                disabled={busy || unit.isActive === false || addableTypes(nodeTypes, rules, unit).length === 0}
+                disabled={busy || unit.isActive === false || (!kindsToMake && addableTypes(nodeTypes, rules, unit).length === 0)}
                 onClick={() => onRequestAdd(unit.unitId)}
               />
+            )}
+            {nodes.length > 0 && canNode(can, 'create') && onRequestQuickBuild && unit.isActive !== false && (
+              <ActionTile icon={ListTree} label="ساخت سریع" title="ساخت چند زیرمجموعه از روی فهرست تورفته" disabled={busy} onClick={() => onRequestQuickBuild(unit.unitId)} />
             )}
             {nodes.length > 0 && canNode(can, 'move') && onRequestMove && (
               <ActionTile icon={Move} label="جابه‌جایی" title="جابه‌جایی (روی کارت: کلید M)" disabled={busy} onClick={() => onRequestMove(unit.unitId)} />

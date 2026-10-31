@@ -5,11 +5,12 @@ import { Loader2 } from 'lucide-react';
 import { AdminDialog, Field, Notice, PrimaryButton, SecondaryButton, inputClass } from '../../AdminUi';
 import { userErrorMessage } from '../../../../utils/errorMessages';
 import { NexusApiError } from '../../../../services/nexusApi';
-import { type ChartCompany, type ChartUnit, type NodeType, type NodeTypeRule, type OrgNode, createNode, moveNode } from '../../../../services/orgStructureApi';
+import { type ChartCompany, type ChartUnit, type NodeType, type NodeTypeRule, type OrgNode, type UnplacedUser, createNode, moveNode, setAssignment, setNodeManager } from '../../../../services/orgStructureApi';
 import { allUnitsOf } from '../orgChartModel';
 import { moveTargets } from '../orgNodeRules';
 import { ImpactPreviewDialog } from './ImpactPreviewDialog';
 import { NodeTypeIcon, safeColor } from './nodeTypeStyle';
+import { SIMPLE_KINDS, kindOfType } from './simpleKinds';
 
 /** «افزودن گره»: a name and one of the types the rules allow at this place (the top, or under `parent`). */
 export const AddNodeDialog: React.FC<{
@@ -17,14 +18,18 @@ export const AddNodeDialog: React.FC<{
   /** null: at the top of the company. */
   parent: ChartUnit | null;
   types: NodeType[];
+  /** People with no place yet: a سمت سازمانی may be given one of them. */
+  people?: UnplacedUser[];
   onCreated: (node: OrgNode) => Promise<void> | void;
   onClose: () => void;
-}> = ({ company, parent, types, onCreated, onClose }) => {
+}> = ({ company, parent, types, people = [], onCreated, onClose }) => {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [typeId, setTypeId] = useState(types.length === 1 ? types[0].id : '');
+  const [personId, setPersonId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const chosenKind = kindOfType(types.find((t) => t.id === typeId));
 
   const save = async () => {
     setBusy(true);
@@ -37,6 +42,11 @@ export const AddNodeDialog: React.FC<{
         nodeTypeId: typeId || null,
         code: code.trim() || null,
       });
+      if (chosenKind === 'role' && personId) {
+        // The person holds the seat: they are its manager (so the people under it report to them) and sit in it.
+        await setNodeManager(node.id, personId, node.rowVersion);
+        await setAssignment(personId, { companyId: company.companyId, unitId: node.id, positionId: null, managerUserId: null });
+      }
       await onCreated(node);
       onClose();
     } catch (err) {
@@ -71,11 +81,21 @@ export const AddNodeDialog: React.FC<{
             );
           })}
         </div>
-        <p className="text-[11px] text-slate-500">فقط اجزایی که قاعده‌ی «سلسله‌مراتب مجاز» اینجا اجازه می‌دهد نشان داده می‌شود.</p>
+        {chosenKind
+          ? <p className="text-[11px] text-slate-500">{SIMPLE_KINDS[chosenKind].hint}</p>
+          : <p className="text-[11px] text-slate-500">فقط اجزایی که قاعده‌ی «سلسله‌مراتب مجاز» اینجا اجازه می‌دهد نشان داده می‌شود.</p>}
       </fieldset>
       <Field label="نام" required>
-        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus placeholder="مثلاً: اداره کل حسابداری" onKeyDown={(e) => { if (e.key === 'Enter' && name.trim() && typeId && !busy) save(); }} />
+        <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus placeholder={chosenKind === 'role' ? 'مثلاً: کارشناس فنی' : 'مثلاً: معاونت مالی'} onKeyDown={(e) => { if (e.key === 'Enter' && name.trim() && typeId && !busy) save(); }} />
       </Field>
+      {chosenKind === 'role' && (
+        <Field label="شخص (اختیاری)" hint="فقط کسانی که هنوز جایگاهی ندارند. خالی بماند، سمت بدون شخص (خالی) ساخته می‌شود.">
+          <select className={inputClass} value={personId} onChange={(e) => setPersonId(e.target.value)}>
+            <option value="">— بدون شخص —</option>
+            {people.map((u) => <option key={u.userId} value={u.userId}>{u.displayName}</option>)}
+          </select>
+        </Field>
+      )}
       <Field label="کد (اختیاری)" hint="در هر شرکت یکتاست، مثلاً کد شعبه.">
         <input className={`${inputClass} dir-ltr text-right`} value={code} onChange={(e) => setCode(e.target.value)} maxLength={40} />
       </Field>
