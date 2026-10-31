@@ -21,7 +21,7 @@ const GroupNode: React.FC<{ group: CompanyGroup; depth: number; canEdit: boolean
       </span>
       {!group.isActive && <StatusBadge tone="red">غیرفعال</StatusBadge>}
       <SecondaryButton type="button" onClick={() => onOpen(group.id)}><GitFork className="w-4 h-4" /> چارت</SecondaryButton>
-      {canEdit && <IconAction icon={Pencil} label={`تغییر شرکت مادر ${group.name}`} onClick={() => onEdit(group)} />}
+      {canEdit && <IconAction icon={Pencil} label={`تغییر سازمان بالادستی ${group.name}`} onClick={() => onEdit(group)} />}
     </div>
     {group.children.length > 0 && (
       <ul className="ms-6 mt-2 space-y-2 border-s-2 border-slate-200 dark:border-slate-700 ps-4">
@@ -58,10 +58,10 @@ export const OrgGroupPanel: React.FC<{ canEdit: boolean; onOpenCompany: (company
     try {
       await setCompanyParent(editing.id, parentId || null);
       setEditing(null);
-      setMessage(`شرکت مادر «${editing.name}» ذخیره شد.`);
+      setMessage(`سازمان بالادستی «${editing.name}» ذخیره شد.`);
       await data.reload();
     } catch (err) {
-      setError(userErrorMessage(err, 'تغییر شرکت مادر انجام نشد.'));
+      setError(userErrorMessage(err, 'تغییر سازمان بالادستی انجام نشد.'));
     } finally {
       setBusy(false);
     }
@@ -73,11 +73,11 @@ export const OrgGroupPanel: React.FC<{ canEdit: boolean; onOpenCompany: (company
       <AdminCard>
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-base font-extrabold text-slate-900 dark:text-white">چارت گروه</h3>
-          <p className="text-xs text-slate-500 mt-0.5">شرکت‌های یک هلدینگ زیر شرکت مادر. این فقط یک دسته‌بندی است: دسترسی‌ها، مدیرها و بقیه‌ی رفتار هر شرکت همان‌طور که بود می‌ماند.</p>
+          <p className="text-xs text-slate-500 mt-0.5">هر شرکت زیر سازمان بالادستی‌اش. این فقط یک دسته‌بندی است: دسترسی‌ها، مدیرها و بقیه‌ی رفتار هر شرکت همان‌طور که بود می‌ماند.</p>
         </div>
         {roots.length === 0 ? <EmptyRow>هنوز شرکتی تعریف نشده است.</EmptyRow> : (
           <div className="p-5 space-y-3">
-            {!grouped && <Notice type="info">هیچ شرکتی زیر شرکت دیگری نیست. با دکمه‌ی مداد، شرکت مادر یک شرکت را تعیین کنید (یا هنگام ساخت شرکت).</Notice>}
+            {!grouped && <Notice type="info">هیچ شرکتی زیر شرکت دیگری نیست. با دکمه‌ی مداد، سازمان بالادستی یک شرکت را تعیین کنید (یا هنگام ساخت شرکت).</Notice>}
             <ul className="space-y-3" data-testid="company-group">
               {roots.map((g) => <GroupNode key={g.id} group={g} depth={0} canEdit={canEdit} onOpen={onOpenCompany} onEdit={edit} />)}
             </ul>
@@ -85,14 +85,14 @@ export const OrgGroupPanel: React.FC<{ canEdit: boolean; onOpenCompany: (company
         )}
       </AdminCard>
       {editing && (
-        <AdminDialog title={`شرکت مادر «${editing.name}»`} onClose={() => !busy && setEditing(null)} footer={<>
+        <AdminDialog title={`سازمان بالادستی «${editing.name}»`} onClose={() => !busy && setEditing(null)} footer={<>
           <SecondaryButton type="button" onClick={() => setEditing(null)} disabled={busy}>انصراف</SecondaryButton>
           <PrimaryButton type="button" onClick={save} disabled={busy}>{busy && <Loader2 className="w-4 h-4 animate-spin" />} ذخیره</PrimaryButton>
         </>}>
           {error && <Notice type="error" onClose={() => setError(null)}>{error}</Notice>}
-          <Field label="شرکت مادر" hint="شرکتی که زیرمجموعه‌ی خودش نیست. خالی: شرکتی مستقل.">
+          <Field label="سازمان بالادستی" hint="سازمانی که زیرمجموعه‌ی همین شرکت نباشد. خالی: بدون سازمان بالادستی.">
             <select className={inputClass} value={parentId} onChange={(e) => setParentId(e.target.value)} autoFocus>
-              <option value="">بدون شرکت مادر</option>
+              <option value="">بدون سازمان بالادستی</option>
               {all.filter((x) => x.group.id !== editing.id && !descendantsOf(editing).includes(x.group.id)).map((x) => <option key={x.group.id} value={x.group.id}>{x.group.name}</option>)}
             </select>
           </Field>

@@ -99,15 +99,15 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       () => (draft.id
         ? updateNodeType(draft.id, { name: draft.name.trim(), color: draft.style.color, icon: draft.style.icon, isDomainBoundary: draft.isDomainBoundary, sortOrder: types.find((t) => t.id === draft.id)?.sortOrder ?? 0, isActive: draft.isActive })
         : createNodeType({ name: draft.name.trim(), color: draft.style.color, icon: draft.style.icon, isDomainBoundary: draft.isDomainBoundary })),
-      draft.id ? 'نوع گره ویرایش شد.' : 'نوع گره ساخته شد.',
-      'ذخیره‌ی نوع گره انجام نشد.',
+      draft.id ? 'جزء چارت ویرایش شد.' : 'جزء چارت ساخته شد.',
+      'ذخیره‌ی جزء چارت انجام نشد.',
     );
     if (ok) { setDraft(null); await data.reload(); }
   };
 
   const removeType = async (type: NodeType) => {
-    if (!(await appConfirm(`نوع «${type.name}» حذف شود؟`, { danger: true, confirmLabel: 'حذف' }))) return;
-    if (await act(() => deleteNodeType(type.id), 'نوع گره حذف شد.', 'حذف نوع گره انجام نشد.')) await data.reload();
+    if (!(await appConfirm(`جزء چارت «${type.name}» حذف شود؟`, { danger: true, confirmLabel: 'حذف' }))) return;
+    if (await act(() => deleteNodeType(type.id), 'جزء چارت حذف شد.', 'حذف جزء چارت انجام نشد.')) await data.reload();
   };
 
   if (data.loading && !data.data) return <AdminCard><LoadingRow /></AdminCard>;
@@ -120,14 +120,14 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">نوع گره‌ها</h3>
-            <p className="text-xs text-slate-500 mt-0.5">«معاونت»، «اداره کل»، «کمیته»… هر نوع رنگ و آیکون خودش را دارد. نوعی که «معاونت جدا» باشد، افراد زیرمجموعه‌اش را هم‌معاونت حساب می‌کند.</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">اجزای چارت</h3>
+            <p className="text-xs text-slate-500 mt-0.5">«معاونت»، «اداره کل»، «کمیته»… هر جزء رنگ و آیکون خودش را دارد. جزئی که «معاونت جدا» باشد، افراد زیرمجموعه‌اش را هم‌معاونت حساب می‌کند.</p>
           </div>
           <PrimaryButton onClick={() => setDraft({ name: '', style: { color: '#2563eb', icon: 'folder' }, isDomainBoundary: true, isActive: true })}>
-            <Plus className="w-4 h-4" /> نوع جدید
+            <Plus className="w-4 h-4" /> جزء جدید
           </PrimaryButton>
         </div>
-        {types.length === 0 ? <EmptyRow>هنوز نوعی تعریف نشده است؛ شرکت بدون نوع، ساختار مسطح دارد.</EmptyRow> : (
+        {types.length === 0 ? <EmptyRow>هنوز جزئی برای چارت تعریف نشده است؛ شرکت بدون اجزای چارت، ساختار مسطح دارد.</EmptyRow> : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {types.map((type) => (
               <div key={type.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
@@ -139,7 +139,7 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
                 {!type.isActive && <StatusBadge tone="red">غیرفعال</StatusBadge>}
                 <IconAction icon={Briefcase} label={`پست‌های پیش‌فرض ${type.name}`} onClick={() => setPatternOf(type)} />
                 <IconAction icon={Pencil} label={`ویرایش ${type.name}`} onClick={() => setDraft({ id: type.id, name: type.name, style: { color: type.color, icon: type.icon }, isDomainBoundary: type.isDomainBoundary, isActive: type.isActive })} />
-                <IconAction icon={Trash2} tone="rose" label={`حذف ${type.name}`} disabled={busy || type.nodeCount > 0} disabledReason="نوعی که گره‌ای از آن دارد حذف نمی‌شود" onClick={() => removeType(type)} />
+                <IconAction icon={Trash2} tone="rose" label={`حذف ${type.name}`} disabled={busy || type.nodeCount > 0} disabledReason="جزئی که گره‌ای از آن دارد حذف نمی‌شود" onClick={() => removeType(type)} />
               </div>
             ))}
           </div>
@@ -149,8 +149,8 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">چه زیر چه</h3>
-            <p className="text-xs text-slate-500 mt-0.5">هر ردیف یک نوع «والد» است؛ ستون‌هایی که تیک دارند، نوع‌هایی‌اند که می‌شود زیرش گذاشت. ردیف اول: مستقیم زیر شرکت. بدون هیچ تیکی، ساختار مسطح است.</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">سلسله‌مراتب مجاز</h3>
+            <p className="text-xs text-slate-500 mt-0.5">هر ردیف یک جزء «والد» است؛ ستون‌هایی که تیک دارند، اجزایی‌اند که می‌شود زیرش گذاشت. ردیف اول: مستقیم زیر شرکت. بدون هیچ تیکی، ساختار مسطح است.</p>
           </div>
           <div className="flex items-center gap-2">
             {dirty && <SecondaryButton onClick={() => setEdited(null)} disabled={busy}><Undo2 className="w-4 h-4" /> بازگرداندن</SecondaryButton>}
@@ -181,7 +181,7 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
             <table className="w-full min-w-[560px]" data-testid="conflicts">
               <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
                 <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">گره</th>
-                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">نوع</th>
+                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">جزء چارت</th>
                 <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">فعلاً زیر</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -202,7 +202,7 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
 
       {draft && (
         <AdminDialog
-          title={draft.id ? 'ویرایش نوع گره' : 'نوع گره‌ی جدید'}
+          title={draft.id ? 'ویرایش جزء چارت' : 'جزء جدید چارت'}
           onClose={() => !busy && setDraft(null)}
           footer={<>
             <SecondaryButton onClick={() => setDraft(null)} disabled={busy}>انصراف</SecondaryButton>
@@ -210,10 +210,10 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
           </>}
         >
           {message?.type === 'error' && <Notice type="error" onClose={() => setMessage(null)}>{message.text}</Notice>}
-          <Field label="نام نوع" required hint="مثلاً «معاونت»، «اداره کل»، «کمیته»"><input className={inputClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={120} autoFocus /></Field>
+          <Field label="نام جزء" required hint="مثلاً «معاونت»، «اداره کل»، «کمیته»"><input className={inputClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={120} autoFocus /></Field>
           <NodeTypeStylePicker value={draft.style} onChange={(style) => setDraft({ ...draft, style })} previewName={draft.name.trim() || 'نمونه'} />
           <Toggle checked={draft.isDomainBoundary} onChange={(v) => setDraft({ ...draft, isDomainBoundary: v })} label="معاونتِ جدا (مرز هم‌معاونت)" description="کارکنان یک گره از این نوع، «هم‌معاونت» حساب می‌شوند؛ گره‌ی دیگر جزو معاونت نزدیک‌ترین گره‌ی بالایی است که این‌طور باشد." />
-          {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="فعال" description="نوع غیرفعال برای گره‌ی تازه پیشنهاد نمی‌شود؛ گره‌های موجود می‌مانند." />}
+          {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="فعال" description="جزء غیرفعال برای گره‌ی تازه پیشنهاد نمی‌شود؛ گره‌های موجود می‌مانند." />}
         </AdminDialog>
       )}
     </div>

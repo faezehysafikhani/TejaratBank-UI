@@ -54,7 +54,7 @@ export const NodePostTools: React.FC<{ unit: ChartUnit; hasPattern: boolean; onC
           const result = await applyPostTemplates({ nodeId: unit.unitId });
           return `${toPersianDigits(result.created.length)} پست ساخته شد${result.skipped.length ? `؛ ${toPersianDigits(result.skipped.length)} ساخته نشد: ${result.skipped.map((s) => `${s.positionTitle || ''} (${s.reason})`).join('، ')}` : ''}.`;
         }, 'ساخت پست‌های پیش‌فرض انجام نشد.')}>
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} ساخت پست‌های پیش‌فرض این نوع
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} ساخت پست‌های پیش‌فرض این جزء
         </SecondaryButton>
       )}
       {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}

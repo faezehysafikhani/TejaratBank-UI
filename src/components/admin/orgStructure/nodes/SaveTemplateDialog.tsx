@@ -42,7 +42,7 @@ export const SaveTemplateDialog: React.FC<{
       {error && <Notice type="error" onClose={() => setError(null)}>{error}</Notice>}
       <Field label="نام قالب" required><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus /></Field>
       <Field label="توضیحات"><textarea rows={3} className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} /></Field>
-      <p className="text-[11px] leading-5 text-slate-500">نوع‌ها، قاعده‌ها، رابطه‌ها و گره‌های این شرکت کپی می‌شود (افراد کپی نمی‌شوند). بعداً هر شرکت تازه را می‌شود از آن ساخت.</p>
+      <p className="text-[11px] leading-5 text-slate-500">اجزای چارت، قاعده‌ها، رابطه‌ها و گره‌های این شرکت کپی می‌شود (افراد کپی نمی‌شوند). بعداً هر شرکت تازه را می‌شود از آن ساخت.</p>
     </AdminDialog>
   );
 };

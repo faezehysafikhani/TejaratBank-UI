@@ -139,7 +139,7 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">رابطه‌ی خودکار</h3>
-            <p className="text-xs text-slate-500 mt-0.5">وقتی گره‌ای از نوع مبدأ ساخته شود، خودش به گره‌ی نوع مقصد وصل می‌شود (اگر چند گره‌ی مقصد باشد، از شما می‌پرسد). فقط برای گره‌های تازه است؛ گره‌های موجود را با «پیش‌نمایش اجرا» می‌شود یک‌جا وصل کرد.</p>
+            <p className="text-xs text-slate-500 mt-0.5">وقتی گره‌ای از جزء مبدأ ساخته شود، خودش به گره‌ی جزء مقصد وصل می‌شود (اگر چند گره‌ی مقصد باشد، از شما می‌پرسد). فقط برای گره‌های تازه است؛ گره‌های موجود را با «پیش‌نمایش اجرا» می‌شود یک‌جا وصل کرد.</p>
           </div>
           {canManageTypes && (
             <div className="flex items-center gap-2">
@@ -152,16 +152,16 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
           {rules.length === 0 && <p className="text-sm text-slate-500">قاعده‌ای نیست.</p>}
           {rules.map((rule, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2" data-testid="auto-rule">
-              <select aria-label="نوع مبدأ" disabled={!canManageTypes} className={`${inputClass} w-44`} value={rule.sourceNodeTypeId} onChange={(e) => setEdited(rules.map((r, j) => (j === i ? { ...r, sourceNodeTypeId: e.target.value } : r)))}>
-                <option value="">نوع مبدأ…</option>{nodeTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <select aria-label="جزء مبدأ" disabled={!canManageTypes} className={`${inputClass} w-44`} value={rule.sourceNodeTypeId} onChange={(e) => setEdited(rules.map((r, j) => (j === i ? { ...r, sourceNodeTypeId: e.target.value } : r)))}>
+                <option value="">جزء مبدأ…</option>{nodeTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <ArrowLeft className="w-4 h-4 text-slate-400" aria-hidden="true" />
               <select aria-label="نوع رابطه" disabled={!canManageTypes} className={`${inputClass} w-44`} value={rule.linkTypeId} onChange={(e) => setEdited(rules.map((r, j) => (j === i ? { ...r, linkTypeId: e.target.value } : r)))}>
                 <option value="">نوع رابطه…</option>{linkTypes.filter((t) => t.isActive || t.id === rule.linkTypeId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               <ArrowLeft className="w-4 h-4 text-slate-400" aria-hidden="true" />
-              <select aria-label="نوع مقصد" disabled={!canManageTypes} className={`${inputClass} w-44`} value={rule.targetNodeTypeId} onChange={(e) => setEdited(rules.map((r, j) => (j === i ? { ...r, targetNodeTypeId: e.target.value } : r)))}>
-                <option value="">نوع مقصد…</option>{nodeTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              <select aria-label="جزء مقصد" disabled={!canManageTypes} className={`${inputClass} w-44`} value={rule.targetNodeTypeId} onChange={(e) => setEdited(rules.map((r, j) => (j === i ? { ...r, targetNodeTypeId: e.target.value } : r)))}>
+                <option value="">جزء مقصد…</option>{nodeTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               {canManageTypes && <IconAction icon={Trash2} tone="rose" label="حذف قاعده" onClick={() => setEdited(rules.filter((_, j) => j !== i))} />}
             </div>

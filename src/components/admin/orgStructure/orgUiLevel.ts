@@ -8,7 +8,7 @@ const RANK: Record<OrgUiLevel, number> = { simple: 0, normal: 1, advanced: 2 };
 
 export const UI_LEVELS: { id: OrgUiLevel; title: string; hint: string }[] = [
   { id: 'simple', title: 'ساده', hint: 'فقط پست و کاربر.' },
-  { id: 'normal', title: 'معمولی', hint: 'واحد و نوع گره، افزودن و کشیدن و رها کردن.' },
+  { id: 'normal', title: 'معمولی', hint: 'واحد و اجزای چارت، افزودن و کشیدن و رها کردن.' },
   { id: 'advanced', title: 'پیشرفته', hint: 'رابطه‌ی فرعی (مافوق دوم)، قواعد، قالب‌ها.' },
 ];
 

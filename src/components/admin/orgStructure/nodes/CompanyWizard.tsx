@@ -77,9 +77,9 @@ export const CompanyWizard: React.FC<{
           </div>
           <Field label="توضیحات"><textarea rows={3} className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
           {parentChoices && parentChoices.length > 0 && (
-            <Field label="شرکت مادر (اختیاری)" hint="برای هلدینگ: این شرکت زیر شرکت مادر در «چارت گروه» می‌آید. فقط دسته‌بندی است.">
+            <Field label="سازمان بالادستی (اختیاری)" hint="این شرکت زیر سازمان بالادستی‌اش در «چارت گروه» می‌آید. فقط دسته‌بندی است.">
               <select className={inputClass} value={parentId} onChange={(e) => setParentId(e.target.value)}>
-                <option value="">بدون شرکت مادر</option>
+                <option value="">بدون سازمان بالادستی</option>
                 {parentChoices.filter((c) => c.isActive).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
@@ -98,7 +98,7 @@ export const CompanyWizard: React.FC<{
                   <input type="radio" name="company-template" className="sr-only" checked={chosen} onChange={() => setTemplateId(t.id)} />
                   <span className="flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white"><LayoutTemplate className="w-4 h-4 text-indigo-600" /> {t.name}{!t.isSystem && <span className="text-[10px] font-bold text-emerald-700">(قالب شما)</span>}</span>
                   {t.description && <span className="block mt-1 text-[11px] leading-5 text-slate-500 line-clamp-3">{t.description}</span>}
-                  {t.id && <span className="block mt-1.5 text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} گره · {toPersianDigits(t.nodeTypeCount)} نوع · سطح نمایش {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>}
+                  {t.id && <span className="block mt-1.5 text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} گره · {toPersianDigits(t.nodeTypeCount)} جزء چارت · سطح نمایش {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>}
                 </label>
               );
             })}
@@ -111,9 +111,9 @@ export const CompanyWizard: React.FC<{
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
             <dt className="text-slate-500">نام</dt><dd className="font-bold">{name.trim()}</dd>
             <dt className="text-slate-500">کد</dt><dd className="font-bold dir-ltr text-right">{code.trim()}</dd>
-            {parentId && parentChoices && <><dt className="text-slate-500">شرکت مادر</dt><dd className="font-bold">{parentChoices.find((c) => c.id === parentId)?.name}</dd></>}
+            {parentId && parentChoices && <><dt className="text-slate-500">سازمان بالادستی</dt><dd className="font-bold">{parentChoices.find((c) => c.id === parentId)?.name}</dd></>}
             <dt className="text-slate-500">قالب</dt><dd className="font-bold">{template ? template.name : 'شرکت خالی'}</dd>
-            {template && template.nodeCount > 0 && <><dt className="text-slate-500">ساخته می‌شود</dt><dd>{toPersianDigits(template.nodeCount)} گره با {toPersianDigits(template.nodeTypeCount)} نوع، قاعده‌های «چه زیر چه» و رابطه‌های خودکار آن</dd></>}
+            {template && template.nodeCount > 0 && <><dt className="text-slate-500">ساخته می‌شود</dt><dd>{toPersianDigits(template.nodeCount)} گره با {toPersianDigits(template.nodeTypeCount)} جزء چارت، قاعده‌های «سلسله‌مراتب مجاز» و رابطه‌های خودکار آن</dd></>}
           </dl>
           <p className="text-[11px] leading-5 text-slate-500">قالب فقط کپی می‌شود و بعد از ساخت به آن وصل نیست. پست‌ها و افراد را بعد از ساخت در چارت اضافه کنید.</p>
         </div>

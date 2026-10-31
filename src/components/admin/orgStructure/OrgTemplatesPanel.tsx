@@ -6,7 +6,8 @@ import { toPersianDigits } from '../../../utils/helpers';
 import { appConfirm } from '../../../utils/appDialog';
 import { type StructureTemplate, type TemplateNode, type TemplateNodeType, deleteTemplate, getTemplate, listTemplates } from '../../../services/orgStructureApi';
 import { EmptyRow, LoadingRow, useLoad } from './orgShared';
-import { CompanyWizard, UI_LEVEL_TITLES } from './nodes/CompanyWizard';
+import { UI_LEVEL_TITLES } from './nodes/CompanyWizard';
+import { CompanyFormDialog } from './nodes/CompanyFormDialog';
 import { NodeTypeIcon, safeColor } from './nodes/nodeTypeStyle';
 
 const TemplateTree: React.FC<{ nodes: TemplateNode[]; types: Map<string, TemplateNodeType>; depth?: number }> = ({ nodes, types, depth = 0 }) => (
@@ -76,7 +77,7 @@ export const OrgTemplatesPanel: React.FC<{ canManageTemplates: boolean; canCreat
                   <LayoutTemplate className="w-5 h-5 text-indigo-600 shrink-0" />
                   <button type="button" onClick={() => setOpenId(openId === t.id ? null : t.id)} aria-expanded={openId === t.id} className="min-w-0 flex-1 text-right cursor-pointer">
                     <span className="block text-sm font-extrabold text-slate-900 dark:text-slate-100">{t.name}</span>
-                    <span className="block text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} گره · {toPersianDigits(t.nodeTypeCount)} نوع · سطح {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>
+                    <span className="block text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} گره · {toPersianDigits(t.nodeTypeCount)} جزء چارت · سطح {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>
                   </button>
                   <StatusBadge tone={t.isSystem ? 'slate' : 'green'}>{t.isSystem ? 'آماده' : 'قالب شما'}</StatusBadge>
                   {canCreateCompany && <IconAction icon={Plus} label={`ساخت شرکت با ${t.name}`} onClick={() => setWizardFor(t.id)} />}
@@ -96,10 +97,10 @@ export const OrgTemplatesPanel: React.FC<{ canManageTemplates: boolean; canCreat
         )}
       </AdminCard>
       {wizardFor !== undefined && (
-        <CompanyWizard
+        <CompanyFormDialog
           templates={templates}
           initialTemplateId={wizardFor}
-          onCreated={() => setMessage({ type: 'success', text: 'شرکت ساخته شد. در «چارت سازمانی» ببینیدش.' })}
+          onSaved={() => setMessage({ type: 'success', text: 'شرکت ساخته شد. در «چارت سازمانی» ببینیدش.' })}
           onClose={() => setWizardFor(undefined)}
         />
       )}

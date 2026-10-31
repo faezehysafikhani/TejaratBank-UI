@@ -1,5 +1,5 @@
 // «پست‌های پیش‌فرض» of a node type: the posts every node of the type gets (e.g. a «معاون» as its
-// manager post). Saving the pattern changes no node; «اجرا روی همه‌ی این نوع» makes the posts the
+// manager post). Saving the pattern changes no node; «اجرا روی همه‌ی این جزء» makes the posts the
 // nodes lack - running it again makes nothing - and says which it could not make.
 import React, { useState } from 'react';
 import { ArrowDown, ArrowUp, Crown, Loader2, Play, Plus, Trash2 } from 'lucide-react';
@@ -70,13 +70,13 @@ export const PostPatternDialog: React.FC<{
       onClose={() => !busy && onClose()}
       footer={<>
         <SecondaryButton type="button" onClick={onClose} disabled={busy}>بستن</SecondaryButton>
-        {canApply && <SecondaryButton type="button" onClick={apply} disabled={busy || type.nodeCount === 0}><Play className="w-4 h-4" /> اجرا روی همه‌ی این نوع</SecondaryButton>}
+        {canApply && <SecondaryButton type="button" onClick={apply} disabled={busy || type.nodeCount === 0}><Play className="w-4 h-4" /> اجرا روی همه‌ی این جزء</SecondaryButton>}
         {canSave && <PrimaryButton type="button" onClick={save} disabled={busy || !dirty}>{busy && <Loader2 className="w-4 h-4 animate-spin" />} ذخیره</PrimaryButton>}
       </>}
     >
       {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
       {data.error && <Notice type="error">{data.error}</Notice>}
-      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">هر گره‌ی تازه از این نوع، این پست‌ها را می‌گیرد. «پست مدیر» (حداکثر یکی) پستی است که مدیر گره را می‌سازد و پست‌های دیگر زیر آن می‌روند.</p>
+      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">هر گره‌ی تازه از این جزء، این پست‌ها را می‌گیرد. «پست مدیر» (حداکثر یکی) پستی است که مدیر گره را می‌سازد و پست‌های دیگر زیر آن می‌روند.</p>
       {current.length === 0 ? <p className="text-sm text-slate-400">هنوز پستی تعریف نشده است.</p> : (
         <ul className="space-y-1" data-testid="pattern-posts">
           {current.map((row, i) => (

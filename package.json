@@ -7,6 +7,7 @@
     "check:permissions": "node scripts/check-permission-prerequisites.mjs",
     "check:org-mocks": "tsx scripts/check-org-mocks.ts",
     "check:org-rules": "tsx scripts/check-org-rules.ts",
+    "check:org-tidy": "tsx scripts/check-org-tidy.ts",
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",

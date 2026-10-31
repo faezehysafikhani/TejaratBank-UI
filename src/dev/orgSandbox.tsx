@@ -112,7 +112,7 @@ const Sandbox: React.FC = () => {
         </div>
       </Section>
 
-      <Section id="rules" title="چه زیر چه">
+      <Section id="rules" title="سلسله‌مراتب مجاز">
         <NodeTypeRulesMatrix types={types} rules={rules} onChange={setRules} usage={usage} />
         <p className="text-xs text-slate-500" data-testid="rule-count">{rules.length} قاعده</p>
       </Section>

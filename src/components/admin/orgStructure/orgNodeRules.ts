@@ -40,7 +40,7 @@ export function checkMove(unit: ChartUnit, target: ChartUnit | null, rules: Node
   const childType = unit.nodeType?.nodeTypeId;
   const parentType = target?.nodeType?.nodeTypeId ?? null;
   if (!canNestType(rules, childType, parentType)) {
-    if (rules.length === 0) return { ok: false, reason: 'هنوز قاعده‌ای برای «چه زیر چه» تعریف نشده است؛ ساختار مسطح است.' };
+    if (rules.length === 0) return { ok: false, reason: 'هنوز قاعده‌ای برای «سلسله‌مراتب مجاز» تعریف نشده است؛ ساختار مسطح است.' };
     const childName = unit.nodeType?.name || 'این گره';
     return { ok: false, reason: target ? `«${childName}» را نمی‌شود زیر «${target.nodeType?.name || target.name}» گذاشت.` : `«${childName}» را نمی‌شود در بالاترین سطح گذاشت.` };
   }

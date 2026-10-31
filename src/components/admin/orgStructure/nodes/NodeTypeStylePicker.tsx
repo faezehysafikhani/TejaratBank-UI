@@ -27,7 +27,7 @@ export const NodeTypeStylePicker: React.FC<{
     <div className={`space-y-3 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       <div>
         <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">رنگ</span>
-        <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="رنگ نوع گره">
+        <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="رنگ جزء چارت">
           {NODE_TYPE_COLORS.map((c) => (
             <button
               key={c}
@@ -59,7 +59,7 @@ export const NodeTypeStylePicker: React.FC<{
 
       <div>
         <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">آیکون</span>
-        <div className="grid grid-cols-7 sm:grid-cols-11 gap-1.5" role="radiogroup" aria-label="آیکون نوع گره">
+        <div className="grid grid-cols-7 sm:grid-cols-11 gap-1.5" role="radiogroup" aria-label="آیکون جزء چارت">
           {Object.entries(NODE_TYPE_ICONS).map(([name, { label }]) => (
             <button
               key={name}
