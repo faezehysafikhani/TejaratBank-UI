@@ -1,7 +1,8 @@
 // Checks the simple chart's kinds table, tree building, search and the outline (templates).
 import assert from 'node:assert/strict';
 import type { KindNode } from '../src/services/orgStructureApi';
-import { ALLOWED_CHILDREN, DEFAULT_CHILD, TEMPLATES, buildTree, canContain, countBelow, isSelfOrBelow, matches, moveTargets, parseOutline, pathsToMatches } from '../src/components/admin/orgStructure/kinds/orgKinds';
+import { centerTop, clampScale, fitScaleFor, isInSight, zoomAround } from '../src/components/admin/orgStructure/panMath';
+import { ALLOWED_CHILDREN, DEFAULT_CHILD, TEMPLATES, buildTree, canContain, countBelow, inListOrder, isSelfOrBelow, leafColumns, matches, moveTargets, parseOutline, pathsToMatches, rankTargets, serverOrder, splitChildren } from '../src/components/admin/orgStructure/kinds/orgKinds';
 
 // The same table as OrgNodeKinds.cs (Pairs): 5 allowed pairs.
 const pairs = (['org', 'unit', 'position'] as const).flatMap((p) => ALLOWED_CHILDREN[p].map((c) => `${p}>${c}`)).sort();
@@ -55,4 +56,59 @@ assert.ok(targets.includes('ceo'), 'a unit may go under the CEO (a position)');
 assert.ok(!targets.includes('d1') && !targets.includes('d1a') && !targets.includes('d1p'), 'never itself or below it');
 assert.equal(isSelfOrBelow(tree2, 'd1', 'd1a'), true);
 assert.equal(isSelfOrBelow(tree2, 'd1a', 'd1'), false);
+
+// ---- zoom around the pointer: the content point under the pointer stays under it
+const v0 = { x: 40, y: 20, s: 0.5 };
+const z = zoomAround(v0, 300, 200, 2, 0.1, 2);
+assert.equal(z.s, 1);
+assert.equal(z.x + ((300 - v0.x) / v0.s) * z.s, 300, 'the point under the pointer stays (x)');
+assert.equal(z.y + ((200 - v0.y) / v0.s) * z.s, 200, 'the point under the pointer stays (y)');
+assert.equal(zoomAround(v0, 0, 0, 100, 0.1, 2).s, 2, 'at most 200%');
+assert.equal(zoomAround(v0, 0, 0, 0.001, 0.1, 2).s, 0.1, 'at least 10%');
+assert.equal(clampScale(5, 0.1, 2), 2);
+
+// ---- fit and centring
+assert.equal(fitScaleFor({ w: 500, h: 300 }, { w: 1000, h: 700 }, 24, 24), 1, 'a small chart is not enlarged');
+const fitBig = fitScaleFor({ w: 4000, h: 1000 }, { w: 1000, h: 600 }, 24, 24);
+assert.ok(Math.abs(fitBig - (1000 - 48) / 4000) < 1e-9, 'a wide chart is fitted by its width');
+assert.equal(fitScaleFor({ w: 0, h: 0 }, { w: 1000, h: 600 }, 24, 24), 1, 'no size yet: no change');
+const c = centerTop({ x: 900, y: 10, w: 100, h: 50 }, 0.5, { w: 800 }, 24);
+assert.equal(c.x + 950 * 0.5, 400, 'the card is in the middle');
+assert.equal(c.y + 10 * 0.5, 24, 'and at the top');
+assert.equal(isInSight({ x: 0, y: 0, s: 1 }, { w: 100, h: 100 }, { w: 500, h: 500 }), true);
+assert.equal(isInSight({ x: 600, y: 0, s: 1 }, { w: 100, h: 100 }, { w: 500, h: 500 }), false, 'a chart off the canvas is not in sight (it would show empty)');
+
+// ---- what the tree draws under a node: branches first, leaves after (a grid when there are many)
+const kid = (id: string, name: string, kids: string[] = []) => ({ ...node(id, name, 'position', 'p'), children: kids.map((k) => ({ ...node(k, k, 'position', id), children: [] })) });
+const nineteen = [
+  ...Array.from({ length: 10 }, (_, i) => kid(`l${i}`, `مشاور ${i}`)),
+  ...Array.from({ length: 9 }, (_, i) => kid(`u${i}`, `معاونت ${i}`, ['x'])),
+];
+const split = splitChildren(nineteen);
+assert.equal(split.branches.length, 9);
+assert.equal(split.leaves.length, 10);
+assert.equal(split.grid, true, 'more than six children: the leaves are a block');
+assert.deepEqual(split.branches.map((b) => b.id), nineteen.filter((n) => n.children.length).map((n) => n.id), 'units come first, in order');
+assert.equal(splitChildren(nineteen.slice(0, 2)).grid, false, 'two children stay in a row');
+assert.equal(splitChildren(nineteen.slice(0, 4)).grid, true, 'four leaves under a node make a block (a narrow chart)');
+assert.equal(splitChildren([nineteen[10], nineteen[11], ...nineteen.slice(0, 3)]).grid, false, 'two branches and three leaves: five children stay in a row');
+assert.equal(leafColumns(3), 1);
+assert.equal(leafColumns(10), 2);
+assert.equal(leafColumns(100), 4, 'at most four columns');
+
+// ---- order: the server's order, and several moving together keep the list's order
+const sibs = [node('a', 'ب', 'unit', null, { sortOrder: 2 }), node('b', 'الف', 'unit', null, { sortOrder: 0 }), node('c', 'ج', 'unit', null, { sortOrder: 1 })].map((n) => ({ ...n, children: [] }));
+assert.deepEqual(serverOrder(sibs).map((n) => n.id), ['b', 'c', 'a']);
+assert.deepEqual(inListOrder(serverOrder(sibs), new Set(['a', 'b'])).map((n) => n.id), ['b', 'a'], 'the order of the list, not of the clicks');
+
+// ---- move search: the node's own name first
+const ranked = rankTargets([
+  { name: 'اداره کل', path: 'مدیرعامل › اداره کل' },
+  { name: 'معاونت', path: 'مدیرعامل › معاونت' },
+  { name: 'مدیرعامل', path: 'مجمع › مدیرعامل' },
+  { name: 'مشاور', path: 'مدیرعامل › مشاور' },
+], 'مدیرعامل');
+assert.equal(ranked[0].name, 'مدیرعامل', 'the node named so comes before the nodes only below it');
+assert.equal(ranked.length, 4);
+assert.equal(rankTargets([{ name: 'الف', path: 'ب' }], 'zzz').length, 0);
 console.log('org kinds OK');

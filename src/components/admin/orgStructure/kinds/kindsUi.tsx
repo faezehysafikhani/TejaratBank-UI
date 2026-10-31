@@ -12,6 +12,8 @@ export interface KindActions {
   onToggleHead: (node: KindTreeNode, parent: KindTreeNode) => void;
   onDelete: (node: KindTreeNode) => void;
   onMove: (node: KindTreeNode) => void;
+  /** Puts the node at this place (from 0) among the nodes beside it, in the server's order. */
+  onReorder: (node: KindTreeNode, toIndex: number) => void;
 }
 
 const initial = (name: string) => (name.trim()[0] || '?').toUpperCase();

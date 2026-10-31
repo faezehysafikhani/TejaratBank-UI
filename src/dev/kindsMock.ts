@@ -8,7 +8,7 @@ const problem = (status: number, message: string) => new Response(JSON.stringify
 
 const USERS = ['نیما قهرمانیان', 'سارا احمدی', 'علی رضایی', 'مریم کریمی', 'حسین موسوی', 'زهرا صادقی'].map((displayName, i) => ({ id: `u${i + 1}`, displayName }));
 
-export function installKindsMock(options: { empty?: boolean; seed?: number } = {}): { nodes: () => KindNode[] } {
+export function installKindsMock(options: { empty?: boolean; seed?: number; bank?: boolean } = {}): { nodes: () => KindNode[] } {
   const TYPE_UNIT = 'type-unit';
   const TYPE_POSITION = 'type-position';
   const companies = options.empty ? [] : [
@@ -37,6 +37,21 @@ export function installKindsMock(options: { empty?: boolean; seed?: number } = {
     }
   }
 
+  // ?bank=1: a chart like the real one (53 nodes): a chain of positions, then the CEO with 19 children - 9 units that each have branches, and 10 positions.
+  if (options.bank && companies.length) {
+    const add = (name: string, kind: 'unit' | 'position', parent: string | null) => { const n: KindNode = { id: `n${seq++}`, name, kind, parentNodeId: parent, companyId: parent ? null : 'c1', isActive: true, sortOrder: nodes.length, rowVersion: '1', headNodeId: null, persons: [] }; nodes.push(n); return n; };
+    const assembly = add('مجمع عمومی', 'position', null);
+    const board = add('هیأت مدیره', 'position', assembly.id);
+    const ceo = add('مدیرعامل', 'position', board.id);
+    ceo.persons.push({ userId: 'u1', displayName: USERS[0].displayName, isPrimary: true });
+    const units = ['معاونت اعتباری و بین‌الملل', 'معاونت فناوری اطلاعات', 'معاونت مالی و سرمایه‌گذاری', 'مدیریت امور استان‌ها و مناطق', 'بانکداری شرکتی و بازاریابی', 'بازرسی و نظارت و صیانت از مشتریان', 'حراست', 'معاونت سازمان و برنامه‌ریزی', 'معاونت توسعه سرمایه انسانی و پشتیبانی'];
+    for (const [i, name] of units.entries()) {
+      const unit = add(name, 'unit', ceo.id);
+      for (let j = 1; j <= (i < 4 ? 4 : 3); j++) add(`اداره کل ${j} — ${name.split(' ')[0]}`, 'position', unit.id);
+    }
+    for (let j = 1; j <= 10; j++) add(`مشاور مدیرعامل ${j}`, 'position', ceo.id);
+  }
+
   const handle = async (url: URL, init?: RequestInit): Promise<Response | null> => {
     const method = (init?.method || 'GET').toUpperCase();
     const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -60,6 +75,14 @@ export function installKindsMock(options: { empty?: boolean; seed?: number } = {
       const node: KindNode = { id: `n${seq++}`, name: body.name, kind, parentNodeId: body.parentNodeId ?? null, companyId: body.parentNodeId ? null : body.companyId, isActive: true, sortOrder: nodes.length, rowVersion: '1', headNodeId: null, persons: [] };
       nodes.push(node);
       return json(orgNode(node));
+    }
+    const reorderMatch = path.match(/^\/nodes\/([^/]+)\/reorder$/);
+    if (reorderMatch && method === 'POST') {
+      const n = find(reorderMatch[1]); if (!n) return problem(404, 'گره پیدا نشد.');
+      const sibs = nodes.filter((x) => x.isActive && x.parentNodeId === n.parentNodeId && (n.parentNodeId || x.companyId === n.companyId)).sort((a, b) => a.sortOrder - b.sortOrder);
+      sibs.splice(sibs.indexOf(n), 1); sibs.splice(Math.max(0, Math.min(sibs.length, body.position)), 0, n);
+      sibs.forEach((x, i) => { x.sortOrder = i; });
+      return json(orgNode(n));
     }
     const moveMatch = path.match(/^\/nodes\/([^/]+)\/move$/);
     if (moveMatch && method === 'POST') {

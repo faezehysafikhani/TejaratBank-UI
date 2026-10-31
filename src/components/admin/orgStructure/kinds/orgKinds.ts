@@ -165,3 +165,40 @@ export function moveTargets(roots: KindTreeNode[], node: KindTreeNode, orgName: 
   visit(roots, [orgName]);
   return list;
 }
+
+/** A node with more children than this - or with nothing but leaves under it - draws the leaves as a block (a column grid) instead of one long row. */
+export const SPREAD_ABOVE = 6;
+export const MIN_LEAVES_FOR_BLOCK = 3;
+export const LEAVES_PER_COLUMN = 6;
+export const MAX_COLUMNS = 4;
+
+/** What the tree draws under a node: the nodes that have children first (each a branch of its own), then the leaves; each group in its order. */
+export function splitChildren(children: KindTreeNode[]): { branches: KindTreeNode[]; leaves: KindTreeNode[]; grid: boolean } {
+  const branches = children.filter((c) => c.children.length > 0);
+  const leaves = children.filter((c) => c.children.length === 0);
+  const grid = leaves.length >= MIN_LEAVES_FOR_BLOCK && (children.length > SPREAD_ABOVE || branches.length === 0);
+  return { branches, leaves, grid };
+}
+
+/** How many columns a block of leaves has: six to a column, at most four columns. */
+export const leafColumns = (count: number): number => Math.min(MAX_COLUMNS, Math.max(1, Math.ceil(count / LEAVES_PER_COLUMN)));
+
+/** The nodes in the order the server keeps them (its sortOrder), which is what a «move to position» counts in. */
+export const serverOrder = (nodes: KindTreeNode[]): KindTreeNode[] => [...nodes].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'fa'));
+
+/** The nodes in the order they have in the list (how they are shown), for a move of several. */
+export const inListOrder = (siblings: KindTreeNode[], ids: Set<string>): KindTreeNode[] => siblings.filter((n) => ids.has(n.id));
+
+/** Move targets for a search: those whose own name matches first (exact, then starting with it, then containing it), then those matching only through their path. */
+export function rankTargets<T extends { name: string; path: string }>(targets: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return targets;
+  const rank = (t: T): number => {
+    const name = t.name.toLowerCase();
+    if (name === q) return 0;
+    if (name.startsWith(q)) return 1;
+    if (name.includes(q)) return 2;
+    return t.path.toLowerCase().includes(q) ? 3 : 4;
+  };
+  return targets.map((t, i) => ({ t, i, r: rank(t) })).filter((x) => x.r < 4).sort((a, b) => a.r - b.r || a.t.path.length - b.t.path.length || a.i - b.i).map((x) => x.t);
+}

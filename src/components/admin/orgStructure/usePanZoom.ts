@@ -1,6 +1,7 @@
 import { RefObject, useCallback, useEffect, useRef } from 'react';
+import { type PanZoomView, centerTop, fitScaleFor, zoomAround } from './panMath';
 
-export interface PanZoomView { x: number; y: number; s: number }
+export type { PanZoomView };
 
 export const MAX_SCALE = 2;
 /** The zoom the chart opens at (more if the whole chart fits bigger). */
@@ -39,6 +40,9 @@ export interface PanZoomOptions {
   wheel?: 'zoom' | 'scroll';
   /** A drag that starts on an element matching this does not pan (cards, buttons). */
   noPan?: string;
+  /** The smallest zoom (default: the one that shows the whole chart) and the largest (default MAX_SCALE). */
+  minScale?: number;
+  maxScale?: number;
 }
 
 export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean, options: PanZoomOptions = {}) {
@@ -55,11 +59,11 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const el = content.current;
     const vp = viewport.current;
     if (!el || !vp || !el.offsetWidth || !el.offsetHeight || !vp.clientWidth || !vp.clientHeight) return 1;
-    return Math.max(0.01, Math.min(1, (vp.clientWidth - 2 * PAD) / el.offsetWidth, (vp.clientHeight - topPad(vp) - PAD) / el.offsetHeight));
+    return fitScaleFor({ w: el.offsetWidth, h: el.offsetHeight }, { w: vp.clientWidth, h: vp.clientHeight }, PAD, topPad(vp));
   }, [content, viewport]);
 
   /** Zooming out stops where the whole chart is in view. */
-  const clampScale = useCallback((s: number) => Math.min(MAX_SCALE, Math.max(fitScale(), s)), [fitScale]);
+  const clampScale = useCallback((s: number) => Math.min(opts.current.maxScale ?? MAX_SCALE, Math.max(opts.current.minScale ?? fitScale(), s)), [fitScale]);
 
   const apply = useCallback((animate: boolean) => {
     const el = content.current;
@@ -89,7 +93,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
   }, [apply, clampScale, content, viewport]);
 
   /** The whole chart in view (never bigger than its real size). */
-  const fit = useCallback((animate = false) => {
+  const fit = useCallback((animate = false, sticky = false) => {
     const el = content.current;
     const vp = viewport.current;
     if (!el || !vp || !vp.clientWidth || !vp.clientHeight) return;
@@ -99,6 +103,8 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const s = fitScale();
     moved.current = false;
     set({ s, x: (vp.clientWidth - w * s) / 2, y: Math.max(top, (vp.clientHeight - h * s) / 2) }, animate);
+    // `sticky`: the chart stays as fitted when the canvas is resized later (instead of going back to the opening view).
+    if (sticky) moved.current = true;
   }, [content, fitScale, set, viewport]);
 
   /** How the chart opens: at START_SCALE, centred, from its top (where the company is). */
@@ -120,11 +126,9 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
   }, [clampScale, content, fit, set, viewport]);
 
   const zoomAt = useCallback((px: number, py: number, factor: number, animate = false) => {
-    const { x, y, s } = view.current;
-    const ns = clampScale(s * factor);
     moved.current = true;
-    set({ s: ns, x: px - (px - x) * (ns / s), y: py - (py - y) * (ns / s) }, animate);
-  }, [clampScale, set]);
+    set(zoomAround(view.current, px, py, factor, opts.current.minScale ?? fitScale(), opts.current.maxScale ?? MAX_SCALE), animate);
+  }, [fitScale, set]);
 
   const zoomBy = useCallback((factor: number) => {
     const vp = viewport.current;
@@ -330,5 +334,14 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
   const getView = useCallback((): PanZoomView => ({ ...view.current }), []);
   const setView = useCallback((next: PanZoomView) => { moved.current = true; set(next); }, [set]);
 
-  return { fit, home, zoomBy, focus, subscribe, getView, setView };
+  /** Puts an element at the top middle of the canvas at exactly this zoom. */
+  const centerOn = useCallback((el: HTMLElement, scale: number, animate = true) => {
+    const root = content.current;
+    const vp = viewport.current;
+    if (!root || !vp || !root.contains(el)) return;
+    moved.current = true;
+    set(centerTop(localRect(el, root), clampScale(scale), { w: vp.clientWidth }, topPad(vp)), animate);
+  }, [clampScale, content, set, viewport]);
+
+  return { fit, home, zoomBy, focus, centerOn, fitScale, subscribe, getView, setView };
 }

@@ -1,8 +1,8 @@
 // «چارت مرتب»: the nested list the chart is built in. A «+» is always visible beside every node.
 import React from 'react';
-import { ChevronDown, ChevronLeft, MoveRight, Pencil, Plus, Star, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronLeft, GripVertical, MoveRight, Pencil, Plus, Star, Trash2 } from 'lucide-react';
 import { toPersianDigits } from '../../../../utils/helpers';
-import { KIND_INFO, type KindTreeNode, canHaveHead, countBelow, matches, self } from './orgKinds';
+import { KIND_INFO, type KindTreeNode, canHaveHead, countBelow, matches, self, serverOrder } from './orgKinds';
 import { HeadChip, PersonChips, type KindActions } from './kindsUi';
 
 export interface KindViewProps {
@@ -15,7 +15,14 @@ export interface KindViewProps {
   actions: KindActions;
 }
 
-const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<KindViewProps, 'roots'>> = ({ node, parent, query, isOpen, onToggle, flashId, pendingDelete, actions }) => {
+/** The node being dragged to a new place among its siblings (one drag at a time, so a module variable is enough). */
+let dragged: { node: KindTreeNode; parentId: string | null } | null = null;
+
+const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null; siblings: KindTreeNode[] } & Omit<KindViewProps, 'roots'>> = ({ node, parent, siblings, query, isOpen, onToggle, flashId, pendingDelete, actions }) => {
+  const [over, setOver] = React.useState(false);
+  const order = serverOrder(siblings);
+  const index = order.findIndex((n) => n.id === node.id);
+  const canArrange = actions.can.move && !query.trim() && order.length > 1;
   const info = KIND_INFO[node.kind];
   const open = query.trim() ? true : isOpen(node.id);
   const below = countBelow(node);
@@ -24,7 +31,17 @@ const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<K
   const confirming = pendingDelete === node.id;
   return (
     <div id={`kind-${node.id}`} className={flashId === node.id ? 'animate-pulse' : ''}>
-      <div className="group relative flex flex-wrap items-center gap-2 rounded-xl border border-transparent hover:border-indigo-100 hover:bg-indigo-50/40 dark:hover:bg-slate-800/50 ps-3 pe-2 py-1.5 my-0.5" style={{ boxShadow: `inset -4px 0 0 ${info.color}` }}>
+      <div
+        className={`group relative flex flex-wrap items-center gap-2 rounded-xl border hover:border-indigo-100 hover:bg-indigo-50/40 dark:hover:bg-slate-800/50 ps-3 pe-2 py-1.5 my-0.5 ${over ? 'border-indigo-400 bg-indigo-50' : 'border-transparent'}`}
+        style={{ boxShadow: `inset -4px 0 0 ${info.color}` }}
+        draggable={canArrange}
+        onDragStart={(e) => { dragged = { node, parentId: parent?.id ?? null }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', node.id); }}
+        onDragEnd={() => { dragged = null; setOver(false); }}
+        onDragOver={(e) => { if (dragged && dragged.node.id !== node.id && dragged.parentId === (parent?.id ?? null)) { e.preventDefault(); setOver(true); } }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => { setOver(false); if (dragged && dragged.node.id !== node.id && dragged.parentId === (parent?.id ?? null)) { e.preventDefault(); actions.onReorder(dragged.node, index); dragged = null; } }}
+      >
+        {canArrange && <span className="text-slate-300 cursor-grab" aria-hidden="true" title="بکشید و رها کنید تا ترتیب عوض شود"><GripVertical className="w-4 h-4" /></span>}
         <button type="button" aria-label={open ? `بستن ${node.name}` : `باز کردن ${node.name}`} aria-expanded={open} onClick={() => onToggle(node.id)} className={`w-6 h-6 grid place-items-center rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 cursor-pointer ${node.children.length ? '' : 'invisible'}`}>
           {open ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
@@ -36,6 +53,12 @@ const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<K
         {below > 0 && <span className="text-[11px] text-slate-400">{toPersianDigits(below)} زیرمجموعه</span>}
         <span className="flex-1" />
         <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          {canArrange && (
+            <>
+              <button type="button" disabled={index <= 0} onClick={() => actions.onReorder(node, index - 1)} aria-label={`بالاتر بردن ${node.name}`} title="بالاتر" className="inline-flex items-center rounded-md px-1.5 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"><ArrowUp className="w-3.5 h-3.5" /></button>
+              <button type="button" disabled={index >= order.length - 1} onClick={() => actions.onReorder(node, index + 1)} aria-label={`پایین‌تر بردن ${node.name}`} title="پایین‌تر" className="inline-flex items-center rounded-md px-1.5 py-1 text-slate-500 hover:bg-slate-100 disabled:opacity-30 cursor-pointer"><ArrowDown className="w-3.5 h-3.5" /></button>
+            </>
+          )}
           {canMakeHead && actions.can.assign && (
             <button type="button" onClick={() => actions.onToggleHead(node, parent!)} className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs cursor-pointer ${isHead ? 'bg-amber-100 text-amber-800' : 'text-slate-500 hover:bg-slate-100'}`} aria-pressed={isHead}>
               <Star className="w-3.5 h-3.5" /> {isHead ? 'رئیس است' : 'رئیس'}
@@ -56,7 +79,7 @@ const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<K
       {open && node.children.length > 0 && (
         <div className="me-4 ps-0 pe-4 border-e-2 border-indigo-100 dark:border-slate-700">
           {node.children.filter((c) => matches(c, query)).map((c) => (
-            <Row key={c.id} node={c} parent={node} query={query} isOpen={isOpen} onToggle={onToggle} flashId={flashId} pendingDelete={pendingDelete} actions={actions} />
+            <Row key={c.id} node={c} parent={node} siblings={node.children} query={query} isOpen={isOpen} onToggle={onToggle} flashId={flashId} pendingDelete={pendingDelete} actions={actions} />
           ))}
         </div>
       )}
@@ -66,6 +89,6 @@ const Row: React.FC<{ node: KindTreeNode; parent: KindTreeNode | null } & Omit<K
 
 export const KindListView: React.FC<KindViewProps> = ({ roots, ...rest }) => (
   <div role="tree" aria-label="چارت مرتب">
-    {roots.filter((r) => matches(r, rest.query)).map((r) => <Row key={r.id} node={r} parent={null} {...rest} />)}
+    {roots.filter((r) => matches(r, rest.query)).map((r) => <Row key={r.id} node={r} parent={null} siblings={roots} {...rest} />)}
   </div>
 );

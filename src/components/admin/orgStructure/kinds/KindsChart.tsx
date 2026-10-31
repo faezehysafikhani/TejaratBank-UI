@@ -5,14 +5,14 @@ import { Building2, ChevronsDownUp, ChevronsUpDown, Loader2, Plus, Search, UserX
 import { AdminCard, Notice, PrimaryButton, SecondaryButton, inputClass } from '../../AdminUi';
 import {
   type Company, type KindNode, type KindTypes, type UnplacedUser, ORG_STRUCTURE_PERMISSIONS as P, addNodePerson, canNode, createNode, deactivateNode,
-  ensureKinds, getKindChart, listCompanies, listUnplacedUsers, moveNode, removeNodePerson, setNodeHead, setPrimaryNodePerson, updateNode,
+  ensureKinds, getKindChart, listCompanies, listUnplacedUsers, moveNode, removeNodePerson, reorderNode, setNodeHead, setPrimaryNodePerson, updateNode,
 } from '../../../../services/orgStructureApi';
 import { userErrorMessage } from '../../../../utils/errorMessages';
 import { appConfirm } from '../../../../utils/appDialog';
 import { showToast } from '../../../../utils/toast';
 import { toPersianDigits } from '../../../../utils/helpers';
 import { CompanyFormDialog } from '../nodes/CompanyFormDialog';
-import { KIND_INFO, TEMPLATES, buildTree, canHaveHead, countBelow, parseOutline, pathsToMatches, walk, type KindKey, type KindTreeNode } from './orgKinds';
+import { KIND_INFO, TEMPLATES, buildTree, canHaveHead, countBelow, parseOutline, pathsToMatches, serverOrder, walk, type KindKey, type KindTreeNode } from './orgKinds';
 import { KindNodeDialog, type KindFormValues } from './KindNodeDialog';
 import { KindListView } from './KindListView';
 import { KindTreeView } from './KindTreeView';
@@ -229,6 +229,24 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
         .finally(() => setTimeout(() => setSettling(false), 350));
     },
     onMove: (node) => setMoving(node),
+    onReorder: (node, toIndex) => {
+      const siblings = serverOrder(parentOf(roots, node)?.children ?? roots);
+      const from = siblings.findIndex((n) => n.id === node.id);
+      if (from < 0 || toIndex < 0 || toIndex >= siblings.length || from === toIndex) return;
+      const next = [...siblings];
+      next.splice(from, 1);
+      next.splice(toIndex, 0, node);
+      const previous = nodes;
+      // At once on the screen; the server is told meanwhile, and the screen goes back if it refuses.
+      setSettling(true);
+      keepPosition(node.id, () => setNodes((all) => all.map((n) => { const i = next.findIndex((x) => x.id === n.id); return i >= 0 ? { ...n, sortOrder: i } : n; })));
+      setFlashId(node.id);
+      setTimeout(() => setFlashId((current) => (current === node.id ? null : current)), 1800);
+      reorderNode(node.id, toIndex, node.rowVersion)
+        .then(() => reload())
+        .catch((err) => { setNodes(previous); showToast(userErrorMessage(err, 'تغییر ترتیب انجام نشد.'), 'error'); })
+        .finally(() => setTimeout(() => setSettling(false), 350));
+    },
     onDelete: (node) => {
       clearTimeout(pendingTimer.current);
       if (pendingDelete === node.id) { setPendingDelete(null); void removeBranch(node); return; }
@@ -370,6 +388,7 @@ export const KindsChart: React.FC<{ can: (permission: string) => boolean }> = ({
         <KindMoveDialog
           node={moving}
           siblings={(parentOf(roots, moving)?.children ?? roots).filter((n) => n.id !== moving.id && n.kind === moving.kind)}
+          listOrder={parentOf(roots, moving)?.children ?? roots}
           roots={roots}
           orgName={company.name}
           onMove={moveNodes}

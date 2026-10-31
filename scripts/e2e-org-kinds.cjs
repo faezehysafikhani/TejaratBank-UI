@@ -134,15 +134,15 @@ require('node:fs').mkdirSync(shots, { recursive: true });
   await page.mouse.move(cb.x + cb.width / 2 + 80, cb.y + 60, { steps: 5 });
   await page.mouse.up();
   assert.equal(await transform(), t1, 'dragging a card does not pan');
-  // Ctrl + wheel zooms, the plain wheel moves up and down
+  // the wheel zooms around the pointer and the page does not scroll
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.keyboard.down('Control');
+  const scrollBefore = await page.evaluate(() => window.scrollY);
   await page.mouse.wheel(0, -300);
-  await page.keyboard.up('Control');
   const t2 = await transform();
-  assert.notEqual(t2, t1, 'ctrl + wheel zooms');
+  assert.notEqual(t2, t1, 'the wheel zooms');
   await page.mouse.wheel(0, 200);
-  assert.notEqual(await transform(), t2, 'the wheel moves the chart');
+  assert.notEqual(await transform(), t2, 'and zooms out');
+  assert.equal(await page.evaluate(() => window.scrollY), scrollBefore, 'the page is not scrolled by the wheel on the chart');
   // the buttons
   await page.getByRole('button', { name: 'متناسب با صفحه' }).click();
   await page.waitForTimeout(500);
@@ -164,8 +164,85 @@ require('node:fs').mkdirSync(shots, { recursive: true });
 
   // the head can be made and taken off at once
   await page.getByRole('tab', { name: 'چارت مرتب' }).click();
+
+  // ---- scenario C: a chart like the real one: the CEO with 19 children (9 units and 10 positions)
+  const bank = await browser.newPage({ viewport: { width: 1400, height: 900 }, locale: 'fa-IR' });
+  bank.on('pageerror', (e) => errors.push(String(e)));
+  await bank.goto(`${base}/dev/org-sandbox.html?view=kinds&bank=1`);
+  await bank.getByRole('button', { name: 'افزودن زیرمجموعه به بانک نمونه' }).waitFor();
+  const scaleOf = async () => bank.locator('.kt-content').evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+  const cardsInSight = async () => bank.evaluate(() => {
+    const vp = document.querySelector('.kt-vp').getBoundingClientRect();
+    return [...document.querySelectorAll('.kt-vp [data-node]')].filter((c) => { const r = c.getBoundingClientRect(); return r.right > vp.left && r.left < vp.right && r.bottom > vp.top && r.top < vp.bottom; }).length;
+  });
+  await bank.getByRole('tab', { name: 'چارت درختی' }).click();
+  await bank.locator('.kt-vp').waitFor();
+  await bank.waitForTimeout(600);
+  assert.ok(await cardsInSight() > 3, 'the chart opens in sight, not empty');
+  assert.ok((await scaleOf()) >= 0.34, 'and readable');
+  // all nine units are drawn (none hidden behind «+N»)
+  const treeText = await bank.locator('.kt-vp').innerText();
+  for (const unit of ['معاونت اعتباری و بین‌الملل', 'معاونت فناوری اطلاعات', 'معاونت مالی و سرمایه‌گذاری', 'مدیریت امور استان‌ها و مناطق', 'بانکداری شرکتی و بازاریابی', 'بازرسی و نظارت و صیانت از مشتریان', 'حراست', 'معاونت سازمان و برنامه‌ریزی', 'معاونت توسعه سرمایه انسانی و پشتیبانی']) {
+    assert.ok(treeText.includes(unit), `${unit} is drawn`);
+  }
+  await bank.screenshot({ path: `${shots}/6-bank-fit.png`, fullPage: true });
+  // back to the list and to the tree again: still in sight
+  await bank.getByRole('tab', { name: 'چارت مرتب' }).click();
+  await bank.getByRole('tab', { name: 'چارت درختی' }).click();
+  await bank.waitForTimeout(600);
+  assert.ok(await cardsInSight() > 3, 'after the list, the tree is not empty');
+  // zoom keeps the point under the pointer
+  const vpBox = await bank.locator('.kt-vp').boundingBox();
+  const s0 = await scaleOf();
+  await bank.mouse.move(vpBox.x + 300, vpBox.y + 250);
+  await bank.mouse.wheel(0, -400);
+  assert.ok((await scaleOf()) > s0, 'wheel up zooms in');
+  assert.ok((await scaleOf()) <= 2.0001, 'at most 200%');
+  for (let i = 0; i < 30; i++) await bank.mouse.wheel(0, 600);
+  assert.ok((await scaleOf()) >= 0.0999, 'at least 10%');
+  // plus and minus keys, fit, centre
+  await bank.locator('.kt-vp').focus();
+  const s1 = await scaleOf();
+  await bank.keyboard.press('+');
+  await bank.waitForTimeout(450);
+  assert.ok((await scaleOf()) > s1, 'the + key zooms in');
+  await bank.getByRole('button', { name: 'متناسب با صفحه' }).click();
+  await bank.waitForTimeout(500);
+  assert.ok(await cardsInSight() > 3, 'fit shows the chart');
+  await bank.getByRole('button', { name: 'مرکز روی سازمان' }).click();
+  await bank.waitForTimeout(500);
+  assert.ok(await bank.getByRole('button', { name: 'افزودن زیرمجموعه به بانک نمونه' }).isVisible(), 'the organization is centred');
+  // full screen (where the browser allows it)
+  await bank.getByRole('button', { name: 'تمام‌صفحه' }).click();
+  await bank.waitForTimeout(400);
+  const full = await bank.evaluate(() => !!document.fullscreenElement);
+  if (full) { await bank.getByRole('button', { name: 'خروج از تمام‌صفحه' }).click(); await bank.waitForTimeout(300); }
+
+  // order: the down arrow on the first unit moves it below the second
+  await bank.getByRole('tab', { name: 'چارت مرتب' }).click();
+  const order = async () => (await bank.locator('[role=tree]').first().innerText()).split('\n').filter((l) => /^معاونت (اعتباری|فناوری)/.test(l));
+  const before = await order();
+  await bank.getByRole('button', { name: 'پایین‌تر بردن معاونت اعتباری و بین‌الملل' }).click({ force: true });
+  await bank.waitForTimeout(700);
+  const after = await order();
+  assert.notDeepEqual(after, before, 'the order changed');
+  assert.ok(after.findIndex((l) => l.startsWith('معاونت فناوری')) < after.findIndex((l) => l.startsWith('معاونت اعتباری')), 'the unit moved down');
+
+  // move: searching «مدیرعامل» puts the CEO itself first; choosing closes the list and shows the whole path
+  await bank.getByRole('button', { name: 'انتقال حراست' }).click({ force: true });
+  const md = bank.getByRole('dialog');
+  await md.getByLabel('انتقال به').fill('مدیرعامل');
+  const firstOption = md.getByRole('radio').first();
+  assert.ok((await firstOption.innerText()).split('\n').some((l) => l.trim() === 'مدیرعامل'), 'the CEO itself is first');
+  await firstOption.click();
+  assert.ok(await md.getByText('تغییر مقصد').isVisible(), 'the choice is shown on its own');
+  assert.equal(await md.getByRole('radio').count(), 0, 'the suggestions are closed');
+  assert.ok((await md.innerText()).includes('مجمع عمومی › هیأت مدیره › مدیرعامل'), 'with its whole path');
+  await bank.keyboard.press('Escape');
+  await bank.close();
+
   assert.deepEqual(errors, [], 'no page errors');
-    await browser.close();
+  await browser.close();
 
   console.log('e2e org kinds OK');
 })().catch((e) => { console.error(e); process.exit(1); });
