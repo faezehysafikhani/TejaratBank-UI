@@ -83,6 +83,7 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
           }}
           orgStructureAvailable={orgStructureAvailable}
           canManageOrgAssignments={can(ORG_STRUCTURE_PERMISSIONS.manageAssignments)}
+          canAssignPositions={can('org_structure.node.assign') || can('organization_units.update')}
           canSeeOrgUnits={can(ORG_UNIT_PERMISSIONS.view)}
         />
       )}

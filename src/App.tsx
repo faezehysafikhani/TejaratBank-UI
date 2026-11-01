@@ -22,7 +22,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy loaded views & modals for secondary views
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
-const ReportsView = lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
+const ReportsPage = lazy(() => import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
 const PersonalNotesView = lazy(() => import('./components/PersonalNotesView').then(m => ({ default: m.PersonalNotesView })));
@@ -74,6 +74,7 @@ import { Database, PanelRightOpen } from 'lucide-react';
 import { SESSION_ENDED_EVENT, TASK_CREATED_ACTION, withoutEditDuplicates } from './services/nexusApi';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
+import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
@@ -89,7 +90,7 @@ const PAGE_TITLES: Record<string, string> = {
   overdue: 'موعد گذشته',
   chat: 'گفتگوی تیمی',
   notes: 'یادداشت‌های شخصی',
-  reports: 'گزارش فعالیت‌ها',
+  reports: 'گزارشات',
   substitution: 'کارتابل جانشینی',
   settings: 'تنظیمات و پروفایل',
 };
@@ -416,7 +417,7 @@ export default function App() {
   const showSubstitution = !!substitution?.enabled && (substitution.canManageAll || substitution.posts.length > 0);
   const canOpenSection = useCallback(
     (tab: ActiveTab) => canOpenTab(currentUser, tab)
-      && (tab !== 'reports' || reportScope !== null)
+      && (tab !== 'reports' || Object.values(reportTabsFor(currentUser, reportScope)).some(Boolean))
       && (tab !== 'substitution' || showSubstitution),
     [currentUser, reportScope, showSubstitution],
   );
@@ -1440,9 +1441,9 @@ export default function App() {
             )}
 
             {/* Task reports (only where the backend offers them) */}
-            {activeTab === 'reports' && reportScope && canOpenTab(currentUser, 'reports') && (
+            {activeTab === 'reports' && canOpenSection('reports') && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
-                <ReportsView scope={reportScope} refreshKey={reportRefreshKey} visibleTasks={visibleTasks} onOpenTask={handleOpenTaskDetail} generatedBy={currentUser?.name || currentUser?.username} />
+                <ReportsPage currentUser={currentUser} scope={reportScope} refreshKey={reportRefreshKey} visibleTasks={visibleTasks} people={allUsers} onOpenTask={handleOpenTaskDetail} generatedBy={currentUser?.name || currentUser?.username} />
               </Suspense>
             )}
 

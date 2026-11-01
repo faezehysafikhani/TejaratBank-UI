@@ -5,7 +5,7 @@ import {
   listUsersPage, adminCreateUser, adminUpdateUser, setUserActive,
   listRoles, getUserAccess, setUserRoles, setUserDirectPermissions,
 } from '../../services/nexusApi';
-import { getAssignment, setAssignment, removeAssignment, Honorific, listTitles, getUserTitle, setUserTitle } from '../../services/orgStructureApi';
+import { addNodePerson, getAssignment, setAssignment, removeAssignment, Honorific, listTitles, getUserTitle, setUserTitle } from '../../services/orgStructureApi';
 import { toPersianDigits, formatToJalali } from '../../utils/helpers';
 import {
   AdminCard, SearchBox, StatusBadge, IconAction, Pagination, Field, inputClass, Notice,
@@ -15,6 +15,7 @@ import { moduleTitle, toggleUserAccess, clearPrerequisiteDenials, clearPrerequis
 import { userErrorMessage } from '../../utils/errorMessages';
 import { LoadingRow } from './orgStructure/orgShared';
 import { UserAppointmentsPanel } from './UserAppointmentsPanel';
+import { UserPositionsPanel } from './orgStructure/UserPositionsPanel';
 import { JalaliDatePicker } from '../JalaliDatePicker';
 import { OrgPlacementFields, useOrgPlacementData, EMPTY_PLACEMENT_DRAFT, OrgPlacementDraft } from './orgStructure/OrgPlacementFields';
 import { appConfirm } from '../../utils/appDialog';
@@ -45,9 +46,11 @@ export const UsersPanel: React.FC<{
   orgStructureAvailable: boolean;
   /** org_structure.manage_assignments: required to show the «جایگاه سازمانی» tab. */
   canManageOrgAssignments: boolean;
+  /** The chart's positions can be given to a person from the user's dialog («سمت‌ها» tab). */
+  canAssignPositions?: boolean;
   /** organization_units.view: whether the unit (deputy) dropdown can be populated. */
   canSeeOrgUnits: boolean;
-}> = ({ currentUserId, rights, orgStructureAvailable, canManageOrgAssignments, canSeeOrgUnits }) => {
+}> = ({ currentUserId, rights, orgStructureAvailable, canManageOrgAssignments, canAssignPositions = false, canSeeOrgUnits }) => {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounced(search);
   const [page, setPage] = useState(1);
@@ -182,7 +185,9 @@ export const UsersPanel: React.FC<{
         <UserFormDialog
           user={editing === 'new' ? null : editing}
           canAssignRoles={rights.assignRoles}
-          showPlacementTab={orgStructureAvailable && canManageOrgAssignments}
+          showPositionsTab={orgStructureAvailable && canAssignPositions}
+          // The old placement form only where the positions of the chart cannot be used.
+          showPlacementTab={orgStructureAvailable && canManageOrgAssignments && !canAssignPositions}
           canSeeOrgUnits={canSeeOrgUnits}
           showTitle={orgStructureAvailable && (rights.create || rights.update)}
           onClose={() => setEditing(null)}
@@ -213,12 +218,14 @@ const UserFormDialog: React.FC<{
   user: AdminUser | null;
   canAssignRoles: boolean;
   showPlacementTab: boolean;
+  /** The «سمت‌ها» tab: the positions of the organization chart given to this person. */
+  showPositionsTab: boolean;
   canSeeOrgUnits: boolean;
   /** The organization-structure module's titles («آقای»، «خانم»...) before the name. */
   showTitle: boolean;
   onClose: () => void;
   onSaved: (message: string) => void;
-}> = ({ user, canAssignRoles, showPlacementTab, canSeeOrgUnits, showTitle: titlesAvailable, onClose, onSaved }) => {
+}> = ({ user, canAssignRoles, showPlacementTab, showPositionsTab, canSeeOrgUnits, showTitle: titlesAvailable, onClose, onSaved }) => {
   const isNew = user === null;
   const photoInput = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AdminUserInput>({
@@ -237,6 +244,8 @@ const UserFormDialog: React.FC<{
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'credentials' | 'placement' | 'photo'>('basic');
+  // Positions chosen for a user who is not saved yet; given to them once the account exists.
+  const [pendingPositions, setPendingPositions] = useState<string[]>([]);
   const [placementDraft, setPlacementDraft] = useState<OrgPlacementDraft>(EMPTY_PLACEMENT_DRAFT);
   const [placementDirty, setPlacementDirty] = useState(false);
   const [placementActive, setPlacementActive] = useState(true);
@@ -348,6 +357,11 @@ const UserFormDialog: React.FC<{
         await setUserTitle(savedUserId, titleId || null);
       }
 
+      // Positions picked while the account did not exist yet.
+      if (isNew && showPositionsTab) {
+        for (const nodeId of pendingPositions) await addNodePerson(nodeId, savedUserId);
+      }
+
       // Placement is optional: only touch it when a company was actually chosen on that tab.
       // Clearing it back to «— بدون شرکت —» on a user who had a placement removes it instead of
       // silently leaving the old one in place.
@@ -395,7 +409,7 @@ const UserFormDialog: React.FC<{
           tabs={[
             { id: 'basic', label: 'اطلاعات کاربر', icon: UserRound },
             { id: 'credentials', label: 'اطلاعات ورود', icon: Lock },
-            { id: 'placement', label: 'سمت و پست سازمانی', icon: Building2 },
+            { id: 'placement', label: showPositionsTab ? 'سمت‌ها' : 'سمت و پست سازمانی', icon: Building2 },
             { id: 'photo', label: 'عکس پرسنلی', icon: ImagePlus },
           ]}
           active={activeTab}
@@ -470,7 +484,10 @@ const UserFormDialog: React.FC<{
             {form.avatarUrl && <SecondaryButton type="button" onClick={() => setForm(f => ({...f, avatarUrl: ''}))}>حذف عکس</SecondaryButton>}
           </div>
         )}
-        {activeTab === 'placement' && !showPlacementTab && <Notice type="info">مدیریت سمت نیازمند اتصال ماژول ساختار سازمانی و مجوز مدیریت جایگاه‌ها است.</Notice>}
+        {activeTab === 'placement' && showPositionsTab && (
+          <UserPositionsPanel userId={isNew ? null : user!.id} pending={pendingPositions} onPendingChange={setPendingPositions} />
+        )}
+        {activeTab === 'placement' && !showPlacementTab && !showPositionsTab && <Notice type="info">مدیریت سمت نیازمند اتصال ماژول ساختار سازمانی و مجوز مدیریت جایگاه‌ها است.</Notice>}
         {showPlacementTab && activeTab === 'placement' && (
           <div className="space-y-3">
             <p className="text-xs text-slate-500 dark:text-slate-400">

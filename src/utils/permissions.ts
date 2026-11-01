@@ -20,6 +20,8 @@ export const PERMISSIONS = {
   meetingsInviteHigher: 'Meetings.InviteHigher',
   meetingsAccessAllPeople: 'Meetings.AccessAllPeople',
   notesManage: 'Notes.Manage',
+  /** The users list: the «گزارشات کاربران» tab needs it. */
+  usersView: 'users.view',
 } as const;
 
 /**
@@ -76,6 +78,11 @@ export function canOpenTab(
       can(user, PERMISSIONS.meetingsView) ||
       can(user, PERMISSIONS.meetingsCreate)
     );
+  }
+
+  // «گزارشات»: a page of up to three reports (activities, meetings, users), open to whoever may read any.
+  if (tab === 'reports') {
+    return can(user, PERMISSIONS.tasksView) || can(user, PERMISSIONS.meetingsView) || !!user?.permissions?.includes(PERMISSIONS.usersView);
   }
 
   const permission = TAB_PERMISSION[tab];
