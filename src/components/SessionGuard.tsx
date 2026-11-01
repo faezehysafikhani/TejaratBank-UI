@@ -32,6 +32,7 @@ interface Deadlines {
   idleAt: number;
   absoluteAt: number;
   idleSeconds: number;
+  warningSeconds: number;
 }
 
 const formatClock = (seconds: number) => {
@@ -64,6 +65,7 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
       idleAt: received + status.idleRemainingSeconds * 1000,
       absoluteAt: received + status.absoluteRemainingSeconds * 1000,
       idleSeconds: status.idleTimeoutSeconds,
+      warningSeconds: status.idleWarningSeconds ?? IDLE_WARNING_SECONDS,
     };
     deadlinesRef.current = next;
     setDeadlines(next);
@@ -96,7 +98,9 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
   useEffect(() => onActivity((at) => {
     const current = deadlinesRef.current;
     if (!current) return;
-    const idleAt = Math.max(current.idleAt, at + current.idleSeconds * 1000 - SERVER_LAG_MS);
+    // The server moves its clock at most every min(30 s, idle/4); the estimate leaves room for that.
+    const lag = Math.min(SERVER_LAG_MS, (current.idleSeconds * 1000) / 4);
+    const idleAt = Math.max(current.idleAt, at + current.idleSeconds * 1000 - lag);
     if (idleAt !== current.idleAt) {
       const next = { ...current, idleAt };
       deadlinesRef.current = next;
@@ -123,7 +127,7 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
 
   const idleRemaining = deadlines ? (deadlines.idleAt - now) / 1000 : Infinity;
   const absoluteRemaining = deadlines ? (deadlines.absoluteAt - now) / 1000 : Infinity;
-  const warnIdle = idleRemaining <= IDLE_WARNING_SECONDS && idleRemaining > 0 && !reauth;
+  const warnIdle = idleRemaining <= (deadlines?.warningSeconds ?? IDLE_WARNING_SECONDS) && idleRemaining > 0 && !reauth;
   const warnAbsolute = absoluteRemaining <= ABSOLUTE_WARNING_SECONDS && absoluteRemaining > 0;
 
   useEffect(() => {
