@@ -465,6 +465,11 @@ export default function App() {
     taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>,
     taskId?: string
   ) => {
+    // What to do once a NEW task exists (a task from a meeting's resolution is linked to the meeting).
+    // Taken now, before the form calls onClose, which clears the reference: reading it after the
+    // save would find it empty and the task would never be linked.
+    const afterCreate = taskId ? null : onTaskCreatedRef.current;
+    if (!taskId) onTaskCreatedRef.current = null;
     setIsSyncing(true);
     try {
       if (taskId) {
@@ -547,8 +552,6 @@ export default function App() {
           );
         }
         showToast(`فعالیت «${created.title}» ساخته شد.`, 'ok');
-        const afterCreate = onTaskCreatedRef.current;
-        onTaskCreatedRef.current = null;
         afterCreate?.(created.id);
       }
       setPbError(null);
