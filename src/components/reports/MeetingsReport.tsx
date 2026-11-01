@@ -352,11 +352,11 @@ const MeetingReportBody: React.FC<{ meeting: Meeting; nameOf: (id: string | null
           <div><span className="text-slate-500">مکان: </span><b>{d.location || '—'}</b></div>
           <div><span className="text-slate-500">برگزارکننده: </span><b>{nameOf(d.organizerUserId) || '—'}</b></div>
         </div>
-        {d.description.trim() && <p className="mt-2 whitespace-pre-line text-slate-700 dark:text-slate-300">{d.description}</p>}
+        {d.description.trim() && <p className="mt-2 whitespace-pre-line text-justify text-slate-700 dark:text-slate-300">{d.description}</p>}
       </section>
       <section>
         <h4 className={heading}>افراد مرتبط ({toPersianDigits(d.participantIds.length)})</h4>
-        <p className="leading-7">{d.participantIds.map(nameOf).join('، ') || 'فردی ثبت نشده است.'}</p>
+        <p className="leading-7 text-justify">{d.participantIds.map(nameOf).join('، ') || 'فردی ثبت نشده است.'}</p>
       </section>
       <section>
         <h4 className={heading}>دستور جلسه ({toPersianDigits(d.agenda.length)})</h4>
@@ -373,7 +373,7 @@ const MeetingReportBody: React.FC<{ meeting: Meeting; nameOf: (id: string | null
       </section>
       <section>
         <h4 className={heading}>مصوبات صورت‌جلسه</h4>
-        {d.minutes.trim() ? <p className="whitespace-pre-line leading-7">{d.minutes}</p> : <p className="text-slate-500">صورت‌جلسه‌ای ثبت نشده است.</p>}
+        {d.minutes.trim() ? <p className="whitespace-pre-line leading-7 text-justify">{d.minutes}</p> : <p className="text-slate-500">صورت‌جلسه‌ای ثبت نشده است.</p>}
         {d.actions.length > 0 && (
           <ul className="mt-2 space-y-1">
             {d.actions.map((a, i) => (

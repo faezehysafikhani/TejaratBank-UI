@@ -33,6 +33,8 @@ export interface MeetingReportData {
 }
 
 // Plain hex colours and inline styles only: html2canvas cannot read Tailwind's oklch() colours.
+/** Long text sits flush on both sides, so a printed page looks tidy (the last line stays at the start). */
+const JUSTIFY = 'text-align:justify;text-justify:inter-word;';
 const C = { ink: '#0f172a', muted: '#64748b', line: '#cbd5e1', soft: '#e2e8f0', head: '#3730a3', headSoft: '#eef2ff', zebra: '#f8fafc', card: '#f1f5f9' };
 const PAGE_W = 794, PAGE_H = 1123, PAD = 40;
 
@@ -48,7 +50,7 @@ const digits = (text: string) => text.replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸�
 /** The top of every report: logo and title on one side, the date of the printout and the person on the other, in a frame. */
 function headerBlock(title: string, subtitle: string, print: PrintInfo): HTMLElement {
   const box = el('div', `border:1.5px solid ${C.head};border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:${C.headSoft}`);
-  const right = el('div', 'display:flex;align-items:center;gap:12px;min-width:0');
+  const right = el('div', 'display:flex;align-items:center;gap:12px;min-width:0;flex:1');
   if (print.logo) {
     const img = el('img', 'width:46px;height:46px;object-fit:contain;flex:none;background:#ffffff;border-radius:8px;padding:3px;border:1px solid ' + C.soft) as HTMLImageElement;
     img.src = print.logo;
@@ -56,9 +58,9 @@ function headerBlock(title: string, subtitle: string, print: PrintInfo): HTMLEle
     right.append(img);
   }
 
-  const names = el('div', 'min-width:0');
+  const names = el('div', 'min-width:0;flex:1');
   names.append(el('div', `font-size:11px;color:${C.muted}`, print.orgName), el('div', `font-size:20px;font-weight:800;color:${C.head};margin-top:2px`, title));
-  if (subtitle) names.append(el('div', `font-size:11px;color:${C.muted};margin-top:3px`, subtitle));
+  if (subtitle) names.append(el('div', `font-size:11px;color:${C.muted};margin-top:3px;${JUSTIFY}`, subtitle));
   right.append(names);
 
   const left = el('div', `font-size:11px;line-height:1.9;color:${C.ink};text-align:left;flex:none`);
@@ -79,7 +81,7 @@ const section = (heading: string, body: HTMLElement): HTMLElement => {
 
 const row = (label: string, value: string) => {
   const line = el('div', `display:flex;gap:8px;padding:5px 0;font-size:13px;border-bottom:1px dashed ${C.soft}`);
-  line.append(el('span', `width:110px;flex:none;color:${C.muted}`, label), el('span', `color:${C.ink};flex:1`, value || '—'));
+  line.append(el('span', `width:110px;flex:none;color:${C.muted}`, label), el('span', `color:${C.ink};flex:1;${JUSTIFY}`, value || '—'));
   return line;
 };
 
@@ -89,7 +91,7 @@ const table = (head: string[], widths: string[], rows: string[][], fontSize = 12
   const addRow = (cells: string[], header: boolean, index: number) => {
     const tr = el('tr', header ? `background:${C.head}` : index % 2 ? `background:${C.zebra}` : '');
     cells.forEach((text, i) => {
-      tr.append(el(header ? 'th' : 'td', `padding:${header ? (fontSize < 12 ? 4 : 5) : (fontSize < 12 ? 5 : 6)}px ${fontSize < 12 ? 4 : 7}px ${header ? (fontSize < 12 ? 8 : 9) : (fontSize < 12 ? 5 : 6)}px;text-align:right;vertical-align:top;border:1px solid ${C.line};width:${widths[i]};word-break:break-word;${header ? 'color:#ffffff;font-weight:700' : `color:${C.ink}`}`, text));
+      tr.append(el(header ? 'th' : 'td', `padding:${header ? (fontSize < 12 ? 4 : 5) : (fontSize < 12 ? 5 : 6)}px ${fontSize < 12 ? 4 : 7}px ${header ? (fontSize < 12 ? 8 : 9) : (fontSize < 12 ? 5 : 6)}px;${header ? 'text-align:right;' : JUSTIFY}vertical-align:top;border:1px solid ${C.line};width:${widths[i]};word-break:break-word;${header ? 'color:#ffffff;font-weight:700' : `color:${C.ink}`}`, text));
     });
     t.append(tr);
   };
@@ -107,7 +109,7 @@ function buildBlocks(data: MeetingReportData): HTMLElement[] {
   if (data.description.trim()) details.append(row('توضیحات', data.description));
   blocks.push(section('مشخصات جلسه', details));
 
-  blocks.push(section(`افراد مرتبط (${digits(String(data.participants.length))})`, el('div', `font-size:13px;line-height:1.9;color:${C.ink}`, data.participants.join('، ') || 'فردی ثبت نشده است.')));
+  blocks.push(section(`افراد مرتبط (${digits(String(data.participants.length))})`, el('div', `font-size:13px;line-height:1.9;color:${C.ink};${JUSTIFY}`, data.participants.join('، ') || 'فردی ثبت نشده است.')));
 
   blocks.push(section(`دستور جلسه (${digits(String(data.agenda.length))})`, data.agenda.length
     ? table(['ردیف', 'عنوان', 'مدت', 'ارائه‌دهنده'], ['8%', '50%', '16%', '26%'], data.agenda.map((a, i) => [digits(String(i + 1)), a.title, a.durationText, a.presenter || '—']))
@@ -117,7 +119,7 @@ function buildBlocks(data: MeetingReportData): HTMLElement[] {
   const minutesParts = data.minutes.trim() ? data.minutes.trim().split(/\n+/) : [];
   if (minutesParts.length) {
     minutesParts.forEach((part, i) => {
-      const p = el('div', `font-size:13px;line-height:1.9;color:${C.ink};${i === 0 ? '' : `border:1px solid ${C.line};border-radius:10px;padding:8px 12px;margin-bottom:8px`}`, part);
+      const p = el('div', `font-size:13px;line-height:1.9;color:${C.ink};${JUSTIFY}${i === 0 ? '' : `border:1px solid ${C.line};border-radius:10px;padding:8px 12px;margin-bottom:8px`}`, part);
       blocks.push(i === 0 ? section('مصوبات صورت‌جلسه', p) : p);
     });
   }
