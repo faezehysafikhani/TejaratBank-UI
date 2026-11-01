@@ -177,34 +177,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // open/close toggle exactly as before; only which tab it lives under changed.
   const profileContent = (
     <div className="w-full space-y-6 animate-in fade-in duration-200">
-      {currentUser && <ChangePasswordCard />}
-      {currentUser && (
-        <ChangePhoneCard
-          currentPhone={currentUser.phoneNumber}
-          // The new number is already in the stored session; saving the unchanged profile
-          // brings the whole app's copy of the user up to date.
-          onChanged={async () => { await onSaveProfile?.({}); }}
-        />
-      )}
-
       {/* Section 2: User Profile & Avatar Form */}
       {currentUser && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.4)] space-y-4">
-          <button
-            type="button"
-            onClick={() => toggleSection('profile')}
-            className={`w-full flex items-center justify-between text-slate-900 dark:text-white font-bold text-sm select-none cursor-pointer group ${
-              openSections.profile ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : ''
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <UserIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
-              <span>پروفایل و آواتار کاربری</span>
-            </div>
-            {openSections.profile ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-          </button>
 
-          {openSections.profile && (
+          {true && (
             <div className="space-y-5 animate-in fade-in duration-200">
               {profileMsg && (
                 <div className={`p-3.5 rounded-2xl text-xs font-semibold ${
@@ -419,6 +396,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
     </div>
   );
+
+  const passwordContent = currentUser ? <ChangePasswordCard /> : null;
+  const phoneContent = currentUser ? (
+    <ChangePhoneCard
+      currentPhone={currentUser.phoneNumber}
+      // The new number is already in the stored session; saving the unchanged profile
+      // brings the whole app's copy of the user up to date.
+      onChanged={async () => { await onSaveProfile?.({}); }}
+    />
+  ) : null;
 
   const teamContent = (
     <div className="w-full space-y-6 animate-in fade-in duration-200">
@@ -679,21 +666,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // the password/profile cards above.
   const accountStatusContent = (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.4)] space-y-4">
-        <button
-          type="button"
-          onClick={() => toggleSection('account')}
-          className={`w-full flex items-center justify-between text-slate-900 dark:text-white font-bold text-sm select-none cursor-pointer group ${
-            openSections.account ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : ''
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-indigo-500 group-hover:scale-110 transition-transform" />
-            <span>مدیریت حساب کاربری و خروج</span>
-          </div>
-          {openSections.account ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-        </button>
 
-        {openSections.account && (
+        {true && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-1 animate-in fade-in duration-200">
             {currentUser ? (
               <>
@@ -737,7 +711,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <SystemAdministration
       currentUserId={currentUser?.id}
-      profile={<>{profileContent}{accountStatusContent}</>}
+      profile={{ avatar: profileContent, password: passwordContent, phone: phoneContent, account: accountStatusContent }}
       team={teamContent}
       appearance={appearanceContent}
       help={helpContent}

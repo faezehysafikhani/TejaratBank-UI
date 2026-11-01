@@ -1325,6 +1325,7 @@ export default function App() {
         onOpenWelcomeModal={() => setIsWelcomeModalOpen(true)}
         onOpenUserGuide={currentUser ? () => setIsUserGuideOpen(true) : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
+        onLogout={currentUser ? handleLogout : undefined}
       />
 
       {!isDesktopSidebarOpen && (
