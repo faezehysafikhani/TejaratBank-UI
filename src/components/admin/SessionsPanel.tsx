@@ -345,7 +345,15 @@ export const UserSessionsDialog: React.FC<{ userId: string; userName: string; ca
       setMessage({ type: 'error', text: userErrorMessage(err, 'دریافت نشست‌ها ممکن نشد.') });
     }
   }, [userId]);
-  useEffect(() => { void load(); }, [load]);
+  // The list is a picture of a moment: sessions end by themselves (idle, absolute) while the
+  // dialog is open, so it is read again every 15 seconds and when the window is focused.
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => { if (!document.hidden) void load(); }, 15_000);
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus); };
+  }, [load]);
 
   const closeOne = async (session: SessionInfo) => {
     setBusyId(session.id);
