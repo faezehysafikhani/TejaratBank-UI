@@ -13,6 +13,12 @@ export function getCurrentUser(): User | null {
     return user ? { ...user, teams: fetchUserTeamsPB(user.id) } : null;
 }
 
+/** Step 2 of a sign-in that reached the concurrent-session limit. */
+export async function completeLoginPB(ticket: string, closeSessionIds: string[], closeOldest: boolean): Promise<User> {
+  const user = await nexusApi.completeLogin(ticket, closeSessionIds, closeOldest);
+  return { ...user, teams: fetchUserTeamsPB(user.id) };
+}
+
 export async function loginPB(
   identity: string,
   password: string,

@@ -72,7 +72,8 @@ import {
 } from './utils/serverNotifications';
 import { Database, PanelRightOpen } from 'lucide-react';
 import { showToast } from './utils/toast';
-import { NexusApiError, SESSION_ENDED_EVENT, TASK_CREATED_ACTION, withoutEditDuplicates } from './services/nexusApi';
+import { NexusApiError, SESSION_ENDED_EVENT, SESSION_END_MESSAGES, TASK_CREATED_ACTION, sessionEndReasonOf, withoutEditDuplicates } from './services/nexusApi';
+import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
@@ -291,7 +292,8 @@ export default function App() {
       setTotalUnreadChatCount(sum);
     };
     checkUnread();
-    const interval = setInterval(checkUnread, 4000);
+    // A hidden tab does not poll: nobody is looking, and the requests only cost the server.
+    const interval = setInterval(() => { if (!document.hidden) void checkUnread(); }, 4000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
@@ -365,9 +367,12 @@ export default function App() {
 
   // The server ended the session (account disabled, tokens revoked): back to sign-in.
   useEffect(() => {
-    const onSessionEnded = () => {
+    const onSessionEnded = (event: Event) => {
       setCurrentUser(null);
       setIsAuthModalOpen(true);
+      // Why: signed out for inactivity, closed from another device, by an administrator...
+      const message = SESSION_END_MESSAGES[sessionEndReasonOf(event) ?? ''];
+      if (message) void appAlert(message);
     };
     window.addEventListener(SESSION_ENDED_EVENT, onSessionEnded);
     return () => window.removeEventListener(SESSION_ENDED_EVENT, onSessionEnded);
@@ -1274,6 +1279,11 @@ export default function App() {
     <TaskTitleContext.Provider value={taskTitleById}>
     <div className={`min-h-dvh bg-pattern-${appColorTheme || 'default'} palette-${appColorPalette || 'indigo'} text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200`}>
       
+      {/* Session limits: warns before an idle sign-out, asks for the password at the absolute limit. */}
+      {currentUser && !isAuthModalOpen && (
+        <SessionGuard identifier={currentUser.username || ''} onSignOut={handleLogout} />
+      )}
+
       {/* Startup Summary Welcome Modal (Priority 1 Overlay) */}
       {isWelcomeModalOpen && (
         <UserWelcomeModal

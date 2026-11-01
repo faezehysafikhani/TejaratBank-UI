@@ -22,6 +22,7 @@ const expected = {
   'org_structure.team_members_any_unit': ['org_structure.view'],
   'settings.update': ['settings.view'], 'sms_settings.update': ['sms_settings.view'], 'sms_settings.test': ['sms_settings.view'],
   'ldap_settings.update': ['ldap_settings.view'], 'ldap_settings.test': ['ldap_settings.view'],
+  'sessions.view': ['users.view'], 'sessions.revoke': ['sessions.view'], 'sessions.revoke_all': ['sessions.view'],
   'tenants.create': ['tenants.view'], 'tenants.manage_all': ['tenants.view'],
   'Tasks.Create': ['Tasks.View'], 'Tasks.Edit': ['Tasks.View'], 'Tasks.Delete': ['Tasks.View'], 'Tasks.Assign': ['Tasks.View'],
   'Tasks.Comment': ['Tasks.View'], 'Tasks.UploadFiles': ['Tasks.View'], 'Tasks.ManageAll': ['Tasks.View'],
