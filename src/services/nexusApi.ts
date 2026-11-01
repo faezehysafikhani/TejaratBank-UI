@@ -166,6 +166,8 @@ export interface SessionStatus {
   idleRemainingSeconds: number;
   absoluteRemainingSeconds: number;
   serverTimeUtc: string;
+  /** How long before the idle timeout the warning shows (the server's choice). */
+  idleWarningSeconds?: number;
 }
 
 /** The sign-in stopped at the concurrent-session limit: the user picks which session to close. */
@@ -1171,6 +1173,7 @@ export async function login(
   }
   // At the concurrent-session limit no token is issued: the user chooses a session to close first.
   if (auth.sessionLimit) throw new SessionLimitError(auth.sessionLimit);
+  if (!auth.accessToken) throw new NexusApiError('ورود کامل نشد. لطفاً دوباره تلاش کنید.', 200);
   saveAuthResponse(auth);
   return mapUserDto(auth.user);
 }
