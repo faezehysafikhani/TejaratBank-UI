@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Clock, KeyRound, Loader2, LogOut, ShieldAlert } from 'lucide-react';
 import {
+  CAPTCHA_ERROR_CODES,
+  LoginCaptcha,
   NexusApiError,
   SessionLimitError,
   SessionStatus,
   getSessionStatus,
   keepSessionAlive,
   login,
+  requestLoginCaptcha,
   setAbsoluteReauthHandler,
 } from '../services/nexusApi';
 import {
@@ -230,19 +233,34 @@ const ReauthDialog: React.FC<{ identifier: string; onDone: (ok: boolean) => void
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // After a wrong password the server wants a CAPTCHA for the next attempt (same rule as the sign-in screen).
+  const [captcha, setCaptcha] = useState<LoginCaptcha | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+
+  const loadCaptcha = async () => {
+    setCaptchaAnswer('');
+    try {
+      setCaptcha(await requestLoginCaptcha());
+    } catch {
+      setCaptcha(null);
+    }
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!password || busy) return;
+    if (!password || busy || (captcha && !captchaAnswer.trim())) return;
     setBusy(true);
     setError(null);
     try {
-      await login(identifier, password);
+      await login(identifier, password, captcha ? { captchaId: captcha.captchaId, answer: captchaAnswer } : undefined);
       onDone(true);
     } catch (err) {
       setError(err instanceof SessionLimitError
         ? 'تعداد نشست‌های هم‌زمان شما به سقف رسیده است. از سامانه خارج شوید و دوباره وارد شوید.'
         : userErrorMessage(err, 'ورود دوباره ناموفق بود.'));
+      // The CAPTCHA asked for, or the one just used up: a new one.
+      const code = err instanceof NexusApiError ? err.code : undefined;
+      if ((code && CAPTCHA_ERROR_CODES.includes(code)) || captcha) await loadCaptcha();
     } finally {
       setBusy(false);
     }
@@ -269,9 +287,26 @@ const ReauthDialog: React.FC<{ identifier: string; onDone: (ok: boolean) => void
           autoComplete="current-password"
           className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dir-ltr text-right"
         />
+        {captcha && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <img src={captcha.imageDataUrl} alt="کد امنیتی" width={200} height={70} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white select-none" draggable={false} />
+              <button type="button" onClick={loadCaptcha} className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 cursor-pointer">کد جدید</button>
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              value={captchaAnswer}
+              onChange={(event) => setCaptchaAnswer(event.target.value)}
+              placeholder="کد نمایش‌داده‌شده در تصویر"
+              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dir-ltr text-center tracking-[0.3em]"
+            />
+          </div>
+        )}
         {error && <p className="text-[11px] text-red-600 dark:text-red-400" role="alert">{error}</p>}
         <div className="flex gap-2">
-          <button type="submit" disabled={busy || !password} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5">
+          <button type="submit" disabled={busy || !password || (!!captcha && !captchaAnswer.trim())} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5">
             {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />} ادامه
           </button>
           <button type="button" onClick={() => { onDone(false); onSignOut(); }} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
