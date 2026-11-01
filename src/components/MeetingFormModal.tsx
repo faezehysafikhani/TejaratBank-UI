@@ -10,6 +10,7 @@ import { MeetingDialog } from './MeetingDialog';
 import { MeetingTaskPicker } from './MeetingTaskPicker';
 import { schedulingBlockReason } from '../utils/jalali';
 import PeoplePicker from './PeoplePicker';
+import { MeetingResolutionTasks } from './MeetingResolutionTasks';
 import { Field, inputClass, Notice, PrimaryButton, SecondaryButton } from './admin/AdminUi';
 import { PERMISSIONS } from '../utils/permissions';
 
@@ -179,6 +180,7 @@ export function MeetingFormModal({ initialDate, meeting, currentUser, people, ta
       <SecondaryButton type="button" disabled={!onConvertToTask} title={onConvertToTask?undefined:'اجازه‌ی ایجاد فعالیت را ندارید'} onClick={createResolutionTask}><ListPlus className="w-4 h-4" />ایجاد وظیفه</SecondaryButton>
       <span className="text-[11px] text-slate-500">فرم ثبت فعالیت باز می‌شود و برچسب جلسه{form.agenda.some(a=>a.title.trim())?' و بند دستور جلسه':''} خودکار روی آن می‌نشیند.</span>
     </div>}
+    {active === 'minutes' && meeting && <MeetingResolutionTasks taskIds={form.taskIds} />}
   </MeetingDialog>;
 }
 function Empty({text}:{text:string}) { return <p className="text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6">{text}</p>; }

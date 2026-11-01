@@ -61,6 +61,8 @@ interface TaskFormModalProps {
   initialTitle?: string;
   /** Labels a new task starts with (a task made from a meeting resolution). */
   initialTags?: string[];
+  /** The labels in `initialTags` cannot be removed (the ones a meeting's resolution gives its task: the meeting and its agenda item). */
+  lockInitialTags?: boolean;
   initialDescription?: string;
   /** The description given in `initialDescription` cannot be edited (a task made from a message or comment). */
   lockInitialDescription?: boolean;
@@ -81,6 +83,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   initialDueDate,
   initialTitle = '',
   initialTags,
+  lockInitialTags = false,
   initialDescription = '',
   lockInitialDescription = false,
   parentTask = null,
@@ -496,7 +499,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setTagInput('');
   };
 
+  // The labels a new task from a meeting's resolution starts with stay on it: they say which meeting
+  // and agenda item it came from. Others added by hand can be removed as before.
+  const lockedTags = !taskToEdit && lockInitialTags ? (initialTags ?? []) : [];
+
   const handleRemoveTag = (tagToRemove: string) => {
+    if (lockedTags.includes(tagToRemove)) return;
     setTags((prev) => prev.filter((t) => t !== tagToRemove));
   };
 
@@ -2108,13 +2116,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
                   >
                     #{t}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(t)}
-                      className="text-indigo-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer p-0.5 rounded-md"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    {lockedTags.includes(t) ? (
+                      <span className="text-indigo-400 p-0.5" title="این برچسب خودکار از جلسه آمده و حذف نمی‌شود" aria-label="برچسب ثابت (از جلسه)">
+                        <Lock className="w-3 h-3" />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(t)}
+                        className="text-indigo-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer p-0.5 rounded-md"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
