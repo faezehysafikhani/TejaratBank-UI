@@ -3,6 +3,7 @@ import { Task, TaskStatus, Attachment, User } from '../types';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskGroupColumn } from './TaskGroupColumn';
 import { TaskListView } from './TaskListView';
+import { TaskMatrixBoard } from './TaskMatrixBoard';
 import { getTaskLastModifiedTime } from '../utils/helpers';
 import { BoardViewSettings, DEFAULT_BOARD_VIEW, buildTaskGroups, isCurrentTask } from '../utils/boardView';
 
@@ -66,7 +67,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }, [boardTasks]);
 
   const groups = useMemo(
-    () => (view.groupBy === 'status' || view.groupBy === 'none' ? [] : buildTaskGroups(boardTasks, view.groupBy)),
+    () => (view.groupBy === 'status' || view.groupBy === 'none' || view.groupBy === 'matrix' ? [] : buildTaskGroups(boardTasks, view.groupBy)),
     [boardTasks, view.groupBy],
   );
 
@@ -98,7 +99,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         <TaskListView tasks={boardTasks} showDetails={view.showDetails} onViewDetails={onViewDetails} />
       )}
 
-      {view.groupBy !== 'status' && view.groupBy !== 'none' && (
+      {view.groupBy === 'matrix' && (
+        <TaskMatrixBoard
+          tasks={boardTasks}
+          currentUser={currentUser}
+          showDetails={view.showDetails}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onStatusChange={onStatusChange}
+          onPreviewAttachment={onPreviewAttachment}
+          onViewDetails={onViewDetails}
+          onOpenProjectDetails={onOpenProjectDetails}
+          onToggleSubTask={onToggleSubTask}
+        />
+      )}
+
+      {view.groupBy !== 'status' && view.groupBy !== 'none' && view.groupBy !== 'matrix' && (
         groups.length === 0 ? (
           <div className="h-32 flex items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
             <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">هیچ فعالیتی برای نمایش وجود ندارد</p>
