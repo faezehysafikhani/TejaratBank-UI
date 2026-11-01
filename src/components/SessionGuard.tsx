@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Clock, KeyRound, Loader2, LogOut, ShieldAlert } from 'lucide-react';
 import {
+  NexusApiError,
   SessionLimitError,
   SessionStatus,
   getSessionStatus,
@@ -58,6 +59,8 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
   const [reauth, setReauth] = useState<{ resolve: (ok: boolean) => void } | null>(null);
   const deadlinesRef = useRef<Deadlines | null>(null);
   const checkingEndRef = useRef(false);
+  const stayingRef = useRef(false);
+  const [stayError, setStayError] = useState<string | null>(null);
 
   const apply = useCallback((status: SessionStatus) => {
     const received = Date.now();
@@ -145,12 +148,29 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
     }
   }, [deadlines, idleRemaining, absoluteRemaining, resync]);
 
+  // "Continue": the dialog closes at once (the click is the user's answer; waiting for the server
+  // made it linger for seconds on a slow link) and the other tabs are told straight away. The
+  // server then confirms; if that fails the old state comes back and the dialog says so.
   const stay = async () => {
+    const before = deadlinesRef.current;
+    if (!before || stayingRef.current) return;
+    stayingRef.current = true;
+    setStayError(null);
+    const optimistic = { ...before, idleAt: Date.now() + before.idleSeconds * 1000 };
+    deadlinesRef.current = optimistic;
+    setDeadlines(optimistic);
+    broadcastContinued();
     try {
       apply(await keepSessionAlive());
-      broadcastContinued();
-    } catch {
-      // The session ended meanwhile; the HTTP client has already reacted.
+    } catch (err) {
+      // A 401 means the session really ended: the HTTP client has already signed the user out.
+      if (err instanceof NexusApiError && err.httpStatus === 401) return;
+      deadlinesRef.current = before;
+      setDeadlines(before);
+      setStayError('ادامه‌ی نشست ثبت نشد. دوباره تلاش کنید.');
+      void resync();
+    } finally {
+      stayingRef.current = false;
     }
   };
 
@@ -168,6 +188,7 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
               <span className="mx-1 font-extrabold text-amber-600 dark:text-amber-400 text-sm" aria-live="polite">{formatClock(idleRemaining)}</span>
               دیگر بسته می‌شود.
             </p>
+            {stayError && <p className="text-[11px] text-red-600 dark:text-red-400" role="alert">{stayError}</p>}
             <div className="flex gap-2">
               <button type="button" autoFocus onClick={stay} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer">
                 ادامه کار
