@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, ShieldCheck, UserX, UserCheck, UserPlus, Loader2, Lock, UserRound, Building2, ImagePlus, Upload } from 'lucide-react';
+import { Pencil, ShieldCheck, UserX, UserCheck, UserPlus, Loader2, Lock, UserRound, Building2, ImagePlus, Upload, MonitorSmartphone } from 'lucide-react';
 import {
   AdminUser, AdminUserInput, AdminRole, UserAccess, UserAccessEntry, NexusApiError,
   listUsersPage, adminCreateUser, adminUpdateUser, setUserActive,
@@ -18,6 +18,7 @@ import { UserAppointmentsPanel } from './UserAppointmentsPanel';
 import { JalaliDatePicker } from '../JalaliDatePicker';
 import { OrgPlacementFields, useOrgPlacementData, EMPTY_PLACEMENT_DRAFT, OrgPlacementDraft } from './orgStructure/OrgPlacementFields';
 import { appConfirm } from '../../utils/appDialog';
+import { UserSessionsDialog } from './SessionsPanel';
 
 const PAGE_SIZE = 10;
 const NATIONAL_CODE = /^[0-9]{10}$/;
@@ -29,6 +30,8 @@ export interface UserAdminRights {
   changeStatus: boolean;
   assignRoles: boolean;
   assignPermissions: boolean;
+  viewSessions?: boolean;
+  revokeSessions?: boolean;
 }
 
 const ROLE_TITLES: Record<string, string> = { Administrator: 'مدیر سیستم', Member: 'کاربر' };
@@ -57,6 +60,7 @@ export const UsersPanel: React.FC<{
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editing, setEditing] = useState<AdminUser | 'new' | null>(null);
   const [accessOf, setAccessOf] = useState<AdminUser | null>(null);
+  const [sessionsOf, setSessionsOf] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,6 +166,9 @@ export const UsersPanel: React.FC<{
                       {(rights.assignRoles || rights.assignPermissions) && (
                         <IconAction icon={ShieldCheck} label="دسترسی‌ها" onClick={() => setAccessOf(user)} disabled={!!lockedReason} disabledReason={lockedReason} />
                       )}
+                      {rights.viewSessions && (
+                        <IconAction icon={MonitorSmartphone} label="نشست‌ها" onClick={() => setSessionsOf(user)} />
+                      )}
                       {rights.changeStatus && (
                         user.isActive
                           ? <IconAction icon={UserX} label="غیرفعال‌سازی" tone="rose" onClick={() => toggleStatus(user)} disabled={!!lockedReason} disabledReason={lockedReason} />
@@ -188,6 +195,9 @@ export const UsersPanel: React.FC<{
           onClose={() => setEditing(null)}
           onSaved={async (text) => { setEditing(null); setMessage({ type: 'success', text }); await load(); }}
         />
+      )}
+      {sessionsOf && (
+        <UserSessionsDialog userId={sessionsOf.id} userName={sessionsOf.displayName} canClose={!!rights.revokeSessions} onClose={() => setSessionsOf(null)} />
       )}
       {accessOf && (
         <UserAccessDialog

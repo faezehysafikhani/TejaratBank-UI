@@ -1,8 +1,9 @@
 import React, { useEffect, useId, useState } from 'react';
-import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, ChevronDown, ChevronUp, MonitorSmartphone } from 'lucide-react';
 import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneChange, confirmPhoneChange, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
+import { SessionsPanel } from './SessionsPanel';
 import { RolesPanel } from './RolesPanel';
 import { LoginHistoryPanel } from './LoginHistoryPanel';
 import { LdapPanel } from './LdapPanel';
@@ -18,7 +19,7 @@ import { TitlesPanel } from './orgStructure/TitlesPanel';
 import { canSeeWorkTeams } from '../../utils/permissions';
 import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
 
-type MainTab = 'profile' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
+type MainTab = 'profile' | 'sessions' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
 type UsersTab = 'list' | 'roles' | 'titles' | 'history' | 'ldap' | 'sso';
 
 /**
@@ -80,6 +81,8 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
             changeStatus: can('users.change_status'),
             assignRoles: can('users.assign_roles'),
             assignPermissions: can('users.assign_permissions'),
+            viewSessions: can('sessions.view'),
+            revokeSessions: can('sessions.revoke'),
           }}
           orgStructureAvailable={orgStructureAvailable}
           canManageOrgAssignments={can(ORG_STRUCTURE_PERMISSIONS.manageAssignments)}
@@ -488,6 +491,7 @@ export const SystemAdministration: React.FC<{
     { id: 'profile', label: 'پروفایل', icon: UserIcon },
     // Only for people given the work-team permissions; nobody else sees the tab.
     ...(canSeeWorkTeams(permissions) ? [{ id: 'team' as const, label: 'مدیریت تیم کاری', icon: Users }] : []),
+    { id: 'sessions', label: 'نشست‌ها', icon: MonitorSmartphone },
     { id: 'appearance', label: 'ظاهر سامانه', icon: Palette },
     { id: 'help', label: 'راهنما', icon: FileText },
     ...(can('sms_settings.view') ? [{ id: 'sms' as const, label: 'پنل پیامکی', icon: MessageSquare }] : []),
@@ -520,6 +524,7 @@ export const SystemAdministration: React.FC<{
           {appearance}
         </div>
       )}
+      {current === 'sessions' && <SessionsPanel can={can} />}
       {current === 'help' && help}
       {current === 'sms' && <SmsPanel canUpdate={can('sms_settings.update')} canTest={can('sms_settings.test')} />}
       {current === 'users' && currentUserId && <UserManagementSection currentUserId={currentUserId} can={can} orgStructureAvailable={orgStructureAvailable} />}

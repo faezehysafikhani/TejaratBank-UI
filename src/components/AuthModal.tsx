@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { LogIn, KeyRound, User as UserIcon, AlertCircle, X, Loader2, Eye, EyeOff, CheckCircle2, ArrowRight, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 import { AppTheme } from '../types';
-import { confirmPasswordResetPB, loginPB, requestPasswordResetPB, verifyPasswordResetCodePB } from '../services/dataService';
+import { completeLoginPB, confirmPasswordResetPB, loginPB, requestPasswordResetPB, verifyPasswordResetCodePB } from '../services/dataService';
 import { userErrorMessage } from '../utils/errorMessages';
 import { useBranding } from '../utils/branding';
-import { CAPTCHA_ERROR_CODES, LoginCaptcha, NexusApiError, requestLoginCaptcha } from '../services/nexusApi';
+import { CAPTCHA_ERROR_CODES, LoginCaptcha, NexusApiError, SessionLimitChallenge, SessionLimitError, requestLoginCaptcha } from '../services/nexusApi';
+import { SessionLimitPicker } from './SessionLimitPicker';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -50,6 +51,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+
+  // The password was right but the user has as many sessions open as they may: they choose which to close.
+  const [limit, setLimit] = useState<SessionLimitChallenge | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -102,12 +106,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onSuccess();
       if (canClose) onClose();
     } catch (err: any) {
+      if (err instanceof SessionLimitError) {
+        setLimit(err.challenge);
+        setPassword('');
+        setCaptcha(null);
+        setCaptchaAnswer('');
+        return;
+      }
       setErrorMsg(userErrorMessage(err, 'ورود ناموفق بود. نام کاربری/شماره تلفن یا رمز عبور اشتباه است.'));
       // The server wants a CAPTCHA for the next attempt, or the one just sent is used up.
       const code = err instanceof NexusApiError ? err.code : undefined;
       if ((code && CAPTCHA_ERROR_CODES.includes(code)) || captcha) {
         await loadCaptcha();
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompleteLimit = async (closeIds: string[], closeOldest: boolean) => {
+    if (!limit) return;
+    setErrorMsg(null);
+    setIsLoading(true);
+    try {
+      const user = await completeLoginPB(limit.ticket, closeIds, closeOldest);
+      setLimit(null);
+      if (user.theme) onThemeSelect(user.theme);
+      onSuccess();
+      if (canClose) onClose();
+    } catch (err: any) {
+      setErrorMsg(userErrorMessage(err, 'ورود کامل نشد. دوباره وارد شوید.'));
+      // The ticket lasts two minutes and works once: after a failure the user signs in again.
+      if (err instanceof NexusApiError && err.httpStatus === 401) setLimit(null);
     } finally {
       setIsLoading(false);
     }
@@ -255,7 +285,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {mode === 'login' ? (
+          {mode === 'login' && limit ? (
+            <SessionLimitPicker
+              challenge={limit}
+              busy={isLoading}
+              error={errorMsg}
+              onConfirm={handleCompleteLimit}
+              onCancel={() => { setLimit(null); setErrorMsg(null); }}
+            />
+          ) : mode === 'login' ? (
             /* Login Form */
             <form onSubmit={handleLogin} className="app-form space-y-4">
               <div>
