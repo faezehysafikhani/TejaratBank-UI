@@ -160,6 +160,19 @@ const PERMISSION_PREREQUISITES: Readonly<Record<string, readonly string[]>> = {
   'Actions.Submit': ['Actions.View'],
 };
 
+/** Every permission this one needs, directly or through another one it needs. */
+export function prerequisitesOf(permissionName: string): string[] {
+  const found = new Set<string>();
+  const pending = [...(PERMISSION_PREREQUISITES[permissionName] || [])];
+  while (pending.length > 0) {
+    const next = pending.pop()!;
+    if (found.has(next)) continue;
+    found.add(next);
+    pending.push(...(PERMISSION_PREREQUISITES[next] || []));
+  }
+  return [...found];
+}
+
 export function hasKnownPermissionDependents(permissionName: string): boolean {
   return Object.values(PERMISSION_PREREQUISITES).some((prerequisites) => prerequisites.includes(permissionName));
 }
@@ -332,9 +345,8 @@ const UNLISTED_PERMISSIONS = new Set([
   // Organisational user groups (granting permissions to a whole group): managed only through the
   // API here. Personal work teams (groups.view_own, groups.manage_own) are different and stay.
   'groups.view', 'groups.create', 'groups.update', 'groups.assign_permissions', 'groups.manage_members', 'groups.delete',
-  // No screen for them: deleting users (they are deactivated instead), managing roles, tenants
-  // (one organization).
-  'users.delete', 'roles.create', 'roles.update', 'roles.assign_permissions',
+  // No screen for them: deleting users (they are deactivated instead), tenants (one organization).
+  'users.delete',
   'tenants.view', 'tenants.create', 'tenants.manage_all',
   // Assigning happens through creating and editing a task (Tasks.Create / Tasks.Edit); the
   // endpoints that need this one are not used by this app.

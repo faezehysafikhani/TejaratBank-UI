@@ -81,6 +81,7 @@ import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissio
 import { userErrorMessage } from './utils/errorMessages';
 import { isTaskVisibleTo, responsibleIdsOf, responsibleNamesOf } from './utils/taskPeople';
 import { appAlert, appConfirm } from './utils/appDialog';
+import { useBranding } from './utils/branding';
 
 const PAGE_TITLES: Record<string, string> = {
   kanban: 'بورد کانبان',
@@ -94,6 +95,7 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 export default function App() {
+  const brand = useBranding();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [pbError, setPbError] = useState<string | null>(null);
@@ -1069,7 +1071,7 @@ export default function App() {
     const applyAppBadge = async () => {
       // 1. Document Title Badge
       if (typeof document !== 'undefined') {
-        const baseTitle = `${PAGE_TITLES[activeTab] || 'بورد کانبان'} · مدیریت وظایف`;
+        const baseTitle = `${PAGE_TITLES[activeTab] || 'بورد کانبان'} · ${brand.customName || 'مدیریت وظایف'}`;
         if (totalBadgeCount > 0) {
           document.title = `(${toPersianDigits(totalBadgeCount)}) ${baseTitle}`;
         } else {
@@ -1106,7 +1108,7 @@ export default function App() {
     };
 
     applyAppBadge();
-  }, [totalBadgeCount, activeTab]);
+  }, [totalBadgeCount, activeTab, brand.customName]);
 
   // Request notification permission on first user interaction if default (Required on iOS 16.4+ for PWA Home Screen Badges)
   useEffect(() => {
@@ -1181,12 +1183,12 @@ export default function App() {
         {/* Ambient App Title Card in Background */}
         <div className="relative z-10 text-center max-w-sm mx-auto space-y-4 p-8 rounded-3xl bg-white/10 dark:bg-slate-900/50 border border-white/10 shadow-2xl backdrop-blur-md">
           <img 
-            src="/tm-logo.png"
+            src={brand.logo}
             alt="لوگو" 
             className="w-16 h-16 mx-auto rounded-2xl shadow-xl object-cover border border-white/20" 
           />
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight">سامانه مدیریت وظایف (TM)</h1>
+            <h1 className="text-xl font-black text-white tracking-tight">{brand.customName || 'سامانه مدیریت وظایف (TM)'}</h1>
             <p className="text-xs text-indigo-200/80 mt-1.5 leading-relaxed">
               جهت ورود به سیستم و دسترسی به اطلاعات، لطفاً حساب کاربری خود را وارد فرمایید.
             </p>
@@ -1247,7 +1249,7 @@ export default function App() {
             {/* App Logo Image */}
             <div className="relative p-2 rounded-2xl bg-slate-900 border border-white/15 shadow-2xl">
               <img 
-                src="/tm-logo.png"
+                src={brand.logo}
                 alt="لوگوی برنامه" 
                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shadow-md"
               />
@@ -1257,7 +1259,7 @@ export default function App() {
           {/* Title & Loading Status */}
           <div className="text-center space-y-2 mt-6 sm:mt-8">
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-              مدیریت وظایف (TM)
+              {brand.name}
             </h1>
             <p className="text-xs sm:text-sm font-medium text-indigo-200/90 animate-pulse">
               در حال بارگذاری داده‌ها و ورود به سامانه...

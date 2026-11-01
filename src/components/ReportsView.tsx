@@ -9,7 +9,7 @@ import { PrintableRow, ReportPrintPages } from './ReportPrintPages';
 import { buildXlsx, jalaliStamp, pagesToPdf, printPdf, saveBlob } from '../utils/reportExport';
 import { userErrorMessage } from '../utils/errorMessages';
 import {
-  REPORT_TYPE_TITLES, ReportPersonRole, ReportScope, ReportTaskType, TaskReport, TaskReportFilters, TaskReportRow, getTaskReport,
+  REPORT_TYPE_TITLES, ReportPeriod, ReportPersonRole, ReportScope, ReportTaskType, TaskReport, TaskReportFilters, TaskReportRow, getTaskReport,
 } from '../services/taskReportApi';
 
 const PAGE_SIZE = 25;
@@ -29,6 +29,53 @@ function jalaliDate(isoDate: string | null | undefined): string {
 const iranDay = (utc: string) => new Date(new Date(utc).getTime() + 3.5 * 3600 * 1000).toISOString().slice(0, 10);
 
 const people = (list: TaskReportRow['responsible']) => list.map((p) => p.displayName).join('، ');
+
+/** The Jalali day of a UTC timestamp. */
+const dayOf = (utc: string) => jalaliDate(iranDay(utc));
+
+/** «از ۱۴۰۵/۰۸/۰۱ تا ۱۴۰۵/۰۸/۱۰» - or «تا کنون» while still on the task. */
+const spanText = (p: ReportPeriod) => `از ${dayOf(p.fromUtc)} تا ${p.toUtc ? dayOf(p.toUtc) : 'کنون'}`;
+
+/** «جانشین کارشناس · کد ۷»: the vacant post a stand-in stood in for. */
+const actingText = (p: ReportPeriod) => `جانشین ${p.postTitle}${p.postCode ? ` · کد ${toPersianDigits(p.postCode)}` : ''}`;
+
+/** One period in words: «مهدی (کارشناس) — جانشین کارشناس · کد ۷ — از ... تا ...». */
+const periodLine = (p: ReportPeriod) =>
+  `${p.displayName}${p.positionTitle ? ` (${p.positionTitle})` : ''}${p.role === 'acting' ? ` — ${actingText(p)}` : ''} — ${spanText(p)}`;
+
+/** The periods of those who worked on the task: responsible and stand-ins (not its creator). */
+const workPeriods = (r: TaskReportRow) => (r.history || []).filter((p) => p.role !== 'creator');
+const creatorPeriods = (r: TaskReportRow) => (r.history || []).filter((p) => p.role === 'creator');
+
+/** Responsible people now with no period kept for them (tasks given to people): shown as they are. */
+const responsibleWithoutHistory = (r: TaskReportRow) => {
+  const periods = workPeriods(r);
+  return r.responsible.filter((p) => !periods.some((w) => w.userId === p.userId));
+};
+
+/** Who worked on the task when, each with their position then (screen table). */
+const WorkHistory: React.FC<{ row: TaskReportRow }> = ({ row }) => {
+  const periods = workPeriods(row);
+  const others = responsibleWithoutHistory(row);
+  if (periods.length === 0 && others.length === 0) return <>—</>;
+  return (
+    <div className="space-y-1">
+      {periods.map((p, i) => (
+        <div key={`${p.userId}-${p.fromUtc}-${i}`} className={p.toUtc ? 'text-slate-500' : ''}>
+          <div className="whitespace-nowrap">
+            <b className={p.toUtc ? 'font-bold text-slate-600 dark:text-slate-300' : ''}>{p.displayName}</b>
+            {p.positionTitle && <span className="text-slate-500"> — {p.positionTitle}</span>}
+            {p.role === 'acting' && <span className="mr-1 inline-flex px-1.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800">{actingText(p)}</span>}
+          </div>
+          <div className="text-[10px] text-slate-400 whitespace-nowrap">{spanText(p)}</div>
+        </div>
+      ))}
+      {others.map((p) => (
+        <div key={p.userId} className="whitespace-nowrap"><b>{p.displayName}</b>{p.positionTitle && <span className="text-slate-500"> — {p.positionTitle}</span>}</div>
+      ))}
+    </div>
+  );
+};
 
 /**
  * A titled group of several controls. Not a <label> like Field: a label forwards clicks to its
@@ -76,7 +123,7 @@ const SummaryCard: React.FC<{
 
 /** The report as an .xlsx workbook (right to left, header row frozen, auto-filter). */
 function exportExcel(rows: TaskReportRow[]) {
-  const header = ['ردیف', 'عنوان', 'نوع', 'وضعیت', 'اولویت', 'مسئول', 'سمت مسئول', 'ایجادکننده', 'موعد انجام', 'عقب‌افتاده', 'تاریخ تکمیل', 'برچسب‌ها', 'شرح'];
+  const header = ['ردیف', 'عنوان', 'نوع', 'وضعیت', 'اولویت', 'مسئول', 'سمت مسئول', 'سابقه مسئولیت (سمت در همان زمان)', 'ایجادکننده', 'موعد انجام', 'عقب‌افتاده', 'تاریخ تکمیل', 'برچسب‌ها', 'شرح'];
   const data = rows.map((r, i) => [
     i + 1,
     r.title,
@@ -85,20 +132,21 @@ function exportExcel(rows: TaskReportRow[]) {
     PRIORITIES[r.priority]?.title || r.priority,
     people(r.responsible),
     r.responsible.map((p) => p.positionTitle).filter(Boolean).join('، '),
-    r.owner?.displayName || '',
+    workPeriods(r).map(periodLine).join('\n'),
+    creatorPeriods(r).length > 1 ? creatorPeriods(r).map(periodLine).join('\n') : r.owner?.displayName || '',
     jalaliDate(r.dueDate),
     r.isOverdue ? 'بله' : '',
     r.completedAtUtc ? jalaliDate(iranDay(r.completedAtUtc)) : '',
     r.tags.join('، '),
     r.description || '',
   ]);
-  saveBlob(buildXlsx('گزارش فعالیت‌ها', header, data, [6, 40, 11, 12, 9, 30, 20, 18, 13, 10, 13, 22, 45]), `task-report-${jalaliStamp()}.xlsx`);
+  saveBlob(buildXlsx('گزارش فعالیت‌ها', header, data, [6, 40, 11, 12, 9, 30, 20, 60, 18, 13, 10, 13, 22, 45]), `task-report-${jalaliStamp()}.xlsx`);
 }
 
 /** Read-only view of a task that is in the report only as the manager of its people. */
 const ReportTaskDialog: React.FC<{ row: TaskReportRow; onClose: () => void }> = ({ row, onClose }) => (
   <AdminDialog title={row.title} onClose={onClose} footer={<SecondaryButton onClick={onClose}>بستن</SecondaryButton>}>
-    <Notice type="info">این فعالیت چون مربوط به زیرمجموعه شماست در گزارش آمده است؛ برای ویرایش یا گفتگو باید عضو آن باشید.</Notice>
+    <Notice type="info">این فعالیت چون مربوط به زیرمجموعه شماست، یا خودتان پیش‌تر روی آن بوده‌اید، در گزارش آمده است؛ برای ویرایش یا گفتگو باید اکنون عضو آن باشید.</Notice>
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
       <div><span className="text-slate-500">وضعیت: </span><b>{STATUSES[row.status]?.title}</b></div>
       <div><span className="text-slate-500">نوع: </span><b>{REPORT_TYPE_TITLES[row.type]}</b></div>
@@ -107,6 +155,21 @@ const ReportTaskDialog: React.FC<{ row: TaskReportRow; onClose: () => void }> = 
       <div><span className="text-slate-500">موعد انجام: </span><b className={row.isOverdue ? 'text-rose-600' : ''}>{jalaliDate(row.dueDate)}</b></div>
       {row.completedAtUtc && <div><span className="text-slate-500">تاریخ تکمیل: </span><b>{jalaliDate(iranDay(row.completedAtUtc))}</b></div>}
     </div>
+    {(row.history?.length ?? 0) > 0 && (
+      <div className="space-y-1.5">
+        <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-200">سابقه افراد روی این فعالیت (با سمت هر نفر در همان زمان)</h4>
+        <ul className="space-y-1 text-xs text-slate-700 dark:text-slate-300">
+          {row.history!.map((p, i) => (
+            <li key={`${p.userId}-${p.fromUtc}-${i}`} className="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-1.5">
+              <b>{p.displayName}</b>{p.positionTitle && ` — ${p.positionTitle}`}
+              <span className="text-slate-500"> · {p.role === 'creator' ? 'ایجادکننده' : p.role === 'acting' ? actingText(p) : 'مسئول'}</span>
+              {p.place && <span className="text-slate-400"> · {p.place}</span>}
+              <div className="text-[11px] text-slate-500">{spanText(p)}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
     {row.description && <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3">{row.description}</p>}
     {row.tags.length > 0 && <div className="flex flex-wrap gap-1.5">{row.tags.map((t) => <StatusBadge key={t} tone="indigo">#{t}</StatusBadge>)}</div>}
   </AdminDialog>
@@ -202,6 +265,8 @@ export const ReportsView: React.FC<{
     ...r,
     dueDateText: jalaliDate(r.dueDate),
     completedText: r.completedAtUtc ? jalaliDate(iranDay(r.completedAtUtc)) : '',
+    // Under the row, when more than one person was on it (or a stand-in): who, with their position then, and when.
+    historyLines: workPeriods(r).length > 1 || workPeriods(r).some((p) => p.role === 'acting') ? workPeriods(r).map(periodLine) : [],
   })), [rows]);
 
   // Print and PDF render the printable pages first (off screen), then make a PDF of them. Print
@@ -393,12 +458,15 @@ export const ReportsView: React.FC<{
                       </td>
                       <td className={`${td} whitespace-nowrap`}>{REPORT_TYPE_TITLES[r.type]}</td>
                       <td className={td}><span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${STATUSES[r.status]?.badgeBg} ${STATUSES[r.status]?.badgeText}`}>{STATUSES[r.status]?.title}</span></td>
-                      <td className={td}>
-                        {r.responsible.length === 0 ? '—' : r.responsible.map((p) => (
-                          <div key={p.userId} className="whitespace-nowrap"><b>{p.displayName}</b>{p.positionTitle && <span className="text-slate-500"> — {p.positionTitle}</span>}</div>
-                        ))}
+                      <td className={td}><WorkHistory row={r} /></td>
+                      <td className={`${td} whitespace-nowrap`}>
+                        {creatorPeriods(r).length > 1 ? creatorPeriods(r).map((p, i) => (
+                          <div key={`${p.userId}-${i}`} className={p.toUtc ? 'text-slate-500' : ''}>
+                            <b>{p.displayName}</b>{p.positionTitle && <span className="text-slate-500"> — {p.positionTitle}</span>}
+                            <div className="text-[10px] text-slate-400">{spanText(p)}</div>
+                          </div>
+                        )) : r.owner?.displayName || '—'}
                       </td>
-                      <td className={`${td} whitespace-nowrap`}>{r.owner?.displayName || '—'}</td>
                       <td className={`${td} whitespace-nowrap ${r.isOverdue ? 'text-rose-600 font-bold' : ''}`}>
                         <span className="inline-flex items-center gap-1">{r.isOverdue && <AlertCircle className="w-3.5 h-3.5" />}{jalaliDate(r.dueDate)}</span>
                       </td>

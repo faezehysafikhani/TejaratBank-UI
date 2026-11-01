@@ -3,6 +3,7 @@ import { Filter, Layers, LogIn, Bell, LayoutDashboard, CircleHelp, User as UserI
 import { toPersianDigits } from '../utils/helpers';
 import { User as UserType, AppTheme, AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
+import { useBranding } from '../utils/branding';
 
 interface NavbarProps {
   totalTasks: number;
@@ -43,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenUserGuide,
   onOpenSettings,
 }) => {
+  const brand = useBranding();
   const palette = COLOR_PALETTES[appColorPalette] || COLOR_PALETTES.indigo;
   const [systemNow, setSystemNow] = useState(() => new Date());
   useEffect(() => {
@@ -60,14 +62,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Logo & Title */}
           <div className="flex items-center gap-3.5">
             <img 
-              src="/tm-logo.png"
-              alt="لوگوی TM"
+              src={brand.logo}
+              alt={`لوگوی ${brand.name}`}
               className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-md shrink-0 object-cover border border-white/20 cursor-pointer hover:opacity-90 transition-opacity" 
               onClick={onOpenWelcomeModal}
             />
             <div>
               <h1 className="text-base sm:text-lg lg:text-xl font-bold text-white tracking-tight flex items-center gap-2 whitespace-nowrap">
-                مدیریت وظایف (TM)
+                {brand.name}
               </h1>
               {currentUser ? (
                 <button 

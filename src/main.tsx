@@ -5,8 +5,11 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { installPersianValidationMessages } from './utils/persianValidation';
+import { refreshBranding } from './utils/branding';
 
 installPersianValidationMessages();
+// The system's name, logo and tab icon as the administrator set them (also before sign-in).
+refreshBranding();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

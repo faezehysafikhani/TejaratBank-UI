@@ -9,7 +9,7 @@ import {
   deleteCompany, deletePosition, linkUnitToCompany, listCompanies, listCompanyUnits, listOrgUnits,
   listAssignments, listPositions, sortOrgUnits, unlinkUnit, updateCompany, updateOrgUnit, updatePosition, UserAssignment,
 } from '../../../services/orgStructureApi';
-import { EmptyRow, LoadingRow, UserPicker, useLoad, useUserNames } from './orgShared';
+import { EmptyRow, LoadingRow, useLoad } from './orgShared';
 
 type Message = { type: 'success' | 'error'; text: string } | null;
 
@@ -222,7 +222,6 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
     const [units, links] = await Promise.all([listOrgUnits(), listCompanyUnits().catch(() => [] as CompanyUnitLink[])]);
     return { units, links };
   }, 'دریافت واحدهای سازمانی ممکن نشد.');
-  const names = useUserNames();
   const [message, setMessage] = useState<Message>(null);
   const [draft, setDraft] = useState<UnitDraft | null>(null);
   const { busy, run } = useAction(data.reload, setMessage);
@@ -256,7 +255,7 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">معاونت‌ها و واحدها</h3>
-            <p className="text-xs text-slate-500 mt-0.5">درخت واحدهای سازمانی. مدیر هر واحد، مدیر پیش‌فرض کارکنان آن واحد است.</p>
+            <p className="text-xs text-slate-500 mt-0.5">درخت واحدهای سازمانی. مدیر هر معاونت، دارندهٔ پست بالای آن در چارت سازمانی است.</p>
           </div>
           {canCreate && (
             <PrimaryButton onClick={() => setDraft({ name: '', managerUserId: null, managerName: null, isActive: true })}>
@@ -269,7 +268,7 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
-                  <th className={th}>نام واحد</th><th className={th}>مدیر واحد</th><th className={th}>شرکت</th><th className={th}>وضعیت</th><th className={th} />
+                  <th className={th}>نام واحد</th><th className={th}>شرکت</th><th className={th}>وضعیت</th><th className={th} />
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {rows.map((u) => (
@@ -279,12 +278,11 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
                           <Network className="w-4 h-4 shrink-0 text-indigo-600" /> {u.name}
                         </span>
                       </td>
-                      <td className={td}>{u.managerUserId ? names.get(u.managerUserId) || 'کاربر' : '—'}</td>
                       <td className={td}>{companyOf.get(u.id) || <span className="text-xs text-slate-400">بدون شرکت</span>}</td>
                       <td className={td}>{u.isActive ? <StatusBadge tone="green">فعال</StatusBadge> : <StatusBadge tone="red">غیرفعال</StatusBadge>}</td>
                       <td className={`${td} whitespace-nowrap text-left`}>
                         {canUpdate && (
-                          <IconAction icon={Pencil} label="ویرایش" onClick={() => setDraft({ id: u.id, name: u.name, managerUserId: u.managerUserId, managerName: u.managerUserId ? names.get(u.managerUserId) || 'کاربر' : null, isActive: u.isActive })} />
+                          <IconAction icon={Pencil} label="ویرایش" onClick={() => setDraft({ id: u.id, name: u.name, managerUserId: u.managerUserId, managerName: null, isActive: u.isActive })} />
                         )}
                         {canDeactivate && u.isActive && (
                           <IconAction icon={Ban} tone="rose" label="غیرفعال کردن" disabled={busy} onClick={() => run(() => deactivateOrgUnit(u.id), 'واحد غیرفعال شد.', 'غیرفعال کردن واحد انجام نشد.')} />
@@ -325,13 +323,9 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
           <Field label="نام واحد" required hint="مثلاً «معاونت فناوری اطلاعات»"><input className={inputClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
           {draft.id && (
             <>
-              <Field label="مدیر واحد" hint="کارکنان این واحد که مدیر جداگانه‌ای ندارند، به این شخص گزارش می‌دهند.">
-                <UserPicker value={draft.managerUserId} valueLabel={draft.managerName} onChange={(id, name) => setDraft({ ...draft, managerUserId: id, managerName: name })} />
-              </Field>
               <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="واحد فعال است" />
             </>
           )}
-          {!draft.id && <p className="text-[11px] text-slate-500">مدیر واحد را پس از ایجاد، از دکمه ویرایش تعیین کنید.</p>}
         </AdminDialog>
       )}
     </div>

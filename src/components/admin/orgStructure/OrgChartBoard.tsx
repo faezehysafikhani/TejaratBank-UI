@@ -437,7 +437,7 @@ export const OrgChartBoard: React.FC<{ can: (permission: string) => boolean }> =
             <span className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300 flex items-center justify-center shrink-0"><Network className="w-5 h-5" /></span>
             <span className="min-w-0 flex-1 space-y-1">
               <span className="block text-sm font-extrabold text-slate-900 dark:text-white truncate">{unit.name}</span>
-              <PersonLine person={unit.manager} empty="بدون مدیر" />
+              {unit.manager && <PersonLine person={unit.manager} empty="" />}
             </span>
             {(positions.length > 0 || unit.members.length > 0) && (
               <Toggle open={open} onClick={() => toggleIn(setCollapsedUnits, unit.unitId)} label={unit.name} />

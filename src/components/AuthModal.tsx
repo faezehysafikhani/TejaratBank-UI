@@ -3,6 +3,7 @@ import { LogIn, KeyRound, User as UserIcon, AlertCircle, X, Loader2, Eye, EyeOff
 import { AppTheme } from '../types';
 import { confirmPasswordResetPB, loginPB, requestPasswordResetPB, verifyPasswordResetCodePB } from '../services/dataService';
 import { userErrorMessage } from '../utils/errorMessages';
+import { useBranding } from '../utils/branding';
 import { CAPTCHA_ERROR_CODES, LoginCaptcha, NexusApiError, requestLoginCaptcha } from '../services/nexusApi';
 
 interface AuthModalProps {
@@ -24,6 +25,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   canClose = true,
   onOpenResetWithToken,
 }) => {
+  const brand = useBranding();
   // Sign-in and password recovery only: accounts are created by an administrator.
   const [mode, setMode] = useState<'login' | 'forgot'>('login');
   
@@ -232,12 +234,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div className="flex items-center gap-3">
             <img 
-              src="/tm-logo.png"
+              src={brand.logo}
               alt="لوگو" 
               className="w-12 h-12 rounded-2xl border border-indigo-400/30 shadow-lg object-cover shrink-0" 
             />
             <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">مدیریت وظایف (TM)</h1>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">{brand.name}</h1>
               <h2 className="text-xs font-semibold text-indigo-200/90 mt-0.5">حساب کاربری</h2>
             </div>
           </div>

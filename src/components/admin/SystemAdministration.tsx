@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck } from 'lucide-react';
+import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw } from 'lucide-react';
 import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneChange, confirmPhoneChange, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
+import { RolesPanel } from './RolesPanel';
 import { LoginHistoryPanel } from './LoginHistoryPanel';
 import { LdapPanel } from './LdapPanel';
 import { SsoPreparationPanel } from './SsoPreparationPanel';
@@ -14,9 +15,10 @@ import { useLookup } from '../../utils/lookupCache';
 import { OrgStructureSection } from './orgStructure/OrgStructureSection';
 import { TitlesPanel } from './orgStructure/TitlesPanel';
 import { canSeeWorkTeams } from '../../utils/permissions';
+import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
 
 type MainTab = 'profile' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
-type UsersTab = 'list' | 'titles' | 'history' | 'ldap' | 'sso';
+type UsersTab = 'list' | 'roles' | 'titles' | 'history' | 'ldap' | 'sso';
 
 /**
  * Permission names the signed-in user holds: those saved at sign-in at once (so menus do not
@@ -51,10 +53,11 @@ function useOrgStructureAvailable(userId: string | undefined): { available: bool
   return { available: value, known };
 }
 
-/** «مدیریت کاربران» with its sub-tabs: users, sign-in history and LDAP. */
+/** «مدیریت کاربران» with its sub-tabs: users, roles, titles, sign-in history, LDAP and SSO. */
 const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) => boolean; orgStructureAvailable: boolean }> = ({ currentUserId, can, orgStructureAvailable }) => {
   const tabs: TabItem<UsersTab>[] = [
     ...(can('users.view') ? [{ id: 'list' as const, label: 'مدیریت کاربران', icon: Users }] : []),
+    ...(can('roles.view') ? [{ id: 'roles' as const, label: 'نقش‌ها', icon: ShieldCheck }] : []),
     // Titles before names come with the organization-structure module; whoever may add users manages them.
     ...(orgStructureAvailable && can(TITLE_PERMISSIONS.manage) ? [{ id: 'titles' as const, label: 'عنوان‌ها', icon: BadgeCheck }] : []),
     ...(can('audit_logs.view') ? [{ id: 'history' as const, label: 'تاریخچه ورود', icon: History }] : []),
@@ -81,6 +84,9 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
           canManageOrgAssignments={can(ORG_STRUCTURE_PERMISSIONS.manageAssignments)}
           canSeeOrgUnits={can(ORG_UNIT_PERMISSIONS.view)}
         />
+      )}
+      {current === 'roles' && (
+        <RolesPanel rights={{ create: can('roles.create'), update: can('roles.update'), assignPermissions: can('roles.assign_permissions') }} />
       )}
       {current === 'titles' && <TitlesPanel />}
       {current === 'history' && <LoginHistoryPanel />}
@@ -239,6 +245,146 @@ export const ChangePhoneCard: React.FC<{ currentPhone?: string; onChanged?: () =
 };
 
 /** Admin-only (settings.update): the system-wide max upload file size, in KB. */
+const BRAND_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/x-icon', 'image/vnd.microsoft.icon'];
+const BRAND_IMAGE_MAX_KB = 512;
+
+/** One image of the branding: what is shown now, a new file to upload, or back to the default. */
+const BrandImageField: React.FC<{
+  label: string;
+  hint: string;
+  current: string;
+  isCustom: boolean;
+  file: File | null;
+  remove: boolean;
+  onFile: (file: File | null) => void;
+  onRemove: () => void;
+  onError: (text: string) => void;
+}> = ({ label, hint, current, isCustom, file, remove, onFile, onRemove, onError }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const shown = preview || (remove ? null : current);
+  const pick = (picked: File | undefined) => {
+    if (!picked) return;
+    const byName = /\.(png|jpe?g|webp|ico)$/i.test(picked.name);
+    if (!byName && !BRAND_IMAGE_TYPES.includes(picked.type)) {
+      onError('تصویر باید PNG، JPEG، WebP یا ICO باشد.');
+      return;
+    }
+    if (picked.size > BRAND_IMAGE_MAX_KB * 1024) {
+      onError('حجم تصویر حداکثر ۵۱۲ کیلوبایت است.');
+      return;
+    }
+    onFile(picked);
+  };
+  return (
+    <div className="space-y-2">
+      <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">{label}</span>
+      <div className="flex items-center gap-3">
+        <div className="w-16 h-16 shrink-0 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+          {shown ? <img src={shown} alt={label} className="w-full h-full object-contain" /> : <span className="text-[10px] text-slate-400 text-center px-1">پیش‌فرض</span>}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+            <UploadCloud className="w-3.5 h-3.5" /> انتخاب تصویر
+            <input type="file" accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon" className="hidden"
+              onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+          </label>
+          {(isCustom || file) && !remove && (
+            <button type="button" onClick={onRemove} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer">
+              <RotateCcw className="w-3.5 h-3.5" /> برگرداندن به پیش‌فرض
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="text-[11px] text-slate-500 dark:text-slate-400">{hint}</p>
+    </div>
+  );
+};
+
+/** «نام و لوگوی سامانه»: what everyone sees - the sign-in page too - next to the logo and in the browser tab. */
+const BrandingSettingsCard: React.FC = () => {
+  const brand = useBranding();
+  const [name, setName] = useState(brand.customName || '');
+  const [logo, setLogo] = useState<File | null>(null);
+  const [favicon, setFavicon] = useState<File | null>(null);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  const [removeFavicon, setRemoveFavicon] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // The name loads after the page opens; take it once it is known, unless already edited.
+  const [touched, setTouched] = useState(false);
+  useEffect(() => { if (!touched) setName(brand.customName || ''); }, [brand.customName, touched]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim().length > 60) {
+      setMessage({ type: 'error', text: 'نام سامانه حداکثر ۶۰ کاراکتر است.' });
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveBranding({ systemName: name, logo, favicon, removeLogo, removeFavicon });
+      setLogo(null); setFavicon(null); setRemoveLogo(false); setRemoveFavicon(false); setTouched(false);
+      setMessage({ type: 'success', text: 'نام و لوگوی سامانه ذخیره شد و برای همهٔ کاربران اعمال شد.' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: userErrorMessage(err, 'ذخیرهٔ نام و لوگوی سامانه انجام نشد.') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <AdminCard className="p-5 sm:p-6">
+      <form onSubmit={submit} className="space-y-4">
+        <div className="flex items-center gap-2">
+          <ImageIcon className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">نام و لوگوی سامانه</h3>
+        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          برای همهٔ کاربران و صفحهٔ ورود اعمال می‌شود: نام کنار لوگو و در عنوان تب مرورگر، لوگوی بالای صفحه و گزارش‌ها، و آیکون تب مرورگر.
+        </p>
+        {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
+        <Field label="نام سامانه" hint={`خالی بگذارید تا «${DEFAULT_SYSTEM_NAME}» نمایش داده شود. حداکثر ۶۰ کاراکتر.`}>
+          <input className={inputClass} value={name} maxLength={60} placeholder={DEFAULT_SYSTEM_NAME}
+            onChange={(e) => { setName(e.target.value); setTouched(true); }} />
+        </Field>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <BrandImageField
+            label="لوگوی سامانه"
+            hint="PNG، JPEG، WebP یا ICO، حداکثر ۵۱۲ کیلوبایت. تصویر مربعی بهتر نمایش داده می‌شود."
+            current={brand.logo} isCustom={brand.hasCustomLogo}
+            file={logo} remove={removeLogo}
+            onFile={(f) => { setLogo(f); setRemoveLogo(false); setMessage(null); }}
+            onRemove={() => { setLogo(null); setRemoveLogo(true); }}
+            onError={(text) => setMessage({ type: 'error', text })}
+          />
+          <BrandImageField
+            label="آیکون تب مرورگر"
+            hint="PNG یا ICO مربعی (مثلاً ۶۴×۶۴). اگر تعیین نشود، لوگوی سامانه روی تب نمایش داده می‌شود."
+            current={brand.favicon} isCustom={brand.hasCustomFavicon}
+            file={favicon} remove={removeFavicon}
+            onFile={(f) => { setFavicon(f); setRemoveFavicon(false); setMessage(null); }}
+            onRemove={() => { setFavicon(null); setRemoveFavicon(true); }}
+            onError={(text) => setMessage({ type: 'error', text })}
+          />
+        </div>
+        <div className="flex justify-end">
+          <PrimaryButton type="submit" disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>ذخیره</span>
+          </PrimaryButton>
+        </div>
+      </form>
+    </AdminCard>
+  );
+};
+
 const UploadSizeSettingsCard: React.FC = () => {
   const [valueKb, setValueKb] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -331,7 +477,7 @@ export const SystemAdministration: React.FC<{
     { id: 'appearance', label: 'ظاهر سامانه', icon: Palette },
     { id: 'help', label: 'راهنما', icon: FileText },
     ...(can('sms_settings.view') ? [{ id: 'sms' as const, label: 'پنل پیامکی', icon: MessageSquare }] : []),
-    ...(can('users.view') || can('audit_logs.view') || can('ldap_settings.view') || can('sso_settings.view')
+    ...(can('users.view') || can('roles.view') || can('audit_logs.view') || can('ldap_settings.view') || can('sso_settings.view')
       ? [{ id: 'users' as const, label: 'مدیریت کاربران', icon: Users }] : []),
     ...(orgStructureAvailable ? [{ id: 'org' as const, label: 'ساختار سازمانی', icon: Building2 }] : []),
   ];
@@ -355,6 +501,7 @@ export const SystemAdministration: React.FC<{
       {current === 'team' && canSeeWorkTeams(permissions) && team}
       {current === 'appearance' && (
         <div className="space-y-5">
+          {can('settings.update') && <BrandingSettingsCard />}
           {can('settings.update') && <UploadSizeSettingsCard />}
           {appearance}
         </div>

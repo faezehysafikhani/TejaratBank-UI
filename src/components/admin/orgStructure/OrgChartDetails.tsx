@@ -254,7 +254,7 @@ export const OrgChartDetails: React.FC<{
         <>
           <Header icon={Network} tone="bg-emerald-600 text-white" title={unit.name} subtitle={`معاونت · ${company.name}`} badge={<ActiveBadge active={unit.isActive !== false} />} />
           <div>
-            <InfoRow label="مدیر معاونت"><PersonValue person={unit.manager} empty="تعیین نشده" /></InfoRow>
+            {unit.manager && <InfoRow label="مدیر معاونت"><PersonValue person={unit.manager} /></InfoRow>}
             <InfoRow label="سمت‌ها">{toPersianDigits(unitPositions.length)}{vacantCount(unit) > 0 ? ` (${toPersianDigits(vacantCount(unit))} خالی)` : ''}</InfoRow>
             <InfoRow label="تعداد افراد">{toPersianDigits(unitHeadcount(unit))} نفر</InfoRow>
             <InfoRow label="بدون سمت">{toPersianDigits(unit.members.length)} نفر</InfoRow>
@@ -372,7 +372,7 @@ export const OrgChartDetails: React.FC<{
                     aria-label="پست مافوق"
                     onChange={(e) => run(() => setPostParent(position.unitPositionId, e.target.value || null), 'پست مافوق تغییر کرد.', 'تغییر پست مافوق انجام نشد.')}
                   >
-                    <option value="">{unit ? 'ندارد (زیر مدیر معاونت)' : 'ندارد'}</option>
+                    <option value="">{unit ? (unit.manager ? 'ندارد (زیر مدیر معاونت)' : 'ندارد (زیر رئیس کل شرکت)') : 'ندارد'}</option>
                     {parentChoices.map(({ position: p, depth }) => (
                       <option key={p.unitPositionId} value={p.unitPositionId}>{'— '.repeat(depth)}{postLabel(p)} ({holderLabel(p)})</option>
                     ))}
@@ -384,7 +384,7 @@ export const OrgChartDetails: React.FC<{
           </div>
           {!position.isHead && (
             <p className="text-[11px] leading-5 text-slate-500">
-              دارندهٔ پست مافوق، مدیر دارندهٔ این پست است (فعالیت‌ها، گزارش و کارتابل جانشینی). اگر پست مافوق خالی باشد، پست بالاترِ آن و در نهایت مدیر {unit ? 'معاونت' : 'شرکت'} جای آن را می‌گیرد.
+              دارندهٔ پست مافوق، مدیر دارندهٔ این پست است (فعالیت‌ها، گزارش و کارتابل جانشینی). اگر پست مافوق خالی باشد، پست بالاترِ آن و در نهایت {unit?.manager ? 'مدیر معاونت' : 'رئیس کل شرکت'} جای آن را می‌گیرد.
             </p>
           )}
           {children.length > 0 && (
@@ -678,14 +678,13 @@ const ChartDialog: React.FC<{
       title = `معاونت جدید در «${dialog.company.name}»`;
       canSave = canSave && !!name.trim();
       save = async () => done(await run(async () => {
+        // A deputy is an empty node: its manager is whoever holds its top post (e.g. a «مدیر» position).
         const unit = await createOrgUnit({ name: name.trim() });
-        if (personId) await updateOrgUnit(unit.id, { name: unit.name, managerUserId: personId, isActive: true });
         await linkUnitToCompany(unit.id, dialog.company.companyId);
       }, `معاونت «${name.trim()}» اضافه شد.`, 'افزودن معاونت انجام نشد.'));
       content = (
         <>
           <Field label="نام معاونت" required><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} autoFocus placeholder="مثلاً: معاونت فناوری اطلاعات" /></Field>
-          <PersonField label="مدیر معاونت (اختیاری)" personId={personId} personName={personName} onChange={(id, n) => { setPersonId(id); setPersonName(n); }} />
         </>
       );
       break;
@@ -697,7 +696,6 @@ const ChartDialog: React.FC<{
       content = (
         <>
           <Field label="نام معاونت" required><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} /></Field>
-          <PersonField label="مدیر معاونت" personId={personId} personName={personName} onChange={(id, n) => { setPersonId(id); setPersonName(n); }} />
           {can(U.update) && <Toggle checked={active} onChange={setActive} label="فعال" />}
         </>
       );
@@ -766,9 +764,9 @@ const ChartDialog: React.FC<{
             </Field>
           )}
           {positionsOf(dialog.unit).length > 0 && (
-            <Field label="پست مافوق (اختیاری)" hint="دارندهٔ پست مافوق، مدیر دارندهٔ این پست می‌شود. خالی: زیر مدیر معاونت.">
+            <Field label="پست مافوق (اختیاری)" hint={`دارندهٔ پست مافوق، مدیر دارندهٔ این پست می‌شود. خالی: زیر ${dialog.unit.manager ? 'مدیر معاونت' : 'رئیس کل شرکت'}.`}>
               <select className={inputClass} value={parentPost} onChange={(e) => setParentPost(e.target.value)}>
-                <option value="">ندارد (زیر مدیر معاونت)</option>
+                <option value="">{dialog.unit.manager ? 'ندارد (زیر مدیر معاونت)' : 'ندارد (زیر رئیس کل شرکت)'}</option>
                 {postTree(positionsOf(dialog.unit)).map(({ position: p, depth }) => (
                   <option key={p.unitPositionId} value={p.unitPositionId}>{'— '.repeat(depth)}{postLabel(p)} ({p.holders.length ? p.holders.map((h) => h.displayName).join('، ') : 'خالی'})</option>
                 ))}

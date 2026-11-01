@@ -3,16 +3,25 @@ import { createPortal } from 'react-dom';
 import { STATUSES } from '../types';
 import { toPersianDigits } from '../utils/helpers';
 import { REPORT_TYPE_TITLES, TaskReportRow, TaskReportSummary } from '../services/taskReportApi';
+import { useBranding } from '../utils/branding';
 
 /** Rows on the first page (under the title) and on each following page. */
 const FIRST_PAGE_ROWS = 28;
 const PAGE_ROWS = 31;
 
+/** A history line under a row is this much of a row's height (20px of 30px). */
+const HISTORY_LINE = 0.67;
+
 // Plain hex colours and inline styles only: html2canvas (PDF) cannot read Tailwind's oklch()
 // colours, and print must look the same in dark mode.
 const C = { ink: '#0f172a', muted: '#64748b', line: '#e2e8f0', head: '#3730a3', zebra: '#f8fafc', red: '#be123c' };
 
-export type PrintableRow = TaskReportRow & { dueDateText: string; completedText: string };
+export type PrintableRow = TaskReportRow & {
+  dueDateText: string;
+  completedText: string;
+  /** Under the row: who was on the task when, with their position then (empty: nothing to add). */
+  historyLines: string[];
+};
 
 /**
  * Long text is shortened here, not with CSS text-overflow: html2canvas draws an ellipsis over
@@ -47,9 +56,21 @@ export const ReportPrintPages: React.FC<{
   filtersText: string;
   generatedText: string;
 }> = ({ rows, scopeText, filtersText, generatedText }) => {
-  const pages: PrintableRow[][] = [rows.slice(0, FIRST_PAGE_ROWS)];
-  for (let i = FIRST_PAGE_ROWS; i < rows.length; i += PAGE_ROWS) pages.push(rows.slice(i, i + PAGE_ROWS));
-  const offsets = pages.map((_, p) => (p === 0 ? 0 : FIRST_PAGE_ROWS + (p - 1) * PAGE_ROWS));
+  const brand = useBranding();
+  // Rows fill each page by height: a row and its history lines stay together.
+  const pages: PrintableRow[][] = [[]];
+  let used = 0;
+  for (const row of rows) {
+    const height = 1 + row.historyLines.length * HISTORY_LINE;
+    const room = pages.length === 1 ? FIRST_PAGE_ROWS : PAGE_ROWS;
+    if (used + height > room && pages[pages.length - 1].length > 0) {
+      pages.push([]);
+      used = 0;
+    }
+    pages[pages.length - 1].push(row);
+    used += height;
+  }
+  const offsets = pages.map((_, p) => pages.slice(0, p).reduce((n, page) => n + page.length, 0));
 
   return createPortal(
     <div className="report-print-root" dir="rtl" aria-hidden="true" style={{ fontFamily: "'Vazirmatn Variable', Tahoma, sans-serif", color: C.ink, background: '#ffffff' }}>
@@ -63,7 +84,7 @@ export const ReportPrintPages: React.FC<{
             <div style={{ marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `2px solid ${C.head}`, paddingBottom: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <img src="/tm-logo.png" alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />
+                  <img src={brand.logo} alt="" style={{ width: 34, height: 34, objectFit: 'contain' }} />
                   <div style={{ fontSize: 20, fontWeight: 800, color: C.head }}>گزارش فعالیت‌ها</div>
                 </div>
                 <div style={{ fontSize: 11, color: C.muted }}>{generatedText}</div>
@@ -86,20 +107,30 @@ export const ReportPrintPages: React.FC<{
             </thead>
             <tbody>
               {pageRows.map((r, i) => (
-                <tr key={r.id} style={{ background: i % 2 ? C.zebra : '#ffffff' }}>
-                  {COLUMNS.map((c) => (
-                    <td key={c.title} style={{ ...cell, color: c.title === 'موعد انجام' && r.isOverdue ? C.red : C.ink, fontWeight: c.title === 'عنوان' ? 700 : 400 }}>
-                      {c.value(r, offsets[p] + i)}
-                    </td>
+                <React.Fragment key={r.id}>
+                  <tr style={{ background: i % 2 ? C.zebra : '#ffffff' }}>
+                    {COLUMNS.map((c) => (
+                      <td key={c.title} style={{ ...cell, color: c.title === 'موعد انجام' && r.isOverdue ? C.red : C.ink, fontWeight: c.title === 'عنوان' ? 700 : 400 }}>
+                        {c.value(r, offsets[p] + i)}
+                      </td>
+                    ))}
+                  </tr>
+                  {r.historyLines.map((line, k) => (
+                    <tr key={k} style={{ background: i % 2 ? C.zebra : '#ffffff' }}>
+                      <td />
+                      <td colSpan={COLUMNS.length - 1} style={{ ...cell, height: 20, lineHeight: '20px', fontSize: 9, color: C.muted }}>
+                        {k === 0 ? 'سابقه: ' : '\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0'}{clip(line, 110)}
+                      </td>
+                    </tr>
                   ))}
-                </tr>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
           {pageRows.length === 0 && <div style={{ textAlign: 'center', padding: 30, color: C.muted, fontSize: 12 }}>فعالیتی با این فیلترها پیدا نشد.</div>}
 
           <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.muted, paddingTop: 6 }}>
-            <span>سامانه مدیریت وظایف</span>
+            <span>{brand.customName || 'سامانه مدیریت وظایف'}</span>
             <span>صفحه {toPersianDigits(p + 1)} از {toPersianDigits(pages.length)}</span>
           </div>
         </div>

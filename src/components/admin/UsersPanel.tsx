@@ -30,7 +30,7 @@ export interface UserAdminRights {
 }
 
 const ROLE_TITLES: Record<string, string> = { Administrator: 'مدیر سیستم', Member: 'کاربر' };
-const roleTitle = (name: string) => ROLE_TITLES[name] || name;
+export const roleTitle = (name: string) => ROLE_TITLES[name] || name;
 
 function errorText(err: unknown, fallback: string): string {
   return userErrorMessage(err, fallback);

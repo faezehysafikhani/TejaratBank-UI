@@ -462,6 +462,15 @@ interface RequestOptions {
   cookieSession?: boolean;
 }
 
+/**
+ * Sign-in, refresh and sign-out: the browser sends and keeps the HttpOnly session cookie
+ * (credentials), and X-Requested-With - which a cross-site form cannot send - lets the server
+ * accept the cookie. Whether the refresh token travels in the cookie or in the body is the
+ * server's choice (Identity:Session); this page works with either.
+ */
+const SESSION_PATH = '/api/identity/auth/';
+const isSessionRequest = (path: string) => path.startsWith(SESSION_PATH) && !path.startsWith(`${SESSION_PATH}me`);
+
 function buildUrl(path: string, query?: RequestOptions['query']): string {
   const url = `${NEXUS_API_BASE_URL}${path}`;
   if (!query) return url;
@@ -499,6 +508,8 @@ async function request<T>(method: string, path: string, options: RequestOptions 
 
   const headers: Record<string, string> = { Accept: responseType === 'json' ? 'application/json' : '*/*' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const sessionRequest = isSessionRequest(path);
+  if (sessionRequest) headers['X-Requested-With'] = 'XMLHttpRequest';
   if (auth) {
     const accessToken = await ensureAccessToken();
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -1909,6 +1920,33 @@ export interface AdminRole {
 
 export async function listRoles(): Promise<AdminRole[]> {
   return request<AdminRole[]>('GET', '/api/identity/roles', { query: { tenantId: getSessionTenantId() } });
+}
+
+/** A new custom role (roles.create); its permissions are set with setRolePermissions. */
+export async function createRole(name: string, description: string | null): Promise<AdminRole> {
+  return request<AdminRole>('POST', '/api/identity/roles', { body: { tenantId: getSessionTenantId(), name, description } });
+}
+
+/** Renames a custom role or changes its description (roles.update). */
+export async function updateRole(roleId: string, name: string, description: string | null): Promise<AdminRole> {
+  return request<AdminRole>('PUT', `/api/identity/roles/${requireGuid(roleId, 'نقش')}`, { body: { name, description } });
+}
+
+/** Replaces a custom role's permissions (roles.assign_permissions); the server adds their prerequisites. */
+export async function setRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+  await request('PUT', `/api/identity/roles/${requireGuid(roleId, 'نقش')}/permissions`, { body: { permissionIds } });
+}
+
+export interface PermissionInfo {
+  id: string;
+  name: string;
+  module: string;
+  description: string;
+}
+
+/** Every permission this product manages, grouped by module (permissions.view). */
+export async function listPermissionGroups(): Promise<{ module: string; permissions: PermissionInfo[] }[]> {
+  return request<{ module: string; permissions: PermissionInfo[] }[]>('GET', '/api/identity/permissions');
 }
 
 export interface UserAccessEntry {
