@@ -7,9 +7,10 @@ import { toPersianDigits } from '../../utils/helpers';
 import { getIranTodayISO, parseISOToJalali, PERSIAN_MONTH_NAMES } from '../../utils/jalali';
 import { userErrorMessage } from '../../utils/errorMessages';
 import { buildXlsx, jalaliStamp, saveBlob } from '../../utils/reportExport';
-import { MeetingReportData, downloadMeetingReport, tableReportBlob } from '../../utils/meetingReportPdf';
+import { MeetingReportData, PrintInfo, downloadMeetingReport, tableReportBlob } from '../../utils/meetingReportPdf';
+import { useBranding } from '../../utils/branding';
 import { Meeting, listMeetings } from '../../services/meetingApi';
-import { FieldGroup, SummaryCard, iranDay, jalaliDate } from './reportShared';
+import { FieldGroup, SummaryCard, jalaliDate, printedAtText } from './reportShared';
 import { ReportActions, ProgressToast, useClampedPage, useListExport } from './ReportParts';
 
 const PAGE_SIZE = 25;
@@ -58,6 +59,9 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
   const [error, setError] = useState<string | null>(null);
   const [opened, setOpened] = useState<Meeting | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const brand = useBranding();
+  /** Logo, organization, the moment of the printout and the person: on every PDF and printout. */
+  const printInfo = (): PrintInfo => ({ logo: brand.logo, orgName: brand.name, printedAtText: printedAtText(), printedBy: generatedBy || '' });
 
   // Only the date range goes to the server; everything else is a filter on what came back.
   useEffect(() => {
@@ -107,6 +111,8 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
   };
 
   const timeOf = (m: Meeting) => (m.details.startTime && m.details.endTime ? `${toPersianDigits(m.details.startTime)} تا ${toPersianDigits(m.details.endTime)}` : '');
+  /** «۰۹:۰۰–۱۰:۰۰» for the narrow column of the PDF. */
+  const shortTime = (m: Meeting) => (m.details.startTime && m.details.endTime ? `${toPersianDigits(m.details.startTime)}–${toPersianDigits(m.details.endTime)}` : '—');
   const participantsText = (m: Meeting) => m.details.participantIds.map(nameOf).join('، ');
 
   const filtersText = (() => {
@@ -129,7 +135,7 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
       agenda: d.agenda.map((a) => ({ title: a.title, durationText: a.durationMinutes ? `${toPersianDigits(a.durationMinutes)} دقیقه` : '', presenter: nameOf(a.presenterUserId) })),
       minutes: d.minutes || '',
       tasks: d.taskIds.map(taskOf).filter((t): t is Task => !!t).map((t) => ({ title: t.title, statusText: STATUSES[t.status]?.title || t.status, dueText: dayText(t.dueDate || '') })),
-      generatedText: `تهیه‌شده در ${dayText(new Date().toISOString().slice(0, 10))}`,
+      print: printInfo(),
     };
   };
 
@@ -158,21 +164,35 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
         d.description || '',
       ];
     });
-    saveBlob(buildXlsx('گزارش جلسات', header, data, [6, 34, 13, 13, 10, 10, 20, 20, 10, 40, 50, 60, 45, 45, 40]), `meetings-report-${jalaliStamp()}.xlsx`);
+    const info = printInfo();
+    saveBlob(buildXlsx('گزارش جلسات', header, data, [6, 34, 13, 13, 10, 10, 20, 20, 10, 40, 50, 60, 45, 45, 40], [
+      `گزارش جلسات — ${info.orgName}`,
+      `تاریخ چاپ: ${info.printedAtText}${info.printedBy ? ` | چاپ‌کننده: ${info.printedBy}` : ''}`,
+      `فیلترها: ${filtersText}`,
+      `${toPersianDigits(rows.length)} جلسه`,
+    ]), `meetings-report-${jalaliStamp()}.xlsx`);
   };
 
-  const generatedText = `تاریخ تهیه: ${jalaliDate(iranDay(new Date().toISOString()))}${generatedBy ? ` | تهیه‌کننده: ${generatedBy}` : ''}`;
   const exporter = useListExport(
     (onProgress) => tableReportBlob({
       title: 'گزارش جلسات',
-      infoLines: [`فیلترها: ${filtersText}`, `${toPersianDigits(rows.length)} جلسه`],
-      head: ['ردیف', 'عنوان', 'نوع', 'تاریخ', 'ساعت', 'مکان', 'برگزارکننده', 'شرکت‌کنندگان', 'صورت‌جلسه', 'وظایف'],
-      widths: ['5%', '19%', '9%', '10%', '10%', '10%', '11%', '14%', '6%', '6%'],
+      subtitle: `${toPersianDigits(rows.length)} جلسه از ${toPersianDigits(all.length)} جلسه‌ی بازه`,
+      filtersText,
+      // The cards of the screen, as they are now.
+      summary: [
+        { label: 'کل جلسات', value: toPersianDigits(counts.total) }, { label: 'حضوری', value: toPersianDigits(counts.meeting) },
+        { label: 'آنلاین', value: toPersianDigits(counts.online) }, { label: 'کمیته', value: toPersianDigits(counts.committee) },
+        { label: 'دارای صورت‌جلسه', value: toPersianDigits(counts.withMinutes) }, { label: 'بدون صورت‌جلسه', value: toPersianDigits(counts.withoutMinutes) },
+      ],
+      listTitle: 'فهرست جلسات',
+      head: ['ردیف', 'عنوان', 'نوع', 'تاریخ', 'ساعت', 'مکان', 'برگزارکننده', 'شرکت‌کنندگان', 'دستور جلسه', 'صورت جلسه', 'وظایف'],
+      widths: ['5%', '15%', '7%', '11%', '11%', '9%', '10%', '11%', '7%', '8%', '6%'],
       rows: rows.map((m, i) => [
-        toPersianDigits(i + 1), m.details.title, TYPE_LABELS[m.details.type], jalaliDate(m.details.date), timeOf(m), m.details.location || '—',
-        nameOf(m.details.organizerUserId) || '—', participantsText(m) || '—', m.details.minutes.trim() ? 'دارد' : '—', toPersianDigits(m.details.taskIds.length),
+        toPersianDigits(i + 1), m.details.title, TYPE_LABELS[m.details.type], jalaliDate(m.details.date), shortTime(m), m.details.location || '—',
+        nameOf(m.details.organizerUserId) || '—', participantsText(m) || '—', `${toPersianDigits(m.details.agenda.length)} بند`,
+        m.details.minutes.trim() ? 'دارد' : '—', toPersianDigits(m.details.taskIds.length),
       ]),
-      generatedText,
+      print: printInfo(),
       emptyText: 'جلسه‌ای با این فیلترها پیدا نشد.',
     }, onProgress),
     `meetings-report-${jalaliStamp()}.pdf`,

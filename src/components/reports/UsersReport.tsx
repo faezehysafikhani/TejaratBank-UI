@@ -5,9 +5,10 @@ import { JalaliDatePicker } from '../JalaliDatePicker';
 import { toPersianDigits } from '../../utils/helpers';
 import { userErrorMessage } from '../../utils/errorMessages';
 import { buildXlsx, jalaliStamp, saveBlob } from '../../utils/reportExport';
-import { tableReportBlob } from '../../utils/meetingReportPdf';
+import { PrintInfo, tableReportBlob } from '../../utils/meetingReportPdf';
+import { useBranding } from '../../utils/branding';
 import { UsersReport as UsersReportData, UsersReportRow, getUsersReport } from '../../services/usersReportApi';
-import { FieldGroup, SummaryCard, iranDay, jalaliDate } from './reportShared';
+import { FieldGroup, SummaryCard, iranDay, jalaliDate, printedAtText } from './reportShared';
 import { ReportActions, ProgressToast, useClampedPage, useListExport } from './ReportParts';
 
 const PAGE_SIZE = 25;
@@ -45,6 +46,8 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const brand = useBranding();
+  const printInfo = (): PrintInfo => ({ logo: brand.logo, orgName: brand.name, printedAtText: printedAtText(), printedBy: generatedBy || '' });
 
   useEffect(() => {
     let alive = true;
@@ -110,23 +113,36 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
   ];
   const head = ['نام', 'کد ملی', 'وضعیت', ...(hasStructure ? ['سمت', 'جایگاه سازمانی'] : []), 'آخرین ورود', ...(hasAddresses ? ['IP آخرین ورود'] : [])];
 
-  const exportExcel = () => saveBlob(
-    buildXlsx('گزارش کاربران', ['ردیف', ...head], rows.map((r, i) => [i + 1, ...cells(r)]), [6, 26, 14, 10, ...(hasStructure ? [26, 40] : []), 20, ...(hasAddresses ? [18] : [])]),
-    `users-report-${jalaliStamp()}.xlsx`,
-  );
+  const exportExcel = () => {
+    const info = printInfo();
+    saveBlob(
+      buildXlsx('گزارش کاربران', ['ردیف', ...head], rows.map((r, i) => [i + 1, ...cells(r)]), [6, 26, 14, 10, ...(hasStructure ? [26, 40] : []), 20, ...(hasAddresses ? [18] : [])], [
+        `گزارش کاربران — ${info.orgName}`,
+        `تاریخ چاپ: ${info.printedAtText}${info.printedBy ? ` | چاپ‌کننده: ${info.printedBy}` : ''}`,
+        `فیلترها: ${filtersText}`,
+        `${toPersianDigits(rows.length)} کاربر از ${toPersianDigits(all.length)} کاربر`,
+      ]),
+      `users-report-${jalaliStamp()}.xlsx`,
+    );
+  };
 
-  const generatedText = `تاریخ تهیه: ${jalaliDate(iranDay(new Date().toISOString()))}${generatedBy ? ` | تهیه‌کننده: ${generatedBy}` : ''}`;
   const widths = hasStructure
     ? (hasAddresses ? ['5%', '16%', '11%', '8%', '15%', '20%', '13%', '12%'] : ['5%', '18%', '13%', '9%', '17%', '24%', '14%'])
     : (hasAddresses ? ['6%', '28%', '18%', '12%', '20%', '16%'] : ['7%', '33%', '22%', '14%', '24%']);
   const exporter = useListExport(
     (onProgress) => tableReportBlob({
       title: 'گزارش کاربران',
-      infoLines: [`فیلترها: ${filtersText}`, `${toPersianDigits(rows.length)} کاربر از ${toPersianDigits(all.length)} کاربر`],
+      subtitle: `${toPersianDigits(rows.length)} کاربر از ${toPersianDigits(all.length)} کاربر`,
+      filtersText,
+      summary: [
+        { label: 'همه کاربران', value: toPersianDigits(counts.total) }, { label: 'فعال', value: toPersianDigits(counts.active) },
+        { label: 'غیرفعال', value: toPersianDigits(counts.inactive) }, { label: 'هرگز وارد نشده', value: toPersianDigits(counts.never) },
+      ],
+      listTitle: 'فهرست کاربران',
       head: ['ردیف', ...head],
       widths,
       rows: rows.map((r, i) => [toPersianDigits(i + 1), ...cells(r)]),
-      generatedText,
+      print: printInfo(),
       emptyText: 'کاربری با این فیلترها پیدا نشد.',
     }, onProgress),
     `users-report-${jalaliStamp()}.pdf`,

@@ -61,3 +61,10 @@ export const SummaryCard: React.FC<{
   );
 };
 
+
+/** The date and time of a printout in Iran time: «۱۴۰۵/۰۸/۱۱ — ساعت ۱۰:۳۰». */
+export function printedAtText(): string {
+  const now = new Date();
+  const iran = new Date(now.getTime() + 3.5 * 3600 * 1000).toISOString();
+  return `${jalaliDate(iran.slice(0, 10))} — ساعت ${toPersianDigits(iran.slice(11, 16))}`;
+}
