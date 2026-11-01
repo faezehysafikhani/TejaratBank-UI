@@ -71,7 +71,6 @@ import {
   toAppNotification,
 } from './utils/serverNotifications';
 import { Database, PanelRightOpen } from 'lucide-react';
-import { showToast } from './utils/toast';
 import { NexusApiError, SESSION_ENDED_EVENT, SESSION_END_MESSAGES, TASK_CREATED_ACTION, sessionEndReasonOf, withoutEditDuplicates } from './services/nexusApi';
 import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
@@ -1315,6 +1314,7 @@ export default function App() {
         onOpenWelcomeModal={() => setIsWelcomeModalOpen(true)}
         onOpenUserGuide={currentUser ? () => setIsUserGuideOpen(true) : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
+        onLogout={currentUser ? handleLogout : undefined}
       />
 
       {!isDesktopSidebarOpen && (

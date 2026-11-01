@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Filter, Layers, LogIn, Bell, LayoutDashboard, CircleHelp, User as UserIcon, CalendarDays, Clock3 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Filter, Layers, LogIn, Bell, LayoutDashboard, CircleHelp, User as UserIcon, CalendarDays, Clock3, LogOut } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
 import { User as UserType, AppTheme, AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
 import { useBranding } from '../utils/branding';
+import { OPEN_PROFILE_EVENT } from '../utils/profileEvents';
 
 interface NavbarProps {
   totalTasks: number;
@@ -25,6 +26,8 @@ interface NavbarProps {
   onOpenUserGuide?: () => void;
   /** Avatar button: opens the signed-in user's own profile (Settings, "پروفایل" tab). */
   onOpenSettings?: () => void;
+  /** «خروج» in the avatar menu. */
+  onLogout?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -43,8 +46,33 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenWelcomeModal,
   onOpenUserGuide,
   onOpenSettings,
+  onLogout,
 }) => {
   const brand = useBranding();
+  // The avatar opens a small menu (profile, sign out); it closes on a click elsewhere or Escape.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onPointer = (event: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('touchstart', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('touchstart', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+  const openProfile = () => {
+    setMenuOpen(false);
+    onOpenSettings?.();
+    // The settings page may already be open on another tab: bring the profile to the front.
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent(OPEN_PROFILE_EVENT, { detail: { tab: 'avatar' } })), 0);
+  };
   const palette = COLOR_PALETTES[appColorPalette] || COLOR_PALETTES.indigo;
   const [systemNow, setSystemNow] = useState(() => new Date());
   useEffect(() => {
@@ -185,27 +213,64 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Profile Avatar Button: opens the signed-in user's own profile */}
+            {/* Profile avatar: a menu with the profile page and sign-out */}
             {currentUser && onOpenSettings && (
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                title="پروفایل من"
-                aria-label="پروفایل من"
-                className="ui-raised-dark p-1 rounded-xl border border-slate-700/80 hover:border-indigo-400 transition-all shrink-0 cursor-pointer flex items-center justify-center my-auto"
-              >
-                {currentUser.avatar ? (
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name || 'آواتار کاربر'}
-                    className="w-8 h-8 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
-                    {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
+              <div className="relative my-auto" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  title="حساب کاربری"
+                  aria-label="حساب کاربری"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  className="ui-raised-dark p-1 rounded-xl border border-slate-700/80 hover:border-indigo-400 transition-all shrink-0 cursor-pointer flex items-center justify-center"
+                >
+                  {currentUser.avatar ? (
+                    <img
+                      src={currentUser.avatar}
+                      alt={currentUser.name || 'آواتار کاربر'}
+                      className="w-8 h-8 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                      {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
+                    </div>
+                  )}
+                </button>
+
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute left-0 top-full mt-2 w-48 z-50 rounded-2xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden"
+                    dir="rtl"
+                  >
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                      <p className="text-xs font-extrabold truncate">{currentUser.name}</p>
+                      {currentUser.username && <p className="text-[10px] text-slate-400 font-mono dir-ltr text-right truncate">@{currentUser.username}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={openProfile}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-right"
+                    >
+                      <UserIcon className="w-4 h-4 text-slate-500" />
+                      <span>پروفایل</span>
+                    </button>
+                    {onLogout && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setMenuOpen(false); onLogout(); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-t border-slate-100 dark:border-slate-800 cursor-pointer text-right"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>خروج</span>
+                      </button>
+                    )}
                   </div>
                 )}
-              </button>
+              </div>
             )}
           </div>
 

@@ -1,9 +1,10 @@
 import React, { useEffect, useId, useState } from 'react';
-import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, ChevronDown, ChevronUp, MonitorSmartphone } from 'lucide-react';
+import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, ChevronDown, ChevronUp, MonitorSmartphone, LogOut } from 'lucide-react';
 import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneChange, confirmPhoneChange, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
 import { SessionsPanel } from './SessionsPanel';
+import { OPEN_PROFILE_EVENT } from '../../utils/profileEvents';
 import { RolesPanel } from './RolesPanel';
 import { LoginHistoryPanel } from './LoginHistoryPanel';
 import { LdapPanel } from './LdapPanel';
@@ -19,7 +20,7 @@ import { TitlesPanel } from './orgStructure/TitlesPanel';
 import { canSeeWorkTeams } from '../../utils/permissions';
 import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
 
-type MainTab = 'profile' | 'sessions' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
+type MainTab = 'profile' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
 type UsersTab = 'list' | 'roles' | 'titles' | 'history' | 'ldap' | 'sso';
 
 /**
@@ -469,13 +470,85 @@ const UploadSizeSettingsCard: React.FC = () => {
   );
 };
 
+/** What the profile page holds; the page itself (tabs, sessions) is ProfileHub below. */
+export interface ProfileSections {
+  avatar: React.ReactNode;
+  password: React.ReactNode;
+  phone: React.ReactNode;
+  account: React.ReactNode;
+}
+
+type ProfileTab = 'avatar' | 'password' | 'phone' | 'sessions' | 'account';
+
+/**
+ * «پروفایل»: one page for everything about the signed-in person - profile and avatar, password,
+ * mobile number, sessions, account and sign-out - as a row of tabs with an underline.
+ */
+const ProfileHub: React.FC<{ sections: ProfileSections; can: (permission: string) => boolean; placement?: React.ReactNode }> = ({ sections, can, placement }) => {
+  const [active, setActive] = useState<ProfileTab>('avatar');
+  const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'avatar', label: 'پروفایل و آواتار', icon: UserIcon },
+    { id: 'password', label: 'تغییر رمز عبور', icon: KeyRound },
+    { id: 'phone', label: 'تغییر شماره موبایل', icon: Smartphone },
+    { id: 'sessions', label: 'نشست‌ها', icon: MonitorSmartphone },
+    { id: 'account', label: 'حساب کاربری و خروج', icon: LogOut },
+  ];
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      const tab = (event as CustomEvent).detail?.tab as ProfileTab | undefined;
+      setActive(tab && tabs.some((item) => item.id === tab) ? tab : 'avatar');
+    };
+    window.addEventListener(OPEN_PROFILE_EVENT, open);
+    return () => window.removeEventListener(OPEN_PROFILE_EVENT, open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist" aria-label="پروفایل">
+        {tabs.map(({ id, label, icon: Icon }) => {
+          const selected = id === active;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActive(id)}
+              className={`flex items-center gap-2 px-4 py-3 -mb-px text-sm font-bold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
+                selected
+                  ? 'border-indigo-700 text-indigo-800 dark:border-indigo-400 dark:text-indigo-300'
+                  : id === 'account'
+                    ? 'border-transparent text-rose-600 dark:text-rose-400 hover:border-rose-300'
+                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div role="tabpanel">
+        {active === 'avatar' && <>{sections.avatar}{placement}</>}
+        {active === 'password' && sections.password}
+        {active === 'phone' && sections.phone}
+        {active === 'sessions' && <SessionsPanel can={can} />}
+        {active === 'account' && sections.account}
+      </div>
+    </div>
+  );
+};
+
 /**
  * «تنظیمات سامانه»: the header card with the main tabs. Profile / Team / Appearance / Help are
  * always-present personal-settings tabs; SMS panel and user management appear by permission.
  */
 export const SystemAdministration: React.FC<{
   currentUserId?: string;
-  profile: React.ReactNode;
+  profile: ProfileSections;
   team: React.ReactNode;
   appearance: React.ReactNode;
   help: React.ReactNode;
@@ -491,7 +564,6 @@ export const SystemAdministration: React.FC<{
     { id: 'profile', label: 'پروفایل', icon: UserIcon },
     // Only for people given the work-team permissions; nobody else sees the tab.
     ...(canSeeWorkTeams(permissions) ? [{ id: 'team' as const, label: 'مدیریت تیم کاری', icon: Users }] : []),
-    { id: 'sessions', label: 'نشست‌ها', icon: MonitorSmartphone },
     { id: 'appearance', label: 'ظاهر سامانه', icon: Palette },
     { id: 'help', label: 'راهنما', icon: FileText },
     ...(can('sms_settings.view') ? [{ id: 'sms' as const, label: 'پنل پیامکی', icon: MessageSquare }] : []),
@@ -515,7 +587,7 @@ export const SystemAdministration: React.FC<{
         ) : tabs.length > 1 && <SegmentedTabs tabs={tabs} active={current} onChange={setActive} />}
       </AdminCard>
 
-      {current === 'profile' && <>{profile}{orgStructureAvailable && <MyPlacementPanel />}</>}
+      {current === 'profile' && <ProfileHub sections={profile} can={can} placement={orgStructureAvailable ? <MyPlacementPanel /> : null} />}
       {current === 'team' && canSeeWorkTeams(permissions) && team}
       {current === 'appearance' && (
         <div className="space-y-5">
@@ -524,7 +596,6 @@ export const SystemAdministration: React.FC<{
           {appearance}
         </div>
       )}
-      {current === 'sessions' && <SessionsPanel can={can} />}
       {current === 'help' && help}
       {current === 'sms' && <SmsPanel canUpdate={can('sms_settings.update')} canTest={can('sms_settings.test')} />}
       {current === 'users' && currentUserId && <UserManagementSection currentUserId={currentUserId} can={can} orgStructureAvailable={orgStructureAvailable} />}
