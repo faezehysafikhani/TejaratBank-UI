@@ -651,7 +651,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
           <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
-            <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
+            <img src={loginLogo} alt="لوگوی سامانه" className="w-52 h-52 object-contain" />
           </div>
           <div>
             <p className="brand-display text-5xl font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
@@ -665,11 +665,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               { icon: Network, title: 'ساختار سازمانی', text: 'چارت، پست و جانشینی' },
               { icon: MessagesSquare, title: 'گفتگوی تیمی', text: 'ارتباط بر پایه سلسله‌مراتب' },
             ].map(({ icon: Icon, title, text }) => (
-              <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/10 backdrop-blur border border-white/15 shadow-sm px-3 py-2.5 text-right">
-                <span className="w-10 h-10 rounded-xl bg-white/10 text-emerald-200 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
+              <div key={title} className="flex items-center gap-3 group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-950 border border-emerald-600/40 border-s-[3px] border-s-emerald-400 shadow-[0_10px_22px_-12px_rgba(0,0,0,0.7)]! px-3 py-2.5 text-right transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400/70 hover:shadow-[0_16px_28px_-12px_rgba(0,0,0,0.8)]!">
+                <span className="w-10 h-10 rounded-xl bg-emerald-500 text-emerald-950 shadow-inner flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
                 <span className="min-w-0">
                   <span className="block text-sm font-extrabold text-white">{title}</span>
-                  <span className="block text-[11px] text-emerald-100/70 truncate">{text}</span>
+                  <span className="block text-[11px] text-emerald-100/80 truncate">{text}</span>
                 </span>
               </div>
             ))}
