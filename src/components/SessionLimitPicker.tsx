@@ -5,7 +5,8 @@ import { toPersianDigits } from '../utils/helpers';
 
 const formatTime = (iso: string) => {
   try {
-    return toPersianDigits(new Date(iso).toLocaleString('fa-IR', { dateStyle: 'short', timeStyle: 'short' }));
+    const date = new Date(iso);
+    return toPersianDigits(`${date.toLocaleDateString('fa-IR', { dateStyle: 'short' })} · ${date.toLocaleTimeString('fa-IR', { timeStyle: 'short' })}`);
   } catch {
     return iso;
   }
@@ -16,7 +17,7 @@ export const SessionSummary: React.FC<{ session: SessionInfo }> = ({ session }) 
   <div className="min-w-0 text-right">
     <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{session.deviceLabel || 'دستگاه نامشخص'}</div>
     <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-      {session.lastIp && <span dir="ltr">{toPersianDigits(session.lastIp)}</span>}
+      {session.lastIp && <span dir="ltr" className="font-mono bg-slate-400/15 rounded-md px-1.5">{toPersianDigits(session.lastIp)}</span>}
       <span>ورود: {formatTime(session.createdAtUtc)}</span>
       <span>آخرین فعالیت: {formatTime(session.lastActivityAtUtc)}</span>
     </div>
