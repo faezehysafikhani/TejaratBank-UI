@@ -112,7 +112,7 @@ function isStrongPassword(value: string): boolean {
 }
 
 export const ChangePasswordCard: React.FC = () => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const panelId = useId();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
