@@ -18,7 +18,7 @@ const LoginClock: React.FC = () => {
   const time = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
   const day = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
   return (
-    <div className="text-white" dir="rtl">
+    <div className="text-emerald-950" dir="rtl">
       <p className="text-4xl font-black tabular-nums" dir="ltr" aria-label="ساعت">{time}</p>
       <p className="mt-1 text-base font-bold">{day}</p>
     </div>
@@ -244,24 +244,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const loginLogo = brand.hasCustomLogo ? brand.logo : '/login-logo.jpg';
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto animate-in fade-in duration-200" data-testid="login-page">
-      {/* Background: deep green with soft glows and small white lights drifting like stars. */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
-      <div aria-hidden="true" className="absolute -top-32 -start-24 w-[34rem] h-[34rem] rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
-      <div aria-hidden="true" className="absolute -bottom-40 end-1/4 w-[30rem] h-[30rem] rounded-full bg-lime-400/10 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
-        <div className="absolute top-[12%] left-[10%] w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)] animate-float-1" />
-        <div className="absolute top-[22%] right-[15%] w-5 h-5 rounded-full bg-white/90 shadow-[0_0_14px_rgba(255,255,255,0.9)] animate-float-2" />
-        <div className="absolute bottom-[18%] left-[14%] w-4 h-4 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.95)] animate-float-3" />
-        <div className="absolute bottom-[28%] right-[18%] w-3 h-3 rounded-full bg-white/95 shadow-[0_0_8px_rgba(255,255,255,0.9)] animate-float-4" />
-        <div className="absolute top-[52%] left-[6%] w-4.5 h-4.5 rounded-full bg-white/90 shadow-[0_0_12px_rgba(255,255,255,0.95)] animate-float-5" />
-        <div className="absolute top-[8%] right-[32%] w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] animate-float-3" />
-        <div className="absolute bottom-[10%] right-[38%] w-5 h-5 rounded-full bg-white/85 shadow-[0_0_14px_rgba(255,255,255,0.85)] animate-float-1" />
-        <div className="absolute top-[42%] right-[8%] w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)] animate-float-4" />
-        <div className="absolute bottom-[45%] left-[22%] w-3.5 h-3.5 rounded-full bg-white/95 shadow-[0_0_10px_rgba(255,255,255,0.9)] animate-float-2" />
-        <div className="absolute top-[30%] left-[38%] w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)] animate-float-5" />
-        <div className="absolute bottom-[15%] left-[45%] w-4 h-4 rounded-full bg-white/90 shadow-[0_0_12px_rgba(255,255,255,0.95)] animate-float-1" />
-        <div className="absolute top-[75%] right-[25%] w-3 h-3 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.9)] animate-float-3" />
-      </div>
+      {/* Background. Small screens: deep green. Wide screens: a pale green wash with the logo embossed and faded on the brand side, and flowing green ribbons behind the form. */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none lg:hidden" style={{ background: 'linear-gradient(160deg,#064e3b 0%,#022c22 100%)' }} />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none hidden lg:block" style={{ background: 'linear-gradient(110deg,#f4fdf8 0%,#dcfce9 38%,#bbf7d0 60%,#86efac 100%)' }} />
+      <img
+        src="/login-mark.png"
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className="hidden lg:block absolute pointer-events-none select-none max-w-none"
+        style={{ left: '-4%', top: '50%', height: '125%', transform: 'translateY(-50%)', opacity: 0.17, filter: 'drop-shadow(-4px -4px 5px rgba(255,255,255,0.95)) drop-shadow(5px 6px 7px rgba(4,78,59,0.4)) saturate(0.75)' }}
+      />
+      <svg aria-hidden="true" className="hidden lg:block absolute right-0 top-0 h-full w-[64%] pointer-events-none" viewBox="0 0 1000 900" preserveAspectRatio="xMaxYMid slice">
+        <defs>
+          <linearGradient id="lg-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#34d399" /><stop offset="0.5" stopColor="#059669" /><stop offset="1" stopColor="#064e3b" /></linearGradient>
+          <linearGradient id="lg-b" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#065f46" /><stop offset="1" stopColor="#022c22" /></linearGradient>
+          <linearGradient id="lg-c" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#10b981" stopOpacity="0.85" /><stop offset="1" stopColor="#a7f3d0" stopOpacity="0.4" /></linearGradient>
+        </defs>
+        <path d="M1000 0 H430 C560 120 400 250 480 410 C560 570 430 730 540 900 H1000 Z" fill="url(#lg-b)" />
+        <path d="M1000 60 C780 110 640 250 700 430 C760 610 600 730 500 900 H1000 Z" fill="url(#lg-a)" opacity="0.9" />
+        <path d="M1000 0 C860 90 720 70 590 0 Z" fill="url(#lg-c)" />
+        <path d="M1000 330 C870 360 780 440 800 560 C820 680 740 780 660 900 H1000 Z" fill="url(#lg-c)" opacity="0.55" />
+        <path d="M430 0 C560 120 400 250 480 410 C560 570 430 730 540 900" fill="none" stroke="#ecfdf5" strokeOpacity="0.55" strokeWidth="2" />
+        <path d="M700 430 C760 610 600 730 500 900" fill="none" stroke="#d1fae5" strokeOpacity="0.45" strokeWidth="1.5" />
+        <path d="M800 560 C820 680 740 780 660 900" fill="none" stroke="#ecfdf5" strokeOpacity="0.4" strokeWidth="1.5" />
+      </svg>
 
       <div className="relative min-h-full flex flex-col lg:flex-row">
         {/* The sign-in side (on the right in RTL) */}
@@ -650,12 +657,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
-          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
+          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-emerald-900/20 ring-8 ring-white/60 flex items-center justify-center overflow-hidden">
             <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
           </div>
           <div>
-            <p className="brand-display text-5xl font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
-            <p className="mt-1 text-sm font-semibold text-emerald-100/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
+            <p className="brand-display text-5xl font-semibold text-emerald-950 leading-tight tracking-wide">{brand.name}</p>
+            <p className="mt-1 text-sm font-semibold text-emerald-900/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
           </div>
           <LoginClock />
           <div className="grid grid-cols-2 gap-3 w-full max-w-md">
@@ -665,11 +672,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               { icon: Network, title: 'ساختار سازمانی', text: 'چارت، پست و جانشینی' },
               { icon: MessagesSquare, title: 'گفتگوی تیمی', text: 'ارتباط بر پایه سلسله‌مراتب' },
             ].map(({ icon: Icon, title, text }) => (
-              <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/10 backdrop-blur border border-white/15 shadow-sm px-3 py-2.5 text-right">
-                <span className="w-10 h-10 rounded-xl bg-white/10 text-emerald-200 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
+              <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/65 backdrop-blur border border-white/80 shadow-sm px-3 py-2.5 text-right">
+                <span className="w-10 h-10 rounded-xl bg-emerald-600/10 text-emerald-700 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-extrabold text-white">{title}</span>
-                  <span className="block text-[11px] text-emerald-100/70 truncate">{text}</span>
+                  <span className="block text-sm font-extrabold text-slate-800">{title}</span>
+                  <span className="block text-[11px] text-slate-500 truncate">{text}</span>
                 </span>
               </div>
             ))}
