@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Moon, Grid, Palette, Check, LogOut, LogIn, User as UserIcon,
   Upload, Camera, Loader2, ShieldCheck, Users, Bell, MessageSquare,
-  Smartphone, FileText, Printer, ChevronDown, ChevronUp
+  Smartphone, FileText, Printer, ChevronDown, ChevronUp, PlayCircle
 } from 'lucide-react';
 import { AppTheme, AppColorPalette, User as UserType, WorkTeam, MAX_ATTACHMENT_BYTES } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
@@ -54,6 +54,19 @@ const PATTERN_SCHEMES: { id: AppTheme; name: string; description: string; previe
   { id: 'spring', name: 'بهاری', description: 'شکوفه‌های بهاری', previewClass: 'bg-pattern-spring' },
 ];
 
+/** Training videos (Persian narration with captions), served from /tutorials. */
+const TUTORIAL_VIDEOS: { id: number; title: string; text: string }[] = [
+  { id: 1, title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
+  { id: 2, title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
+  { id: 3, title: 'قالب‌های ساختار', text: 'ساخت ساختار از روی قالب آماده و ذخیرهٔ قالب' },
+  { id: 4, title: 'شرکت‌ها، واحدها و سمت‌ها', text: 'کار با فهرست‌ها، ویرایش و افزودن' },
+  { id: 5, title: 'نماها و ابزارهای چارت', text: 'نمای درختی و چارت، جست‌وجو و ابزارهای نمایش' },
+  { id: 6, title: 'جزئیات واحد، پست و فرد', text: 'مشاهدهٔ اطلاعات و تاریخچهٔ هر مورد' },
+  { id: 7, title: 'پست خالی و جانشینی', text: 'تعیین فرد برای پست و معرفی جانشین' },
+  { id: 8, title: 'رابطه‌ها و مافوق دوم', text: 'خطوط نقطه‌چین و ارتباط‌های غیرمستقیم' },
+  { id: 9, title: 'جابه‌جایی واحد', text: 'انتقال واحد به جای دیگر با پیش‌نمایش اثر' },
+];
+
 export const SettingsView: React.FC<SettingsViewProps> = ({
   themeMode,
   setThemeMode,
@@ -86,8 +99,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     colorPalette: false,
     patternBg: false,
     catalog: false,
+    videos: true,
     account: false,
   });
+  const [activeVideo, setActiveVideo] = useState<number>(1);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
@@ -659,6 +674,69 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
       )}
+
+      {/* Training videos */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-[0_8px_28px_-24px_rgba(15,23,42,0.4)] space-y-4">
+        <button
+          type="button"
+          onClick={() => toggleSection('videos')}
+          className={`w-full flex items-center justify-between text-slate-900 dark:text-white font-bold text-sm select-none cursor-pointer group ${
+            openSections.videos ? 'pb-3 border-b border-emerald-200/60 dark:border-emerald-800/60' : ''
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <PlayCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span>ویدیوهای آموزشی</span>
+            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-xl border border-emerald-300 dark:border-emerald-800 shrink-0">
+              {TUTORIAL_VIDEOS.length} ویدیو
+            </span>
+          </div>
+          {openSections.videos ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+        </button>
+
+        {openSections.videos && (
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 animate-in fade-in duration-200" data-testid="tutorial-videos">
+            <div className="lg:col-span-3 space-y-2">
+              <video
+                key={activeVideo}
+                controls
+                preload="metadata"
+                className="w-full rounded-2xl bg-black border border-slate-200 dark:border-slate-700 aspect-video"
+                src={`/tutorials/video-${activeVideo}.mp4`}
+              />
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.title}
+              </p>
+            </div>
+            <ul className="lg:col-span-2 space-y-2 max-h-[22rem] overflow-y-auto pe-1">
+              {TUTORIAL_VIDEOS.map((v) => {
+                const on = v.id === activeVideo;
+                return (
+                  <li key={v.id}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveVideo(v.id)}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border text-right transition-all cursor-pointer ${
+                        on
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700'
+                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                      }`}
+                    >
+                      <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${on ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-700'}`}>
+                        {v.id.toLocaleString('fa-IR')}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">{v.title}</span>
+                        <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">{v.text}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 

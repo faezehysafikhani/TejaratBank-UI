@@ -565,7 +565,7 @@ export const SystemAdministration: React.FC<{
     // Only for people given the work-team permissions; nobody else sees the tab.
     ...(canSeeWorkTeams(permissions) ? [{ id: 'team' as const, label: 'مدیریت تیم کاری', icon: Users }] : []),
     { id: 'appearance', label: 'ظاهر سامانه', icon: Palette },
-    { id: 'help', label: 'راهنما', icon: FileText },
+    { id: 'help', label: 'آموزش سامانه', icon: FileText },
     ...(can('sms_settings.view') ? [{ id: 'sms' as const, label: 'پنل پیامکی', icon: MessageSquare }] : []),
     ...(can('users.view') || can('roles.view') || can('audit_logs.view') || can('ldap_settings.view') || can('sso_settings.view')
       ? [{ id: 'users' as const, label: 'مدیریت کاربران', icon: Users }] : []),
