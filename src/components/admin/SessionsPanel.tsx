@@ -41,52 +41,90 @@ const endLabel = (session: SessionInfo) => {
   return session.endedByName ? `${base} (${session.endedByName})` : base;
 };
 
+const END_BADGE_TONES: Record<string, string> = {
+  'session.idle_expired': 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+  'session.absolute_expired': 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  'session.concurrent_limit': 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
+};
+const DEFAULT_END_BADGE_TONE = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+const RECENT_PREVIEW_COUNT = 5;
+
 /** Lists of sessions with a close button each. Used for one's own sessions and for another user's. */
 const SessionRows: React.FC<{
   list: SessionList;
   canClose: boolean;
   busyId: string | null;
   onClose: (session: SessionInfo) => void;
-}> = ({ list, canClose, busyId, onClose }) => (
-  <div className="space-y-4">
-    <ul className="space-y-2">
-      {list.active.length === 0 && <li className="text-xs text-slate-500 dark:text-slate-400">نشست فعالی وجود ندارد.</li>}
-      {list.active.map((session) => (
-        <li key={session.id} className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-          <MonitorSmartphone className="w-5 h-5 text-slate-400 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <SessionSummary session={session} />
+}> = ({ list, canClose, busyId, onClose }) => {
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const recent = showAllRecent ? list.recent : list.recent.slice(0, RECENT_PREVIEW_COUNT);
+
+  return (
+    <div className="space-y-4">
+      <ul className="space-y-2">
+        {list.active.length === 0 && <li className="text-xs text-slate-500 dark:text-slate-400">نشست فعالی وجود ندارد.</li>}
+        {list.active.map((session) => (
+          <li
+            key={session.id}
+            className={`flex items-center gap-3 rounded-2xl border ${
+              session.isCurrent
+                ? 'p-3.5 border-emerald-300/50 dark:border-emerald-700/50 bg-gradient-to-br from-emerald-500/10 to-emerald-500/0'
+                : 'p-3 border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              session.isCurrent ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+            }`}>
+              <MonitorSmartphone className="w-5 h-5" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <SessionSummary session={session} />
+            </div>
+            {session.isCurrent && <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 shrink-0">همین دستگاه</span>}
+            {canClose && (
+              <button
+                type="button"
+                disabled={busyId === session.id}
+                onClick={() => onClose(session)}
+                className="text-[11px] font-bold px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                {busyId === session.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : session.isCurrent ? 'خروج' : 'بستن'}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {list.recent.length > 0 && (
+        <div>
+          <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">نشست‌های اخیراً بسته‌شده</h4>
+          <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-auto max-h-[380px]">
+            <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+              {recent.map((session) => (
+                <li key={session.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-indigo-500/5">
+                  <span className="w-8 h-8 rounded-[10px] bg-slate-100 text-slate-400 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                    <MonitorSmartphone className="w-4 h-4" />
+                  </span>
+                  <div className="flex-1 min-w-0"><SessionSummary session={session} /></div>
+                  <span className={`rounded-full text-[10px] font-bold px-2.5 py-0.5 shrink-0 ${(session.endReason && END_BADGE_TONES[session.endReason]) || DEFAULT_END_BADGE_TONE}`}>{endLabel(session)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          {session.isCurrent && <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 shrink-0">همین دستگاه</span>}
-          {canClose && (
+          {list.recent.length > RECENT_PREVIEW_COUNT && (
             <button
               type="button"
-              disabled={busyId === session.id}
-              onClick={() => onClose(session)}
-              className="text-[11px] font-bold px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50 cursor-pointer shrink-0"
+              onClick={() => setShowAllRecent((value) => !value)}
+              className="mt-2 w-full py-2 rounded-xl border border-dashed border-indigo-400/50 bg-indigo-500/5 text-indigo-600 dark:text-indigo-300 text-xs font-bold cursor-pointer"
             >
-              {busyId === session.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : session.isCurrent ? 'خروج' : 'بستن'}
+              {showAllRecent ? 'نمایش کمتر' : `نمایش همه (${toPersianDigits(list.recent.length)})`}
             </button>
           )}
-        </li>
-      ))}
-    </ul>
-
-    {list.recent.length > 0 && (
-      <div>
-        <h4 className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-2">نشست‌های اخیراً بسته‌شده</h4>
-        <ul className="space-y-1.5">
-          {list.recent.map((session) => (
-            <li key={session.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-              <div className="flex-1 min-w-0"><SessionSummary session={session} /></div>
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">{endLabel(session)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
-  </div>
-);
+        </div>
+      )}
+    </div>
+  );
+};
 
 /** «نشست‌های فعال»: the user's own sessions, how many may be open at once, and the SMS for every sign-in. */
 const MySessionsCard: React.FC = () => {
@@ -203,8 +241,20 @@ const MySessionsCard: React.FC = () => {
   );
 };
 
-const numberField = (value: number, onChange: (value: number) => void, min: number, max: number) => (
-  <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} className={inputClass} />
+const policyInputClass =
+  'w-[120px] text-center font-bold text-[13px] py-1.5 rounded-[10px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400';
+
+const PolicyNumberField: React.FC<{ label: string; range: string; unit?: string; value: number; min: number; max: number; onChange: (value: number) => void }> = ({ label, range, unit, value, min, max, onChange }) => (
+  <label className="block">
+    <span className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+      {label}
+      <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 dark:text-indigo-300 dark:bg-indigo-950/50 rounded-full px-2">{range}</span>
+    </span>
+    <span className="relative inline-block">
+      <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} className={`${policyInputClass} ${unit ? 'pl-[46px]' : ''}`} />
+      {unit && <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none">{unit}</span>}
+    </span>
+  </label>
 );
 
 /** The organization's timeouts and session limits, inside the platform's range. */
@@ -234,19 +284,16 @@ const PolicyCard: React.FC<{ canUpdate: boolean }> = ({ canUpdate }) => {
   };
 
   const group = (title: string, idle: keyof SessionPolicySettings, absolute: keyof SessionPolicySettings, concurrent: keyof SessionPolicySettings | null) => (
-    <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-      <h4 className="text-xs font-extrabold text-slate-700 dark:text-slate-200">{title}</h4>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Field label="بی‌فعالیتی (دقیقه)" hint={`${toPersianDigits(range.minIdleMinutes)} تا ${toPersianDigits(range.maxIdleMinutes)}`}>
-          {numberField(policy[idle] as number, (value) => set({ [idle]: value } as Partial<SessionPolicySettings>), range.minIdleMinutes, range.maxIdleMinutes)}
-        </Field>
-        <Field label="حداکثر مدت ورود (ساعت)" hint={`${toPersianDigits(range.minAbsoluteHours)} تا ${toPersianDigits(range.maxAbsoluteHours)}`}>
-          {numberField(policy[absolute] as number, (value) => set({ [absolute]: value } as Partial<SessionPolicySettings>), range.minAbsoluteHours, range.maxAbsoluteHours)}
-        </Field>
+    <div className="p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
+      <h4 className="flex items-center gap-2 text-[13px] font-extrabold text-slate-700 dark:text-slate-200">
+        <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+        {title}
+      </h4>
+      <div className="flex flex-wrap gap-x-8 gap-y-3">
+        <PolicyNumberField label="بی‌فعالیتی" unit="دقیقه" range={`${toPersianDigits(range.minIdleMinutes)} تا ${toPersianDigits(range.maxIdleMinutes)}`} value={policy[idle] as number} min={range.minIdleMinutes} max={range.maxIdleMinutes} onChange={(value) => set({ [idle]: value } as Partial<SessionPolicySettings>)} />
+        <PolicyNumberField label="حداکثر مدت ورود" unit="ساعت" range={`${toPersianDigits(range.minAbsoluteHours)} تا ${toPersianDigits(range.maxAbsoluteHours)}`} value={policy[absolute] as number} min={range.minAbsoluteHours} max={range.maxAbsoluteHours} onChange={(value) => set({ [absolute]: value } as Partial<SessionPolicySettings>)} />
         {concurrent && (
-          <Field label="سقف نشست هم‌زمان" hint={`${toPersianDigits(range.minConcurrent)} تا ${toPersianDigits(range.maxConcurrent)}`}>
-            {numberField(policy[concurrent] as number, (value) => set({ [concurrent]: value } as Partial<SessionPolicySettings>), range.minConcurrent, range.maxConcurrent)}
-          </Field>
+          <PolicyNumberField label="سقف نشست هم‌زمان" range={`${toPersianDigits(range.minConcurrent)} تا ${toPersianDigits(range.maxConcurrent)}`} value={policy[concurrent] as number} min={range.minConcurrent} max={range.maxConcurrent} onChange={(value) => set({ [concurrent]: value } as Partial<SessionPolicySettings>)} />
         )}
       </div>
     </div>
@@ -265,11 +312,10 @@ const PolicyCard: React.FC<{ canUpdate: boolean }> = ({ canUpdate }) => {
       {group('ورود از بیرون شبکه‌ی داخلی', 'externalIdleMinutes', 'externalAbsoluteHours', null)}
       <Field label="بازه‌های شبکه‌ی داخلی بانک (CIDR، هر خط یکی)" hint="مثلاً 10.0.0.0/8. اگر خالی باشد پروفایل «بیرون شبکه» اعمال نمی‌شود.">
         <textarea
-          rows={3}
           dir="ltr"
           value={policy.internalNetworks.join('\n')}
           onChange={(event) => set({ internalNetworks: event.target.value.split('\n').map((line) => line.trim()).filter(Boolean) })}
-          className={`${inputClass} font-mono`}
+          className="block w-full max-w-[420px] h-20 text-left font-mono text-xs px-3 py-2 rounded-[10px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-400"
         />
       </Field>
       {canUpdate && (
@@ -305,7 +351,7 @@ const EmergencyCard: React.FC = () => {
   };
 
   return (
-    <AdminCard className="p-5 sm:p-6 space-y-4 border-rose-200 dark:border-rose-900">
+    <AdminCard className="p-5 sm:p-6 space-y-4 border-red-300/50 dark:border-red-800/50 bg-gradient-to-br from-red-500/10 to-red-500/0">
       <div className="flex items-start gap-3">
         <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
         <div>
