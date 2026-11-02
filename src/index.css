@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/vazirmatn/wght.css";
+/* A display face for the system name on the sign-in page (bundled, so no internet is needed). */
+@import "@fontsource/lalezar/400.css";
 @import "./styles/patterns.css";
 
 @variant dark (&:where(.dark, .dark *));

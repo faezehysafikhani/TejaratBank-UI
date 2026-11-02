@@ -654,7 +654,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
           </div>
           <div>
-            <p className="text-3xl font-extrabold text-white">{brand.name}</p>
+            <p className="text-5xl text-white leading-tight drop-shadow-sm" style={{ fontFamily: "'Lalezar', 'Vazirmatn Variable', sans-serif" }}>{brand.name}</p>
             <p className="mt-1 text-sm font-semibold text-emerald-100/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
           </div>
           <LoginClock />
