@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/vazirmatn/wght.css";
-/* A display face for the system name on the sign-in page (bundled, so no internet is needed). */
-@import "@fontsource/lalezar/400.css";
+/* A wide, stretched (Kufi) face for the system name on the sign-in page (bundled, so no internet is needed). */
+@import "@fontsource/reem-kufi/600.css";
 @import "./styles/patterns.css";
 
 @variant dark (&:where(.dark, .dark *));
@@ -161,6 +161,11 @@ button:is([class*="bg-gradient-to"], [class*=" bg-indigo-600"], [class*=" bg-eme
 
 * {
   font-family: 'Vazirmatn Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+}
+
+/* The system name on the sign-in page (the rule above forces one face everywhere, so this one is !important too). */
+.brand-display {
+  font-family: 'Reem Kufi', 'Vazirmatn Variable', sans-serif !important;
 }
 
 @layer base {
