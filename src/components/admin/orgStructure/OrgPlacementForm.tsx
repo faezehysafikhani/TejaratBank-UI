@@ -3,13 +3,16 @@ import { ChevronDown, ChevronLeft, Plus, Check, X } from 'lucide-react';
 import { AdminCard, Notice, PrimaryButton, SecondaryButton, inputClass } from '../AdminUi';
 import { JalaliDatePicker } from '../../JalaliDatePicker';
 import { userErrorMessage } from '../../../utils/errorMessages';
+import { showToast } from '../../../utils/toast';
 import { toPersianDigits } from '../../../utils/helpers';
 import {
   type HeldPosition, type UnitPosition,
-  addUnitPosition, appointToPost, createNode, createPosition, endPostAppointment, getAssignment, positionsForCompany, setAssignment,
+  addUnitPosition, appointToPost, createNode, createPosition, endPostAppointment, getAssignment, positionsForCompany, setAssignment, updatePosition,
 } from '../../../services/orgStructureApi';
 import { type PostChoice, type PostOption, PostChoiceDialog, endPosts } from './nodes/PostChoices';
 import { UserPicker } from './orgShared';
+import { addableTypes } from './orgNodeRules';
+import { createAllowedType } from './nodes/NodeDialogs';
 import { OrgPlacementBoard, PlacementPick, nodePath } from './orgPlacementData';
 
 const todayIso = () => {
@@ -46,10 +49,14 @@ const SelectWithAdd: React.FC<{
   disabled?: boolean;
   addLabel: string;
   addPlaceholder: string;
-  onAdd: ((name: string) => Promise<string>) | null;
-}> = ({ label, required, value, onChange, options, placeholder, disabled, addLabel, addPlaceholder, onAdd }) => {
+  onAdd: ((name: string, extra: { choice: string; typed: string }) => Promise<string>) | null;
+  /** A second question in the «+» row: one of `options`, or - when there are none - a name typed. */
+  extra?: { label: string; options: { id: string; label: string }[]; typedPlaceholder: string; hint?: string; defaultChoice?: string };
+}> = ({ label, required, value, onChange, options, placeholder, disabled, addLabel, addPlaceholder, onAdd, extra }) => {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
+  const [choice, setChoice] = useState('');
+  const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,9 +65,10 @@ const SelectWithAdd: React.FC<{
     setBusy(true);
     setError(null);
     try {
-      const id = await onAdd(name.trim());
+      const id = await onAdd(name.trim(), { choice: choice || extra?.defaultChoice || '', typed: typed.trim() });
       onChange(id);
       setName('');
+      setTyped('');
       setAdding(false);
     } catch (err) {
       setError(userErrorMessage(err, `${addLabel} انجام نشد.`));
@@ -103,7 +111,20 @@ const SelectWithAdd: React.FC<{
             maxLength={200}
             className={`${inputClass} flex-1 min-w-0`}
           />
-          <SecondaryButton type="button" disabled={busy || !name.trim()} onClick={() => void add()}><Check className="w-4 h-4" /> ساخت</SecondaryButton>
+          <SecondaryButton type="button" disabled={busy || !name.trim() || (!!extra && extra.options.length === 0 && !typed.trim())} onClick={() => void add()}><Check className="w-4 h-4" /> ساخت</SecondaryButton>
+        </div>
+      )}
+      {adding && onAdd && extra && (
+        <div className="space-y-1" data-testid="add-extra">
+          <span className="block text-[11px] font-bold text-slate-600 dark:text-slate-300">{extra.label}</span>
+          {extra.options.length > 0 ? (
+            <select value={choice || extra.defaultChoice || extra.options[0].id} onChange={(e) => setChoice(e.target.value)} aria-label={extra.label} className={inputClass}>
+              {extra.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          ) : (
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={120} aria-label={extra.label} placeholder={extra.typedPlaceholder} className={inputClass} />
+          )}
+          {extra.hint && <p className="text-[11px] text-slate-500">{extra.hint}</p>}
         </div>
       )}
       {error && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
@@ -116,6 +137,9 @@ const SelectWithAdd: React.FC<{
  * calls the chart and the user dialog always used (setAssignment; a start date in the future
  * appoints to the post from that day).
  */
+/** The form's frame: a card on its own, or nothing inside a window. */
+const Wrap: React.FC<{ embedded: boolean; children: React.ReactNode }> = ({ embedded, children }) => (embedded ? <div className="space-y-4">{children}</div> : <AdminCard className="p-5 space-y-4">{children}</AdminCard>);
+
 export const OrgPlacementForm: React.FC<{
   board: OrgPlacementBoard;
   pick: PlacementPick | null;
@@ -124,9 +148,11 @@ export const OrgPlacementForm: React.FC<{
   canCreatePositions: boolean;
   onSaved: () => Promise<void>;
   onTool?: (tool: 'templates' | 'links') => void;
-}> = ({ board, pick, canAssign, canCreateUnits, canCreatePositions, onSaved, onTool }) => {
+  /** Inside the «افزودن نفر به پست» window: no card or title of its own, and it is closed after a save (not after «ثبت و افزودن بعدی»). */
+  embedded?: boolean;
+  onDone?: () => void;
+}> = ({ board, pick, canAssign, canCreateUnits, canCreatePositions, onSaved, onTool, embedded = false, onDone }) => {
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Message>(null);
 
@@ -160,6 +186,18 @@ export const OrgPlacementForm: React.FC<{
     [board.positions, draft.companyId, draft.positionId],
   );
 
+  const companyPositions = useMemo(
+    () => (draft.companyId ? positionsForCompany(board.positions, draft.companyId) : []).filter((p) => p.isActive),
+    [board.positions, draft.companyId],
+  );
+  /** The types a unit made here may have: those the rules allow at the top of a company. */
+  const topTypes = useMemo(() => addableTypes(board.nodeTypes, board.rules, null), [board.nodeTypes, board.rules]);
+  // A unit whose vacant posts all have one title: that title is chosen (the person only has to be picked).
+  useEffect(() => {
+    if (!draft.unitId || draft.positionId) return;
+    const titles = new Set(board.posts.filter((p) => p.unitId === draft.unitId && p.holders.length === 0 && p.isPositionActive).map((p) => p.positionId));
+    if (titles.size === 1) setDraft((d) => (d.unitId === draft.unitId && !d.positionId ? { ...d, positionId: [...titles][0] } : d));
+  }, [draft.unitId, draft.positionId, board.posts]);
   const set = (patch: Partial<Draft>) => { setDraft((d) => ({ ...d, ...patch })); setMessage(null); };
   const companyName = board.companies.find((c) => c.id === draft.companyId)?.name;
   const unitName = units.find((u) => u.id === draft.unitId)?.label;
@@ -246,7 +284,13 @@ export const OrgPlacementForm: React.FC<{
       });
     }
     await onSaved();
-    setMessage({ type: 'success', text: later ? `جایگاه «${draft.userName}» از تاریخ انتخاب‌شده ثبت شد.` : `جایگاه «${draft.userName}» ثبت شد.` });
+    const text = later ? `جایگاه «${draft.userName}» از تاریخ انتخاب‌شده ثبت شد.` : `«${draft.userName}» به پست اضافه شد.`;
+    if (embedded && !andNext && onDone) {
+      showToast(text, 'ok');
+      onDone();
+      return;
+    }
+    setMessage({ type: 'success', text });
     setDraft(andNext ? { ...EMPTY, companyId: draft.companyId, unitId: draft.unitId, positionId: '' } : draft);
   };
 
@@ -265,8 +309,8 @@ export const OrgPlacementForm: React.FC<{
   };
 
   return (
-    <AdminCard className="p-5 space-y-4">
-      <h3 className="text-base font-extrabold text-slate-900 dark:text-white">ثبت جایگاه</h3>
+    <Wrap embedded={embedded}>
+      {!embedded && <h3 className="text-base font-extrabold text-slate-900 dark:text-white">افزودن نفر به پست</h3>}
 
       <div className="flex flex-wrap items-center gap-1.5 text-xs" aria-label="مسیر زنده" data-testid="placement-path">
         {crumbs.map((c, i) => (
@@ -292,7 +336,7 @@ export const OrgPlacementForm: React.FC<{
         </div>
 
         <SelectWithAdd
-          label="معاونت / واحد"
+          label="واحد"
           required
           value={draft.unitId}
           onChange={(unitId) => set({ unitId })}
@@ -301,8 +345,17 @@ export const OrgPlacementForm: React.FC<{
           disabled={!draft.companyId}
           addLabel="ساخت واحد جدید"
           addPlaceholder="نام واحد جدید"
-          onAdd={canCreateUnits ? async (name) => {
-            const node = await createNode({ name, companyId: draft.companyId, parentNodeId: null });
+          extra={{
+            label: 'نوع واحد',
+            options: topTypes.map((t) => ({ id: t.id, label: t.name })),
+            typedPlaceholder: 'نوع واحد تازه، مثلاً: معاونت',
+            hint: 'نوع واحد مشخص می‌کند این واحد در چارت چه جایگاهی دارد.',
+            defaultChoice: topTypes[0]?.id,
+          }}
+          onAdd={canCreateUnits ? async (name, extra) => {
+            let typeId = extra.choice;
+            if (!typeId && extra.typed) typeId = (await createAllowedType(extra.typed, null, board.nodeTypes)).id;
+            const node = await createNode({ name, companyId: draft.companyId, parentNodeId: null, nodeTypeId: typeId || null });
             await onSaved();
             return node.id;
           } : null}
@@ -318,8 +371,31 @@ export const OrgPlacementForm: React.FC<{
           disabled={!draft.companyId}
           addLabel="ساخت سمت جدید"
           addPlaceholder="عنوان سمت جدید"
-          onAdd={canCreatePositions ? async (title) => {
-            const position = await createPosition(title, null, [draft.companyId]);
+          extra={{
+            label: companyPositions.length > 0 ? 'زیر کدام سمت؟' : 'عنوان رئیس کل شرکت',
+            options: companyPositions.map((p) => ({ id: p.id, label: `${p.title}${p.parentPositionId ? '' : ' (رئیس کل)'}` })),
+            typedPlaceholder: 'مثلاً: مدیرعامل',
+            hint: companyPositions.length > 0
+              ? 'سمت مافوق سمت تازه است؛ دارنده‌ی آن مدیر دارنده‌ی این سمت می‌شود.'
+              : 'اولین سمت هر شرکت بالاترین سمت آن است؛ سمت‌های دیگر زیر آن قرار می‌گیرند. این عنوان هم ساخته می‌شود.',
+            defaultChoice: (companyPositions.find((p) => !p.parentPositionId) ?? companyPositions[0])?.id,
+          }}
+          onAdd={canCreatePositions ? async (title, extra) => {
+            let under = extra.choice || null;
+            if (companyPositions.length === 0) {
+              // The first title of a company is its head's; the new one goes under it.
+              const head = await createPosition(extra.typed, null, [draft.companyId]);
+              under = head.id;
+            }
+            const existing = board.positions.find((p) => p.title === title);
+            if (existing) {
+              if (!(existing.companyIds || []).includes(draft.companyId)) {
+                await updatePosition(existing.id, existing.title, existing.parentPositionId, existing.isActive, [...(existing.companyIds || []), draft.companyId]);
+              }
+              await onSaved();
+              return existing.id;
+            }
+            const position = await createPosition(title, under, [draft.companyId]);
             await onSaved();
             return position.id;
           } : null}
@@ -347,32 +423,10 @@ export const OrgPlacementForm: React.FC<{
           <JalaliDatePicker value={draft.startDate} onChange={(startDate) => set({ startDate })} ariaLabel="تاریخ شروع" placeholder="از همین الان" />
         </div>
 
-        <div className="md:col-span-2">
-          <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 cursor-pointer">
-            <ChevronDown className={`w-4 h-4 transition-transform ${more ? 'rotate-180' : ''}`} /> تنظیمات بیشتر (اختیاری)
-          </button>
-          {more && (
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4" data-testid="placement-more">
-              {onTool && (
-                <>
-                  <button type="button" onClick={() => onTool('links')} className="text-start rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-indigo-300 cursor-pointer">
-                    <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">نوع رابطه گزارش‌دهی</span>
-                    <span className="block text-[11px] text-slate-500 dark:text-slate-400">رابطه‌های مستقیم و ماتریسی بین گره‌ها در «رابطه‌ها» تنظیم می‌شود.</span>
-                  </button>
-                  <button type="button" onClick={() => onTool('templates')} className="text-start rounded-xl border border-slate-200 dark:border-slate-700 p-3 hover:border-indigo-300 cursor-pointer">
-                    <span className="block text-sm font-bold text-slate-900 dark:text-slate-100">قالب آماده</span>
-                    <span className="block text-[11px] text-slate-500 dark:text-slate-400">ساخت یا اعمال ساختار از روی قالب در «قالب‌ها».</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
         <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-2">
           {draft.companyId && <SecondaryButton type="button" disabled={busy} onClick={() => { setDraft(EMPTY); setMessage(null); }}>پاک کردن فرم</SecondaryButton>}
           <SecondaryButton type="button" disabled={busy || !ready || !canAssign} onClick={() => void save(true)}>ثبت و افزودن بعدی</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy || !ready || !canAssign}>ثبت جایگاه</PrimaryButton>
+          <PrimaryButton type="submit" disabled={busy || !ready || !canAssign}>افزودن به پست</PrimaryButton>
         </div>
       </form>
       {draft.startDate && draft.startDate > todayIso() && (
@@ -390,6 +444,6 @@ export const OrgPlacementForm: React.FC<{
           onCancel={() => setAsking(null)}
         />
       )}
-    </AdminCard>
+    </Wrap>
   );
 };

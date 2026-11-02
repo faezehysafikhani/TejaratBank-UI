@@ -77,7 +77,7 @@ export const OrgTemplatesPanel: React.FC<{ canManageTemplates: boolean; canCreat
                   <LayoutTemplate className="w-5 h-5 text-indigo-600 shrink-0" />
                   <button type="button" onClick={() => setOpenId(openId === t.id ? null : t.id)} aria-expanded={openId === t.id} className="min-w-0 flex-1 text-right cursor-pointer">
                     <span className="block text-sm font-extrabold text-slate-900 dark:text-slate-100">{t.name}</span>
-                    <span className="block text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} گره · {toPersianDigits(t.nodeTypeCount)} جزء چارت · سطح {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>
+                    <span className="block text-[11px] text-slate-500">{toPersianDigits(t.nodeCount)} واحد · {toPersianDigits(t.nodeTypeCount)} نوع واحد · سطح {UI_LEVEL_TITLES[t.uiLevel] || t.uiLevel}</span>
                   </button>
                   <StatusBadge tone={t.isSystem ? 'slate' : 'green'}>{t.isSystem ? 'آماده' : 'قالب شما'}</StatusBadge>
                   {canCreateCompany && <IconAction icon={Plus} label={`ساخت شرکت با ${t.name}`} onClick={() => setWizardFor(t.id)} />}
@@ -88,7 +88,7 @@ export const OrgTemplatesPanel: React.FC<{ canManageTemplates: boolean; canCreat
                     {t.description && <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">{t.description}</p>}
                     {detail.loading ? <LoadingRow /> : detail.error ? <Notice type="error">{detail.error}</Notice>
                       : content?.nodes && content.nodes.length > 0 ? <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-100 dark:border-slate-800 p-3" data-scrollable><TemplateTree nodes={content.nodes} types={types} /></div>
-                        : <p className="text-xs text-slate-400">این قالب گره‌ی اولیه ندارد.</p>}
+                        : <p className="text-xs text-slate-400">این قالب واحد اولیه ندارد.</p>}
                   </div>
                 )}
               </div>

@@ -35,20 +35,20 @@ export const NodePostTools: React.FC<{ unit: ChartUnit; hasPattern: boolean; onC
     // At most one: the old mark goes first.
     if (manager && manager.id !== id) await setManagerPost(manager.id, false);
     if (id) await setManagerPost(id, true);
-    return id ? 'پست مدیر گره تعیین شد.' : 'پست مدیر گره برداشته شد.';
+    return id ? 'پست مدیر واحد تعیین شد.' : 'پست مدیر واحد برداشته شد.';
   }, 'تعیین پست مدیر انجام نشد.');
 
   if (list.length === 0 && !hasPattern) return null;
   return (
     <div className="space-y-2 rounded-xl border border-slate-100 dark:border-slate-800 p-3">
-      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Crown className="w-3.5 h-3.5 text-amber-600" /> پست مدیر گره</p>
+      <p className="flex items-center gap-1.5 text-xs font-bold text-slate-500"><Crown className="w-3.5 h-3.5 text-amber-600" /> پست مدیر واحد</p>
       {list.length > 0 && (
-        <select className={inputClass} value={manager?.id || ''} disabled={busy} onChange={(e) => choose(e.target.value)} aria-label="پست مدیر گره">
+        <select className={inputClass} value={manager?.id || ''} disabled={busy} onChange={(e) => choose(e.target.value)} aria-label="پست مدیر واحد">
           <option value="">بدون پست مدیر</option>
           {list.map((p) => <option key={p.id} value={p.id}>{postLabel(p)}</option>)}
         </select>
       )}
-      <p className="text-[11px] leading-5 text-slate-500">دارنده‌ی این پست، مدیر گره است (مگر مدیر مستقیم تعیین شده باشد). پست‌های تازه‌ی گره زیر آن می‌روند.</p>
+      <p className="text-[11px] leading-5 text-slate-500">دارنده‌ی این پست، مدیر واحد است (مگر مدیر مستقیم تعیین شده باشد). پست‌های تازه‌ی واحد زیر آن می‌روند.</p>
       {hasPattern && (
         <SecondaryButton type="button" className="w-full" disabled={busy} onClick={() => act(async () => {
           const result = await applyPostTemplates({ nodeId: unit.unitId });

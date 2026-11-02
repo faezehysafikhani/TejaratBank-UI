@@ -37,7 +37,7 @@ export const NodeTypeRulesMatrix: React.FC<{
   ];
 
   if (types.length === 0) {
-    return <div className="py-6 text-center text-sm text-slate-500">هنوز جزئی برای چارت تعریف نشده؛ شرکت بدون اجزای چارت، ساختار مسطح دارد.</div>;
+    return <div className="py-6 text-center text-sm text-slate-500">هنوز جزئی برای چارت تعریف نشده؛ شرکت بدون نوع‌های واحد، ساختار مسطح دارد.</div>;
   }
 
   return (
@@ -75,7 +75,7 @@ export const NodeTypeRulesMatrix: React.FC<{
                   const conflict = used > 0 && !on;
                   return (
                     <td key={child.nodeTypeId} className={`px-2 py-1.5 text-center ${conflict ? 'bg-amber-50 dark:bg-amber-950/40' : ''}`}>
-                      <label className={`inline-flex items-center gap-1 ${readOnly ? '' : 'cursor-pointer'}`} title={used > 0 ? `${toPersianDigits(used)} گره با این ترکیب وجود دارد` : undefined}>
+                      <label className={`inline-flex items-center gap-1 ${readOnly ? '' : 'cursor-pointer'}`} title={used > 0 ? `${toPersianDigits(used)} واحد با این ترکیب وجود دارد` : undefined}>
                         <input
                           type="checkbox"
                           checked={on}
@@ -98,7 +98,7 @@ export const NodeTypeRulesMatrix: React.FC<{
         <div role="status" className="flex items-start gap-2 p-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200 text-xs leading-relaxed">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            {toPersianDigits(conflicts.reduce((sum, [, count]) => sum + count, 0))} گره‌ی موجود با قاعده‌های جدید جور نیست. این گره‌ها حذف نمی‌شوند؛ فقط در فهرست «ناسازگار» می‌آیند تا جابه‌جا شوند.
+            {toPersianDigits(conflicts.reduce((sum, [, count]) => sum + count, 0))} واحد موجود با قاعده‌های جدید جور نیست. این واحدها حذف نمی‌شوند؛ فقط در فهرست «ناسازگار» می‌آیند تا جابه‌جا شوند.
           </span>
         </div>
       )}

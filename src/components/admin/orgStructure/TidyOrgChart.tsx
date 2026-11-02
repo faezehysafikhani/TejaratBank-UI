@@ -7,6 +7,7 @@ import { ChartSelection, allUnitsOf, headPostOf } from './orgChartModel';
 import { PersonAvatar } from './PersonAvatar';
 import { NodeTypeIcon, safeColor } from './nodes/nodeTypeStyle';
 import { CompanyLogo } from './nodes/CompanyLogo';
+import { AddMenu, type AddMenuItem } from './nodes/AddMenu';
 import { PAGE_SIZE, peopleCountOf, postRowsOf, vacantKey } from './tidyChartModel';
 
 /** A render crash in the tidy chart: the board falls back to the tree chart (see OrgChartBoard). */
@@ -35,6 +36,8 @@ interface Ctx {
   nameOf: Map<string, string>;
   shown: Map<string, number>;
   more: (key: string) => void;
+  /** What «+ افزودن» offers on a row (unit id null: the company); none given: no button (a past day). */
+  menuFor?: (unitId: string | null) => AddMenuItem[];
 }
 
 const rowBase = 'w-full flex items-center gap-2 rounded-lg px-2 py-1 text-start transition-colors';
@@ -122,6 +125,9 @@ const NodeRow: React.FC<{ ctx: Ctx; unit: ChartUnit; depth: number }> = ({ ctx, 
           <span className="flex-1" />
           <Headcount n={people} />
         </button>
+        {!ctx.printing && !inactive && ctx.menuFor && (
+          <span className="pe-1 shrink-0"><AddMenu items={ctx.menuFor(unit.unitId)} forName={unit.name} compact testId="tidy-add" /></span>
+        )}
       </div>
       {isOpen && hasInside && (
         <div className="ms-3 ps-3 border-s border-slate-200 dark:border-slate-700 space-y-1" data-depth={depth}>
@@ -223,11 +229,12 @@ export const TidyOrgChart: React.FC<{
   showEmpty: boolean;
   printing?: boolean;
   rootRef?: React.Ref<HTMLDivElement>;
-}> = ({ company, selection, onSelect, open, onToggle, showEmpty, printing = false, rootRef }) => {
+  menuFor?: (unitId: string | null) => AddMenuItem[];
+}> = ({ company, selection, onSelect, open, onToggle, showEmpty, printing = false, rootRef, menuFor }) => {
   const nameOf = React.useMemo(() => new Map(allUnitsOf(company).map((u) => [u.unitId, u.name] as const)), [company]);
   const [shown, setShown] = React.useState<Map<string, number>>(new Map());
   const more = (key: string) => setShown((prev: Map<string, number>) => new Map<string, number>(prev).set(key, (prev.get(key) ?? PAGE_SIZE) + PAGE_SIZE));
-  const ctx: Ctx = { company, selection, onSelect, open, toggle: onToggle, showEmpty, printing, nameOf, shown, more };
+  const ctx: Ctx = { company, selection, onSelect, open, toggle: onToggle, showEmpty, printing, nameOf, shown, more, menuFor };
 
   // A node chosen elsewhere (search, side panel) is on a page of a long list: show up to it.
   React.useEffect(() => {
@@ -283,11 +290,14 @@ export const TidyOrgChart: React.FC<{
         <LinkArrows company={company} deps={[open, shown, showEmpty, printing]}>
           <ul className="space-y-1">
             <li>
-              <button type="button" onClick={() => onSelect({ kind: 'company', companyId: company.companyId })} aria-current={companyOn ? 'true' : undefined} data-tidy-selected={companyOn ? 'true' : undefined} className={`${rowBase} ${pick(companyOn)}`}>
+              <div className="flex items-center gap-1">
+              <button type="button" onClick={() => onSelect({ kind: 'company', companyId: company.companyId })} aria-current={companyOn ? 'true' : undefined} data-tidy-selected={companyOn ? 'true' : undefined} className={`${rowBase} min-w-0 flex-1 ${pick(companyOn)}`}>
                 <CompanyLogo logoUrl={company.logoUrl} name={company.name} className="w-7 h-7" fallback={<Building2 className="w-[18px] h-[18px] text-indigo-600 shrink-0" aria-hidden="true" />} />
                 <span className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{company.name}</span>
                 <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 shrink-0">شرکت</span>
               </button>
+              {!printing && menuFor && <span className="pe-1 shrink-0"><AddMenu items={menuFor(null)} forName={company.name} compact testId="tidy-add-top" /></span>}
+              </div>
             </li>
             {headSelect && (
               <li>
@@ -299,7 +309,7 @@ export const TidyOrgChart: React.FC<{
               </li>
             )}
             {company.units.length === 0
-              ? <li className="p-4 text-sm text-slate-500">این شرکت هنوز گره‌ای ندارد.</li>
+              ? <li className="p-4 text-sm text-slate-500">این شرکت هنوز واحدی ندارد.</li>
               : (printing ? company.units : company.units.slice(0, limit)).map((u) => <NodeRow key={u.unitId} ctx={ctx} unit={u} depth={0} />)}
             {!printing && company.units.length > limit && (
               <li><button type="button" onClick={() => more('top')} className="ms-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 cursor-pointer">نمایش {toPersianDigits(Math.min(PAGE_SIZE, company.units.length - limit))} مورد بعدی</button></li>

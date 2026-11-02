@@ -188,14 +188,9 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">معاونت‌ها و واحدها</h3>
-            <p className="text-xs text-slate-500 mt-0.5">درخت واحدهای سازمانی. مدیر هر معاونت، دارندهٔ پست بالای آن در چارت سازمانی است.</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">فهرست واحدها</h3>
+            <p className="text-xs text-slate-500 mt-0.5">برای ساخت واحد تازه از چارت سازمانی دکمه‌ی «+» یا «افزودن واحد» را بزنید تا نوع و جای آن هم مشخص شود. اینجا واحدها دیده، ویرایش و غیرفعال می‌شوند.</p>
           </div>
-          {canCreate && (
-            <PrimaryButton onClick={() => setDraft({ name: '', managerUserId: null, managerName: null, isActive: true })}>
-              <Plus className="w-4 h-4" /> واحد جدید
-            </PrimaryButton>
-          )}
         </div>
         {data.loading ? <LoadingRow /> : data.error ? <div className="p-5"><Notice type="error">{data.error}</Notice></div>
           : rows.length === 0 ? <EmptyRow>هنوز واحدی تعریف نشده است.</EmptyRow> : (
@@ -203,7 +198,7 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
               <table className="w-full min-w-[640px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
                   <th className={th}>نام واحد</th>
-                  {hasNodes && <th className={th}>جزء چارت</th>}
+                  {hasNodes && <th className={th}>نوع واحد</th>}
                   {hasNodes && <th className={th}>مافوق</th>}
                   <th className={th}>شرکت</th><th className={th}>وضعیت</th><th className={th} />
                 </tr></thead>

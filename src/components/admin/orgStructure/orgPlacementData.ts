@@ -1,6 +1,6 @@
 import {
-  Company, OrgNode, Position, UnitPosition,
-  listCompanies, listNodes, listPositions, listUnitPositions,
+  Company, NodeType, NodeTypeRule, OrgNode, Position, UnitPosition,
+  getNodeTypeRules, listCompanies, listNodeTypes, listNodes, listPositions, listUnitPositions,
 } from '../../../services/orgStructureApi';
 
 /** What the placement form and the chart beside it both draw on. */
@@ -9,13 +9,18 @@ export interface OrgPlacementBoard {
   nodes: OrgNode[];
   positions: Position[];
   posts: UnitPosition[];
+  /** The types and rules (a unit made from the form gets one of the types allowed at the top). */
+  nodeTypes: NodeType[];
+  rules: NodeTypeRule[];
 }
 
 export const loadPlacementBoard = async (): Promise<OrgPlacementBoard> => {
-  const [companies, nodes, positions, posts] = await Promise.all([
+  const [companies, nodes, positions, posts, nodeTypes, rules] = await Promise.all([
     listCompanies(), listNodes(), listPositions(), listUnitPositions(),
+    listNodeTypes().catch(() => [] as NodeType[]),
+    getNodeTypeRules().then((r) => r.rules).catch(() => [] as NodeTypeRule[]),
   ]);
-  return { companies, nodes, positions, posts };
+  return { companies, nodes, positions, posts, nodeTypes, rules };
 };
 
 /** A node named with the ones above it, so a nested node reads as the structure does. */

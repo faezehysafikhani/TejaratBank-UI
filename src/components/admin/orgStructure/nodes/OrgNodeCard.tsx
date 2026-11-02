@@ -90,7 +90,7 @@ export const OrgNodeCard: React.FC<{
             <UserX className="w-3 h-3" />{toPersianDigits(vacant)} خالی
           </span>
         )}
-        {children > 0 && <span className="flex items-center gap-1" title="گره‌های زیرمجموعه"><GitBranch className="w-3 h-3" />{toPersianDigits(children)} زیرمجموعه</span>}
+        {children > 0 && <span className="flex items-center gap-1" title="واحدهای زیرمجموعه"><GitBranch className="w-3 h-3" />{toPersianDigits(children)} زیرمجموعه</span>}
         {links > 0 && <span className="flex items-center gap-1" title="رابطه‌های فرعی"><Link2 className="w-3 h-3" />{toPersianDigits(links)} رابطه</span>}
       </div>
     </div>

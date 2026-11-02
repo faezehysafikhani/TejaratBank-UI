@@ -1,13 +1,17 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Building2, Network, Users, UserRound, ChevronDown, ChevronUp, GitBranch, GitFork, Maximize2, Minimize2, ChevronsDownUp, ChevronsUpDown, UserX, ZoomIn, ZoomOut, Scan, Search, X, FileDown, Loader2, Briefcase, Crown } from 'lucide-react';
+import { Plus, Building2, Network, Users, UserRound, ChevronDown, ChevronUp, GitBranch, GitFork, Maximize2, Minimize2, ChevronsDownUp, ChevronsUpDown, UserX, ZoomIn, ZoomOut, Scan, Search, X, FileDown, Loader2, Briefcase, Crown, UserPlus, Move, RotateCcw } from 'lucide-react';
 import { AdminCard, Notice } from '../AdminUi';
 import { toPersianDigits } from '../../../utils/helpers';
-import { ChartCompany, ChartMember, ChartPosition, ChartUnit, AutoLinkChoice, LinkType, NodeType, NodeTypeRule, OrgNode, PersonRef, canNode, getChart, getNodeTypeRules, listLinkTypes, listNodeTypes, listNodes, listPositions, listUnplacedUsers, headTitleOf, postLabel } from '../../../services/orgStructureApi';
+import { ChartCompany, ChartMember, ChartPosition, ChartUnit, AutoLinkChoice, LinkType, NodeType, NodeTypeRule, OrgNode, PersonRef, canNode, getChart, getNodeTypeRules, listLinkTypes, listNodeTypes, listNodes, listPositions, listTemplates, listUnplacedUsers, headTitleOf, postLabel, ORG_STRUCTURE_PERMISSIONS as PERM, type StructureTemplate } from '../../../services/orgStructureApi';
 import { EmptyRow, LoadingRow, useLoad } from './orgShared';
 import { ChartSelection, allUnitsOf, ancestorsOf, companyHeadcount, companyPostsOf, depthsOf, findMember, findPosition, headPostOf, isNested, nodeCount, positionsOf, postTree, unitHeadcount, vacantCount } from './orgChartModel';
 import { NodeTypeIcon, safeColor } from './nodes/nodeTypeStyle';
 import { AddNodeDialog, MoveNodeDialog } from './nodes/NodeDialogs';
+import { CompanyFormDialog } from './nodes/CompanyFormDialog';
+import { BuildSteps } from './nodes/BuildSteps';
+import { AddMenu, type AddMenuItem } from './nodes/AddMenu';
+import { AddPostsDialog } from './nodes/AddPostsDialog';
 import { AutoLinkChoiceDialog } from './nodes/LinkDialogs';
 import { addableTypes, checkMove } from './orgNodeRules';
 import { atLeast, highestLevel, levelOf } from './orgUiLevel';
@@ -18,9 +22,12 @@ import { type ChartView, allOpenSet, defaultView, pathTo, readSavedCompany, read
 import { OrgChartDetails } from './OrgChartDetails';
 import { PanZoomView, usePanZoom } from './usePanZoom';
 import { OrgLinkLayer } from './OrgLinkLayer';
+import { FreeDrag, type FreeOffset } from './FreeDrag';
+import { FreeLinkLayer } from './FreeLinkLayer';
 import { appAlert } from '../../../utils/appDialog';
 import { JalaliDatePicker } from '../../JalaliDatePicker';
 import { jalaliDay } from './nodes/HistoryDialogs';
+import { showToast } from '../../../utils/toast';
 
 const PersonLine: React.FC<{ person: PersonRef | null; empty: string }> = ({ person, empty }) => (
   person ? (
@@ -37,9 +44,9 @@ const Toggle: React.FC<{ open: boolean; onClick: () => void; label: string }> = 
     onClick={(e) => { e.stopPropagation(); onClick(); }}
     aria-expanded={open}
     aria-label={`${open ? 'بستن' : 'باز کردن'} ${label}`}
-    className="w-8 h-8 shrink-0 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center cursor-pointer"
+    className="w-6 h-6 shrink-0 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 flex items-center justify-center cursor-pointer"
   >
-    {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+    {open ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
   </button>
 );
 
@@ -111,6 +118,13 @@ const MemberRow: React.FC<{ member: ChartMember; selected: boolean; onSelect: ()
   </button>
 );
 
+/** A small count chip for a card's footer: icon, number and word. */
+const Stat: React.FC<{ icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; tone?: 'plain' | 'warn' }> = ({ icon: Icon, children, tone = 'plain' }) => (
+  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${tone === 'warn' ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+    <Icon className="w-3 h-3 shrink-0" aria-hidden="true" />{children}
+  </span>
+);
+
 /** A position of a deputy (or the deputy's people with no position) under it, with a branch line to it. */
 const BranchCard: React.FC<{
   node: string;
@@ -129,20 +143,25 @@ const BranchCard: React.FC<{
   muted?: boolean;
   /** A position nobody holds yet: drawn with a dashed border. */
   vacant?: boolean;
-}> = ({ node, icon: Icon, tone, title, subtitle, count, members, open, onToggle, selected, onSelect, selectedUserId, onSelectMember, muted, vacant }) => (
+  /** A vacant post: puts a person in it (opens the placement window). */
+  onAssign?: () => void;
+}> = ({ node, icon: Icon, tone, title, subtitle, count, members, open, onToggle, selected, onSelect, selectedUserId, onSelectMember, muted, vacant, onAssign }) => (
   <div className="relative">
     <span className="absolute -start-4 top-7 w-4 h-0.5 bg-slate-200 dark:bg-slate-700" aria-hidden="true" />
     <NodeCard node={node} label={title} selected={selected} onSelect={onSelect} className={`w-60 ${muted ? 'opacity-70' : ''} ${vacant && !selected ? 'border-dashed' : ''}`}>
       <div className="flex items-center gap-2.5 p-3">
         <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tone}`}><Icon className="w-[18px] h-[18px]" /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-extrabold text-slate-800 dark:text-slate-100 truncate">{title}</span>
+          <span className="block text-sm font-extrabold text-slate-800 dark:text-slate-100 break-words leading-snug">{title}</span>
           <span className="flex items-center gap-1 text-[11px] text-slate-500 min-w-0">
             <Users className="w-3 h-3 shrink-0" />
             <span className="truncate">{vacant ? 'خالی' : `${toPersianDigits(count)} نفر`}{subtitle ? ` · ${subtitle}` : ''}</span>
           </span>
         </span>
         {count > 0 && <Toggle open={open} onClick={onToggle} label={title} />}
+        {vacant && onAssign && (
+          <button type="button" data-testid="assign-post" title="گذاشتن فرد در این پست" aria-label={`گذاشتن فرد در ${title}`} onClick={(e) => { e.stopPropagation(); onAssign(); }} className="w-7 h-7 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-xs"><UserPlus className="w-3.5 h-3.5" /></button>
+        )}
       </div>
       {open && members.length > 0 && (
         <div data-scrollable className="relative border-t border-slate-100 dark:border-slate-800 p-1.5 space-y-0.5 max-h-60 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -253,7 +272,7 @@ const ChartSearch: React.FC<{ hits: SearchHit[] }> = ({ hits }) => {
     person: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   };
   return (
-    <div className="relative w-full sm:w-64">
+    <div className="org-search relative w-full sm:w-64 min-w-[8rem]">
       <Search className="w-4 h-4 text-slate-400 absolute top-1/2 -translate-y-1/2 start-3 pointer-events-none" />
       <input
         value={text}
@@ -354,7 +373,11 @@ export const OrgChartBoard: React.FC<{
   /** Changes when the data was changed elsewhere (the placement form): the chart is read again. */
   reloadToken?: number;
   onPlacementPick?: (pick: { companyId: string; unitId?: string; positionId?: string; userId?: string | null; userName?: string | null }) => void;
-}> = ({ can: realCan, onLevelChange, initialCompanyId, onPlacementPick, reloadToken }) => {
+  /** Told after the structure was changed here (units, posts...): the form beside the chart reads its lists again. */
+  onStructureChanged?: () => void;
+  /** «افزودن نفر به پست»: opens the window for it, filled from where it was asked. */
+  onRequestPlace?: (pick: { companyId: string; unitId?: string; positionId?: string; userId?: string | null; userName?: string | null }) => void;
+}> = ({ can: realCan, onLevelChange, initialCompanyId, onPlacementPick, reloadToken, onStructureChanged, onRequestPlace }) => {
   /** «نمایش به تاریخ»: the chart as of a day (only which nodes existed); nothing can be changed then. */
   const [asOf, setAsOf] = useState<string | undefined>(undefined);
   const asOfRef = useRef(asOf);
@@ -386,6 +409,20 @@ export const OrgChartBoard: React.FC<{
   /** A node being moved (dragged to a place, or from its «جابه‌جایی»), or being added under a node. */
   const [moveRequest, setMoveRequest] = useState<{ unitId: string; parentId?: string | null } | null>(null);
   const [addRequest, setAddRequest] = useState<{ parentId: string | null } | null>(null);
+  /** «افزودن پست»: to this unit (null: the user chooses it). */
+  const [postsRequest, setPostsRequest] = useState<{ unitId: string | null } | null>(null);
+  /** «ثبت شرکت» from the empty state: the form with the templates to start from. */
+  const [companyForm, setCompanyForm] = useState<{ templates: StructureTemplate[] } | null>(null);
+  const openCompanyForm = async () => setCompanyForm({ templates: await listTemplates().catch(() => []) });
+  /** «چیدمان آزاد» (this browser only): cards are dragged anywhere; the structure does not change. */
+  const [free, setFree] = useState<boolean>(() => { try { return localStorage.getItem('org-free-layout-on') === '1'; } catch { return false; } });
+  const [offsets, setOffsets] = useState<Record<string, FreeOffset>>({});
+  const offsetsRef = useRef(offsets);
+  offsetsRef.current = offsets;
+  const zoomScale = useRef(1);
+  const saveOffsets = () => { try { localStorage.setItem(layoutKey, JSON.stringify(offsetsRef.current)); } catch { /* not saved: still shown */ } };
+  const toggleFree = () => setFree((on) => { try { localStorage.setItem('org-free-layout-on', on ? '0' : '1'); } catch { /* ignore */ } return !on; });
+  const resetLayout = () => { setOffsets({}); offsetsRef.current = {}; try { localStorage.removeItem(layoutKey); } catch { /* ignore */ } };
   /** Dragging a card: which one, and the card it is over (with whether it may go there). */
   const [dragId, setDragId] = useState<string | null>(null);
   /** The card being dragged over, whether the node may go there, and (if not) why - shown while hovering. */
@@ -445,7 +482,29 @@ export const OrgChartBoard: React.FC<{
   const tidyRoot = useRef<HTMLDivElement>(null);
   /** Printing the tidy chart: everything open, no buttons, for the moment of the capture. */
   const [printingTidy, setPrintingTidy] = useState(false);
-  const { fit, home, zoomBy, focus, subscribe } = usePanZoom(viewport, content, !!company && view === 'tree');
+  /** The toolbar over the canvas: the chart starts below it, and it fades while the chart is being used. */
+  const overlay = useRef<HTMLDivElement>(null);
+  const [chartBusy, setChartBusy] = useState(false);
+  const topInset = useCallback(() => (overlay.current && overlay.current.parentElement && view === 'tree' ? overlay.current.offsetHeight + 8 : 0), [view]);
+  const { fit, home, zoomBy, focus, subscribe } = usePanZoom(viewport, content, !!company && view === 'tree', topInset);
+  useEffect(() => subscribe((v) => { zoomScale.current = v.s; }), [subscribe]);
+  /** The buttons over the canvas fade while the chart is being used (moved, zoomed, scrolled) and come back a moment after. */
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fadeNow = (holdMs?: number) => {
+    setChartBusy(true);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    if (holdMs) fadeTimer.current = setTimeout(() => setChartBusy(false), holdMs);
+  };
+  useEffect(() => {
+    const up = () => { if (fadeTimer.current) clearTimeout(fadeTimer.current); fadeTimer.current = setTimeout(() => setChartBusy(false), 350); };
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    };
+  }, []);
   const level = levelOf(company);
   // The display level only hides: simple has no node tools, advanced adds the secondary links.
   const nodeApi = (data.data?.nodes.length ?? 0) > 0 && atLeast(level, 'normal') && !asOf;
@@ -482,6 +541,11 @@ export const OrgChartBoard: React.FC<{
   }, [initialCompanyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const units = company?.units || [];
+  const layoutKey = `org-free-layout:${company?.companyId ?? ''}`;
+  useEffect(() => {
+    try { const raw = localStorage.getItem(layoutKey); setOffsets(raw ? JSON.parse(raw) : {}); } catch { setOffsets({}); }
+  }, [layoutKey]);
+
   useEffect(() => { if (data.data) onLevelChange?.(highestLevel(data.data.chart)); }, [data.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const firstToken = useRef(reloadToken);
@@ -649,18 +713,65 @@ export const OrgChartBoard: React.FC<{
     return hits;
   }, [company]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** «+ افزودن» on a card: what can be added there (a unit, a post, a person); unit null: the company. */
+  const menuItemsFor = (unit: ChartUnit | null): AddMenuItem[] => {
+    const items: AddMenuItem[] = [];
+    if (canNode(can, 'create') && !asOf && (!unit || unit.isActive !== false)) {
+      items.push({ icon: Network, label: unit ? 'زیرواحد' : 'واحد', run: () => setAddRequest({ parentId: unit?.unitId ?? null }) });
+    }
+    if (unit && can(PERM.managePositions) && !asOf && (!unit || unit.isActive !== false) && allUnitsOf(company).length > 0) {
+      items.push({ icon: Briefcase, label: 'پست', run: () => setPostsRequest({ unitId: unit?.unitId ?? null }) });
+    }
+    const vacant = unit ? positionsOf(unit).find((p) => p.holders.length === 0 && p.isActive) : undefined;
+    if (unit && can(PERM.manageAssignments) && !asOf && positionsOf(unit).length > 0) {
+      items.push({ icon: UserRound, label: 'گذاشتن فرد', run: () => requestPlace({ unitId: unit?.unitId, positionId: vacant?.positionId }) });
+    }
+    return items;
+  };
+  /** Opens the «افزودن نفر به پست» window, filled from where it was asked. */
+  const requestPlace = (where: { unitId?: string; positionId?: string; userId?: string | null; userName?: string | null }) =>
+    onRequestPlace?.({ companyId: company.companyId, ...where });
+
   const selectedUserId = selection && (selection.kind === 'member' || selection.kind === 'unplaced') ? selection.userId : null;
   const isSelected = (s: ChartSelection) => JSON.stringify(s) === JSON.stringify(selection);
   const selectMember = (userId: string) => choose({ kind: 'member', userId });
 
   if (data.loading && !data.data) return <AdminCard><LoadingRow /></AdminCard>;
   if (data.error) return <Notice type="error">{data.error}</Notice>;
-  if (!company) return <AdminCard><EmptyRow>هنوز شرکتی تعریف نشده است. ابتدا در بخش «شرکت‌ها» یک شرکت بسازید.</EmptyRow></AdminCard>;
+  if (!company) {
+    return (
+      <>
+        <AdminCard>
+          <div className="flex flex-col items-center gap-3 px-6 py-14 text-center" data-testid="no-company">
+            <span className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300 flex items-center justify-center"><Building2 className="w-7 h-7" /></span>
+            <h4 className="text-base font-extrabold text-slate-900 dark:text-white">هنوز شرکتی ثبت نشده است</h4>
+            <p className="max-w-md text-sm text-slate-500 leading-7">با ثبت شرکت شروع کنید؛ بعد همین‌جا روی چارت با دکمه‌ی «+» واحدها، پست‌ها و افراد را یکی‌یکی اضافه می‌کنید. می‌توانید با یک قالب آماده هم شروع کنید.</p>
+            {can(PERM.manageCompanies) ? (
+              <button type="button" data-testid="register-company" onClick={() => void openCompanyForm()} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 text-sm font-extrabold cursor-pointer">
+                <Plus className="w-4 h-4" /> ثبت شرکت
+              </button>
+            ) : <p className="text-xs text-amber-600">برای ثبت شرکت، دسترسی «مدیریت شرکت‌ها» لازم است.</p>}
+          </div>
+        </AdminCard>
+        {companyForm && createPortal(
+          <CompanyFormDialog
+            templates={companyForm.templates}
+            parentChoices={undefined}
+            onSaved={async () => { await data.reload(); }}
+            onClose={() => setCompanyForm(null)}
+          />,
+          document.body,
+        )}
+      </>
+    );
+  }
 
-  const line = 'bg-slate-300 dark:bg-slate-600';
+  const line = free ? 'bg-transparent' : 'bg-slate-300 dark:bg-slate-600';
+  const freeProps = (id: string) => ({ id, enabled: free && !asOf, offset: offsets[id], scale: () => zoomScale.current, onMove: (key: string, o: FreeOffset) => setOffsets((prev) => ({ ...prev, [key]: o })), onEnd: saveOffsets });
 
   /** Moving a node by dragging its card onto another (a node) or onto the company (the top); the preview comes before it is saved. */
   const dndOf = (unit: ChartUnit | null) => {
+    if (free) return undefined;
     const targetId = unit?.unitId ?? null;
     return {
       draggable: !!unit && canMoveNodes,
@@ -707,12 +818,13 @@ export const OrgChartBoard: React.FC<{
     const color = safeColor(type?.color);
     return (
       <div className="flex flex-col items-center">
+        <FreeDrag {...freeProps(`unit:${unit.unitId}`)} className="flex flex-col items-center">
         <NodeCard
           node={`unit:${unit.unitId}`}
           label={unit.name}
           selected={isSelected({ kind: 'unit', companyId: company.companyId, unitId: unit.unitId })}
           onSelect={() => choose({ kind: 'unit', companyId: company.companyId, unitId: unit.unitId })}
-          className={`w-64 ${unit.isActive === false ? 'opacity-60 border-dashed' : ''} ${dragId === unit.unitId ? 'opacity-40' : ''}`}
+          className={`w-72 ${unit.isActive === false ? 'opacity-60 border-dashed' : ''} ${dragId === unit.unitId ? 'opacity-40' : ''}`}
           dnd={dndOf(unit)}
           onShortcut={nodeApi ? (key) => {
             if (key === 'm' && canMoveNodes) setMoveRequest({ unitId: unit.unitId });
@@ -720,7 +832,7 @@ export const OrgChartBoard: React.FC<{
           } : undefined}
         >
           {type && <span className="absolute inset-x-3 top-0 h-1 rounded-b-full" style={{ backgroundColor: color }} aria-hidden="true" />}
-          <div className="flex items-center gap-2.5 p-3.5">
+          <div className="flex items-center gap-3 p-3.5">
             {type ? (
               <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}1a`, color }}>
                 <NodeTypeIcon icon={type.icon} className="w-5 h-5" />
@@ -728,29 +840,33 @@ export const OrgChartBoard: React.FC<{
             ) : (
               <span className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300 flex items-center justify-center shrink-0"><Network className="w-5 h-5" /></span>
             )}
-            <span className="min-w-0 flex-1 space-y-1">
+            <span className="min-w-0 flex-1 flex flex-col gap-1 items-start text-start">
               {type && type.name !== unit.name && <span className="block text-[10px] font-bold truncate" style={{ color }}>{type.name}</span>}
-              <span className={`block text-sm font-extrabold truncate ${unit.isActive === false ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>{unit.name}</span>
+              <span className={`block text-sm font-extrabold break-words leading-snug ${unit.isActive === false ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>{unit.name}</span>
               {unit.manager && <PersonLine person={unit.manager} empty="" />}
             </span>
             {(positions.length > 0 || unit.members.length > 0) && (
               <Toggle open={open} onClick={() => toggleIn(setCollapsedUnits, unit.unitId)} label={`پست‌های ${unit.name}`} />
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800 px-3.5 py-1.5 text-[11px] text-slate-500">
-            <span>{toPersianDigits(positions.length)} پست{vacant > 0 ? ` · ${toPersianDigits(vacant)} خالی` : ''}</span>
+          <div className="flex items-center justify-between gap-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/30 rounded-b-2xl px-3.5 py-2">
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <Stat icon={Briefcase}>{toPersianDigits(positions.length)} پست</Stat>
+            {vacant > 0 && <Stat icon={UserX} tone="warn">{toPersianDigits(vacant)} خالی</Stat>}
+            <Stat icon={Users}>{toPersianDigits(unitHeadcount(unit))} نفر</Stat>
             {children.length > 0 && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); toggleIn(setCollapsedBranches, unit.unitId); }}
                 aria-expanded={branchOpen}
                 aria-label={`${branchOpen ? 'بستن' : 'باز کردن'} زیرمجموعه‌ی ${unit.name}`}
-                className="flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-700 px-2 py-0.5 font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:border-indigo-300 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-full border border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 cursor-pointer"
               >
                 <GitBranch className="w-3 h-3" />{toPersianDigits(children.length)} زیرمجموعه {branchOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
               </button>
             )}
-            <span>{toPersianDigits(unitHeadcount(unit))} نفر</span>
+            </div>
+            <AddMenu items={menuItemsFor(unit)} forName={unit.name} testId="add-child" compact />
           </div>
         </NodeCard>
         {open && (positions.length > 0 || unit.members.length > 0) && (
@@ -767,6 +883,7 @@ export const OrgChartBoard: React.FC<{
                   count={position.holders.length}
                   members={position.holders}
                   vacant={position.holders.length === 0}
+                  onAssign={!asOf && can(PERM.manageAssignments) && position.isActive ? () => requestPlace({ unitId: unit.unitId, positionId: position.positionId }) : undefined}
                   muted={!position.isActive}
                   open={openGroups.has(`pos:${position.unitPositionId}`)}
                   onToggle={() => toggleIn(setOpenGroups, `pos:${position.unitPositionId}`)}
@@ -797,6 +914,7 @@ export const OrgChartBoard: React.FC<{
           </div>
         )}
 
+        </FreeDrag>
         {branchOpen && (
           <>
             <span className={`w-0.5 h-8 ${line}`} aria-hidden="true" />
@@ -825,6 +943,10 @@ export const OrgChartBoard: React.FC<{
   };
 
   const rows = rowsOf(units, perRow);
+  /** Parent → child pairs for the free layout's lines: company → head → deputies → their sub-units. */
+  const freePairs: [string, string][] = [['company', 'head']];
+  const addPairs = (parent: string, list: ChartUnit[]) => list.forEach((u) => { freePairs.push([parent, `unit:${u.unitId}`]); addPairs(`unit:${u.unitId}`, u.children || []); });
+  addPairs('head', units);
 
   /** One row of deputies hanging from a bar; with several rows the bar runs from the line down their start side. */
   const unitRow = (row: ChartUnit[], joinedAtStart: boolean) => (
@@ -846,87 +968,104 @@ export const OrgChartBoard: React.FC<{
     </div>
   );
 
-  const board = (
-    <AdminCard className={fullscreen ? 'overflow-hidden flex flex-col h-full' : 'overflow-hidden'}>
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900 dark:text-white" title="روی هر بخش بزنید تا جزئیاتش را ببینید و همان‌جا تغییرش دهید."><GitFork className="w-5 h-5 text-indigo-600" /> چارت سازمانی</h3>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {showLinks && (
-            <div className="flex items-center gap-1.5" data-testid="as-of">
-              <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">نمایش به تاریخ</span>
-              <JalaliDatePicker
-                value={asOf}
-                // Today is the live chart (editable), not a view «as of today».
-                onChange={(day) => setAsOf(day && day !== localToday() ? day : undefined)}
-                ariaLabel="نمایش چارت به تاریخ"
-                placeholder="امروز"
-              />
-            </div>
-          )}
-          <ViewSwitch view={view} onChange={chooseView} />
-          {view === 'tidy' && (
-            <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer whitespace-nowrap">
-              <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} className="accent-indigo-600" /> نمایش پست‌های خالی
-            </label>
-          )}
-          <ChartSearch hits={searchHits} />
-          {chart.length > 1 && (
-            <select
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold"
-              value={company.companyId}
-              onChange={(e) => {
-                setCompanyId(e.target.value);
-                setSelection({ kind: 'company', companyId: e.target.value });
-                // Whatever changed meanwhile (another tab, another person, the API) shows on arrival.
-                void data.reload();
-              }}
-              aria-label="شرکت"
-            >
-              {chart.map((c) => <option key={c.companyId} value={c.companyId}>{c.name}</option>)}
-            </select>
-          )}
-          <button type="button" onClick={allOpen ? collapseAll : expandAll} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer" title={allOpen ? 'بستن همه' : 'باز کردن همه'} aria-label={allOpen ? 'بستن همه' : 'باز کردن همه'}>
-            {allOpen ? <ChevronsDownUp className="w-4 h-4" /> : <ChevronsUpDown className="w-4 h-4" />}
-          </button>
-          <button
-            type="button"
-            disabled={exporting}
-            onClick={async () => {
-              if (view === 'tree' && !content.current) return;
-              setExporting(true);
-              try {
-                // The tidy chart is printed with everything open and without its buttons; the tree chart as it was.
-                if (view === 'tidy') {
-                  setPrintingTidy(true);
-                  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-                }
-                const { downloadOrgChartPdf } = await import('../../../utils/orgChartPdf');
-                const { jalaliStamp } = await import('../../../utils/reportExport');
-                // The company's code and today's Jalali date (or the chart's day); ASCII on purpose, as every export here.
-                const code = (company.code || '').replace(/[^A-Za-z0-9_-]+/g, '') || 'company';
-                const day = asOf ? jalaliDay(asOf).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\//g, '-') : jalaliStamp();
-                await downloadOrgChartPdf((view === 'tidy' ? tidyRoot.current : content.current)!, `چارت سازمانی ${company.name}`, `org-chart-${code}-${day}.pdf`);
-              } catch (err) {
-                console.error('Org chart PDF failed:', err);
-                void appAlert('دریافت فایل PDF چارت انجام نشد.');
-              } finally {
-                setPrintingTidy(false);
-                setExporting(false);
+  const controlsRow = (inChart: boolean) => (
+    <div className={inChart ? 'flex flex-nowrap items-center gap-2 w-full min-w-0 [&>*:not(.org-search)]:shrink-0' : 'flex flex-wrap items-center gap-2 w-full sm:w-auto'}>
+        {showLinks && (
+          <div className="flex items-center gap-1.5" data-testid="as-of">
+            <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">نمایش به تاریخ</span>
+            <JalaliDatePicker
+              value={asOf}
+              // Today is the live chart (editable), not a view «as of today».
+              onChange={(day) => setAsOf(day && day !== localToday() ? day : undefined)}
+              ariaLabel="نمایش چارت به تاریخ"
+              placeholder="امروز"
+            />
+          </div>
+        )}
+        <ViewSwitch view={view} onChange={chooseView} />
+        {view === 'tree' && !asOf && (
+          <span className="flex items-center gap-1.5">
+            <button type="button" data-testid="free-layout" aria-pressed={free} onClick={toggleFree} title="کارت‌ها را هرجا خواستید بچینید؛ فقط ظاهر چارت عوض می‌شود و ساختار همان می‌ماند" className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold cursor-pointer whitespace-nowrap ${free ? 'border-indigo-400 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-indigo-600'}`}><Move className="w-3.5 h-3.5" />چیدمان آزاد</button>
+            {free && Object.keys(offsets).length > 0 && (
+              <button type="button" data-testid="free-reset" onClick={resetLayout} title="برگرداندن کارت‌ها به چیدمان خودکار" aria-label="برگرداندن به چیدمان خودکار" className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer"><RotateCcw className="w-4 h-4" /></button>
+            )}
+          </span>
+        )}
+        {view === 'tidy' && (
+          <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer whitespace-nowrap">
+            <input type="checkbox" checked={showEmpty} onChange={(e) => setShowEmpty(e.target.checked)} className="accent-indigo-600" /> نمایش پست‌های خالی
+          </label>
+        )}
+        <ChartSearch hits={searchHits} />
+        <button type="button" onClick={allOpen ? collapseAll : expandAll} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer" title={allOpen ? 'بستن همه' : 'باز کردن همه'} aria-label={allOpen ? 'بستن همه' : 'باز کردن همه'}>
+          {allOpen ? <ChevronsDownUp className="w-4 h-4" /> : <ChevronsUpDown className="w-4 h-4" />}
+        </button>
+        <button
+          type="button"
+          disabled={exporting}
+          onClick={async () => {
+            if (view === 'tree' && !content.current) return;
+            setExporting(true);
+            try {
+              // The tidy chart is printed with everything open and without its buttons; the tree chart as it was.
+              if (view === 'tidy') {
+                setPrintingTidy(true);
+                await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
               }
+              const { downloadOrgChartPdf } = await import('../../../utils/orgChartPdf');
+              const { jalaliStamp } = await import('../../../utils/reportExport');
+              // The company's code and today's Jalali date (or the chart's day); ASCII on purpose, as every export here.
+              const code = (company.code || '').replace(/[^A-Za-z0-9_-]+/g, '') || 'company';
+              const day = asOf ? jalaliDay(asOf).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\//g, '-') : jalaliStamp();
+              await downloadOrgChartPdf((view === 'tidy' ? tidyRoot.current : content.current)!, `چارت سازمانی ${company.name}`, `org-chart-${code}-${day}.pdf`);
+            } catch (err) {
+              console.error('Org chart PDF failed:', err);
+              void appAlert('دریافت فایل PDF چارت انجام نشد.');
+            } finally {
+              setPrintingTidy(false);
+              setExporting(false);
+            }
+          }}
+          className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+          title="دریافت PDF چارت"
+          aria-label="دریافت PDF چارت"
+        >
+          {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+        </button>
+        <button type="button" onClick={() => setFullscreen(!fullscreen)} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer" title={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'} aria-label={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'}>
+          {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
+    </div>
+  );
+  const controls = controlsRow(false);
+
+  const board = (
+    <AdminCard className={`relative ${fullscreen ? 'overflow-hidden flex flex-col h-full' : 'overflow-hidden'}`}>
+      {chart.length > 1 && (
+      <div className="flex justify-end px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+          <select
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold"
+            value={company.companyId}
+            onChange={(e) => {
+              setCompanyId(e.target.value);
+              setSelection({ kind: 'company', companyId: e.target.value });
+              // Whatever changed meanwhile (another tab, another person, the API) shows on arrival.
+              void data.reload();
             }}
-            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-            title="دریافت PDF چارت"
-            aria-label="دریافت PDF چارت"
+            aria-label="شرکت"
           >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-          </button>
-          <button type="button" onClick={() => setFullscreen(!fullscreen)} className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-indigo-600 flex items-center justify-center cursor-pointer" title={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'} aria-label={fullscreen ? 'خروج از تمام‌صفحه' : 'تمام‌صفحه'}>
-            {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-        </div>
+            {chart.map((c) => <option key={c.companyId} value={c.companyId}>{c.name}</option>)}
+          </select>
       </div>
+      )}
+
+      {!asOf && (
+        <div className="px-3 py-2">
+          <BuildSteps company={company} />
+        </div>
+      )}
+      {/* The tidy chart keeps its buttons in a row of its own under the steps (the tree chart has them over the canvas). */}
+      {view !== 'tree' && <div className="px-3 pb-2.5">{controls}</div>}
 
       {view === 'tidy' ? (
         <div className={`relative overflow-auto ${fullscreen ? 'flex-1 min-h-0' : 'max-h-[75vh] xl:max-h-[calc(100vh-170px)]'}`}>
@@ -940,6 +1079,7 @@ export const OrgChartBoard: React.FC<{
               showEmpty={showEmpty}
               printing={printingTidy}
               rootRef={tidyRoot}
+              menuFor={asOf ? undefined : (unitId) => menuItemsFor(unitId ? unitById.get(unitId) ?? null : null)}
             />
           </TidyBoundary>
           {asOf && (
@@ -950,6 +1090,14 @@ export const OrgChartBoard: React.FC<{
         </div>
       ) : (
       <div
+        className={`relative ${fullscreen ? 'flex-1 min-h-0 flex flex-col' : ''}`}
+        onPointerDownCapture={(e) => { if (!overlay.current?.contains(e.target as Node)) fadeNow(); }}
+        onPointerMoveCapture={(e) => { if (e.buttons && !overlay.current?.contains(e.target as Node)) fadeNow(); }}
+        onWheel={(e) => { if (!overlay.current?.contains(e.target as Node)) fadeNow(700); }}
+      >
+      {/* The buttons lie over the top of the canvas and fade while the chart is moved, zoomed or scrolled. */}
+      <div ref={overlay} data-testid="chart-overlay" className={`absolute inset-x-2 top-2 z-20 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-sm px-3 py-2 flex justify-end overflow-x-auto transition-opacity duration-300 ${chartBusy ? 'opacity-25 pointer-events-none' : 'opacity-100'}`}>{controlsRow(true)}</div>
+      <div
         ref={viewport}
         tabIndex={0}
         onPointerDown={() => setHint(false)}
@@ -959,8 +1107,10 @@ export const OrgChartBoard: React.FC<{
       >
         <div ref={content} className="absolute top-0 left-0 origin-top-left w-max px-10 py-10 flex flex-col items-center">
           {/* secondary links (dotted / dashed lines between nodes), behind the cards; none: nothing */}
-          {showLinks && <OrgLinkLayer company={company} content={content} highlightNodeId={selection?.kind === 'unit' ? selection.unitId : null} />}
+          {showLinks && <OrgLinkLayer company={company} content={content} highlightNodeId={selection?.kind === 'unit' ? selection.unitId : null} offsets={free && !asOf ? offsets : undefined} />}
+          {free && !asOf && <FreeLinkLayer content={content} pairs={freePairs} offsets={offsets} />}
           {/* the company */}
+          <FreeDrag {...freeProps('company')}>
           <NodeCard
             node={`company:${company.companyId}`}
             label={company.name}
@@ -975,14 +1125,19 @@ export const OrgChartBoard: React.FC<{
                 <span className="block text-base font-extrabold text-slate-900 dark:text-white truncate">{company.name}</span>
               </span>
             </div>
-            <div className="flex items-center justify-between border-t border-indigo-100/70 dark:border-slate-800 px-4 py-1.5 text-[11px] text-slate-500">
-              <span>{toPersianDigits(nodeCount(company))} گره</span>
-              <span>{toPersianDigits(companyHeadcount(company))} نفر</span>
+            <div className="flex items-center justify-between gap-5 border-t border-indigo-100/70 dark:border-slate-800 bg-white/60 dark:bg-slate-800/30 rounded-b-2xl px-4 py-2">
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                <Stat icon={Network}>{toPersianDigits(nodeCount(company))} واحد</Stat>
+                <Stat icon={Users}>{toPersianDigits(companyHeadcount(company))} نفر</Stat>
+              </div>
+              <AddMenu items={menuItemsFor(null)} forName={company.name} testId="add-company" compact />
             </div>
           </NodeCard>
+          </FreeDrag>
 
           {/* the head of the company, between it and its deputies */}
           <span className={`w-0.5 h-6 ${line}`} aria-hidden="true" />
+          <FreeDrag {...freeProps('head')}>
           {!company.manager && headPostOf(company) ? (
             <NodeCard
               node={`position:${headPostOf(company)!.unitPositionId}`}
@@ -1025,6 +1180,8 @@ export const OrgChartBoard: React.FC<{
             </div>
           )}
 
+          </FreeDrag>
+
           {/* the company's other posts (board members, advisers...), right under its head */}
           {companyPostsOf(company).some((p) => !p.isHead) && (
             <div className="mt-2 flex flex-wrap justify-center gap-2 max-w-3xl">
@@ -1065,7 +1222,14 @@ export const OrgChartBoard: React.FC<{
           )}
 
           {units.length === 0 ? (
-            <p className="mt-6 text-sm text-slate-500">این شرکت هنوز گره‌ای ندارد. از پنل کنار، «افزودن معاونت» را بزنید.</p>
+            <div className="mt-6 flex flex-col items-center gap-2" data-testid="no-units">
+              <p className="text-sm text-slate-500">این شرکت هنوز واحدی ندارد.</p>
+              {canNode(can, 'create') && !asOf && (
+                <button type="button" data-testid="add-first-unit" onClick={() => setAddRequest({ parentId: null })} className="inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300 px-5 py-3 text-sm font-extrabold hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer">
+                  <Plus className="w-4 h-4" /> افزودن اولین واحد
+                </button>
+              )}
+            </div>
           ) : (
             <>
               <span className={`w-0.5 h-8 ${line}`} aria-hidden="true" />
@@ -1086,22 +1250,23 @@ export const OrgChartBoard: React.FC<{
           )}
         </div>
 
-        {hint && <p className="pointer-events-none absolute top-3 left-3 z-10 hidden sm:block rounded-lg bg-white/80 dark:bg-slate-900/80 px-2.5 py-1 text-[11px] text-slate-500 shadow-xs">
+        {hint && <p className="pointer-events-none absolute bottom-3 left-3 z-10 hidden sm:block rounded-lg bg-white/80 dark:bg-slate-900/80 px-2.5 py-1 text-[11px] text-slate-500 shadow-xs">
           <span className="pointer-coarse:hidden">چرخ ماوس: بزرگ‌نمایی · کشیدن: جابه‌جایی · دوبار کلیک: نزدیک‌تر</span>
           <span className="hidden pointer-coarse:inline">دو انگشت: بزرگ‌نمایی · کشیدن: جابه‌جایی</span>
         </p>}
         {asOf && (
-          <p role="status" className="pointer-events-none absolute top-3 end-3 z-10 max-w-sm rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200 px-3 py-1.5 text-xs font-bold shadow-md">
-            چارت در تاریخ {jalaliDay(asOf)} (فقط نمایش؛ کدام گره‌ها وجود داشتند، نه جای آن‌ها آن روز)
+          <p role="status" className="pointer-events-none absolute bottom-3 end-3 z-10 max-w-sm rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200 px-3 py-1.5 text-xs font-bold shadow-md">
+            چارت در تاریخ {jalaliDay(asOf)} (فقط نمایش؛ کدام واحدها وجود داشتند، نه جای آن‌ها آن روز)
           </p>
         )}
         {(dragId || dragNote) && (
-          <p role="status" className={`pointer-events-none absolute top-3 start-3 z-10 max-w-md rounded-lg px-3 py-1.5 text-xs font-bold shadow-md ${dragNote || (dragId && dropOver?.reason) ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200' : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300'}`}>
+          <p role="status" className={`pointer-events-none absolute bottom-3 start-3 z-10 max-w-md rounded-lg px-3 py-1.5 text-xs font-bold shadow-md ${dragNote || (dragId && dropOver?.reason) ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200' : 'bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300'}`}>
             {/* While hovering a place the node may not go: why, at once (not only after letting go). */}
-            {dragNote || (dragId && dropOver?.reason) || 'کارت را روی گره‌ی بالاتر جدید (یا روی شرکت، برای بالاترین سطح) رها کنید؛ پیش‌نمایش اثر قبل از ذخیره نشان داده می‌شود.'}
+            {dragNote || (dragId && dropOver?.reason) || 'کارت را روی واحد بالاتر جدید (یا روی شرکت، برای بالاترین سطح) رها کنید؛ پیش‌نمایش اثر قبل از ذخیره نشان داده می‌شود.'}
           </p>
         )}
         <ZoomControls subscribe={subscribe} zoomBy={zoomBy} fit={fit} />
+      </div>
       </div>
       )}
 
@@ -1154,9 +1319,11 @@ export const OrgChartBoard: React.FC<{
         rules={rules}
         onRequestMove={(unitId) => setMoveRequest({ unitId })}
         onRequestAdd={(parentId) => setAddRequest({ parentId })}
+        onRequestPosts={(unitId) => setPostsRequest({ unitId })}
+        onRequestPlace={(where) => requestPlace(where)}
         selection={selection}
         onSelect={(next) => choose(next)}
-        onChanged={data.reload}
+        onChanged={async () => { await data.reload(); onStructureChanged?.(); }}
       />
       </DetailsBoundary>
       </div>
@@ -1179,19 +1346,34 @@ export const OrgChartBoard: React.FC<{
       <AutoLinkChoiceDialog choices={linkChoices} onDone={data.reload} onClose={() => setLinkChoices(null)} />,
       document.body,
     )}
+    {postsRequest && createPortal(
+      <AddPostsDialog
+        company={company}
+        unit={postsRequest.unitId ? unitById.get(postsRequest.unitId) ?? null : null}
+        positions={data.data?.positions || []}
+        onDone={async (text) => { await data.reload(); onStructureChanged?.(); showToast(text, 'ok'); }}
+        onClose={() => setPostsRequest(null)}
+      />,
+      document.body,
+    )}
     {addRequest && createPortal(
       <AddNodeDialog
         company={company}
         parent={addRequest.parentId ? unitById.get(addRequest.parentId) ?? null : null}
         types={addableTypes(data.data?.nodeTypes || [], rules, addRequest.parentId ? unitById.get(addRequest.parentId) ?? null : null)}
-        onCreated={async (node) => {
+        allTypes={data.data?.nodeTypes || []}
+        canCreateTypes={canNode(can, 'manageRules')}
+        onCreated={async (nodes) => {
+          const node = nodes.find((n) => n.autoLinkChoices?.length) ?? nodes[0];
+          onStructureChanged?.();
+          showToast(nodes.length > 1 ? `${toPersianDigits(nodes.length)} واحد اضافه شد.` : `واحد «${nodes[0]?.name}» اضافه شد.`, 'ok');
           await data.reload();
           // Stay on the node the new one was added to, so more can be added there.
           choose(addRequest.parentId
             ? { kind: 'unit', companyId: company.companyId, unitId: addRequest.parentId }
             : { kind: 'company', companyId: company.companyId }, { force: true });
           // An automatic link rule with several possible targets: the user picks.
-          if (node.autoLinkChoices?.length) setLinkChoices(node.autoLinkChoices);
+          if (node?.autoLinkChoices?.length) setLinkChoices(node.autoLinkChoices);
         }}
         onClose={() => setAddRequest(null)}
       />,

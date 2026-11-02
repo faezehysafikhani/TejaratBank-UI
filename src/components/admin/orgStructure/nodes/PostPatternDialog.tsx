@@ -40,7 +40,7 @@ export const PostPatternDialog: React.FC<{
       await setNodeTypePosts(type.id, current.map((r) => ({ positionId: r.positionId, isManagerPost: r.isManagerPost })));
       setRows(null);
       await data.reload();
-      setMessage({ type: 'success', text: 'پست‌های پیش‌فرض ذخیره شد؛ گره‌ی موجودی تغییر نکرد.' });
+      setMessage({ type: 'success', text: 'پست‌های پیش‌فرض ذخیره شد؛ واحد موجودی تغییر نکرد.' });
       return true;
     } catch (err) {
       setMessage({ type: 'error', text: userErrorMessage(err, 'ذخیره‌ی پست‌های پیش‌فرض انجام نشد.') });
@@ -52,7 +52,7 @@ export const PostPatternDialog: React.FC<{
 
   const apply = async () => {
     if (dirty && !(await save())) return;
-    if (!(await appConfirm(`پست‌های پیش‌فرض روی همه‌ی ${toPersianDigits(type.nodeCount)} گره‌ی «${type.name}» ساخته شود؟ پستی که گره دارد دوباره ساخته نمی‌شود.`, { confirmLabel: 'اجرا' }))) return;
+    if (!(await appConfirm(`پست‌های پیش‌فرض روی همه‌ی ${toPersianDigits(type.nodeCount)} واحد «${type.name}» ساخته شود؟ پستی که واحد دارد دوباره ساخته نمی‌شود.`, { confirmLabel: 'اجرا' }))) return;
     setBusy(true);
     setMessage(null);
     try {
@@ -76,7 +76,7 @@ export const PostPatternDialog: React.FC<{
     >
       {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
       {data.error && <Notice type="error">{data.error}</Notice>}
-      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">هر گره‌ی تازه از این جزء، این پست‌ها را می‌گیرد. «پست مدیر» (حداکثر یکی) پستی است که مدیر گره را می‌سازد و پست‌های دیگر زیر آن می‌روند.</p>
+      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">هر واحد تازه از این جزء، این پست‌ها را می‌گیرد. «پست مدیر» (حداکثر یکی) پستی است که مدیر واحد را می‌سازد و پست‌های دیگر زیر آن می‌روند.</p>
       {current.length === 0 ? <p className="text-sm text-slate-400">هنوز پستی تعریف نشده است.</p> : (
         <ul className="space-y-1" data-testid="pattern-posts">
           {current.map((row, i) => (
@@ -84,7 +84,7 @@ export const PostPatternDialog: React.FC<{
               <span className="flex-1 text-sm font-bold text-slate-800 dark:text-slate-100">{row.title}</span>
               {canSave && (
                 <>
-                  <button type="button" aria-pressed={row.isManagerPost} title="پست مدیر گره" aria-label={`پست مدیر: ${row.title}`} onClick={() => edit(current.map((r, j) => ({ ...r, isManagerPost: j === i ? !r.isManagerPost : false })))} className={`p-1.5 rounded-lg cursor-pointer ${row.isManagerPost ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-400 hover:text-amber-600'}`}><Crown className="w-4 h-4" /></button>
+                  <button type="button" aria-pressed={row.isManagerPost} title="پست مدیر واحد" aria-label={`پست مدیر: ${row.title}`} onClick={() => edit(current.map((r, j) => ({ ...r, isManagerPost: j === i ? !r.isManagerPost : false })))} className={`p-1.5 rounded-lg cursor-pointer ${row.isManagerPost ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-400 hover:text-amber-600'}`}><Crown className="w-4 h-4" /></button>
                   <button type="button" disabled={i === 0} onClick={() => { const n = [...current]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; edit(n); }} aria-label={`بالاتر: ${row.title}`} className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30 cursor-pointer"><ArrowUp className="w-3.5 h-3.5" /></button>
                   <button type="button" disabled={i === current.length - 1} onClick={() => { const n = [...current]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; edit(n); }} aria-label={`پایین‌تر: ${row.title}`} className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30 cursor-pointer"><ArrowDown className="w-3.5 h-3.5" /></button>
                   <button type="button" onClick={() => edit(current.filter((_, j) => j !== i))} aria-label={`حذف: ${row.title}`} className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
