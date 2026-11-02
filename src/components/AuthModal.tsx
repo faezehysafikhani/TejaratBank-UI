@@ -18,7 +18,7 @@ const LoginClock: React.FC = () => {
   const time = new Intl.DateTimeFormat('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
   const day = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
   return (
-    <div className="text-white" dir="rtl">
+    <div className="text-[#0f3d2e] dark:text-white" dir="rtl">
       <p className="text-4xl font-black tabular-nums" dir="ltr" aria-label="ساعت">{time}</p>
       <p className="mt-1 text-base font-bold">{day}</p>
     </div>
@@ -244,11 +244,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const loginLogo = brand.hasCustomLogo ? brand.logo : '/login-logo.jpg';
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto animate-in fade-in duration-200" data-testid="login-page">
-      {/* Background: deep green with soft glows and small white lights drifting like stars. */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
-      <div aria-hidden="true" className="absolute -top-32 -start-24 w-[34rem] h-[34rem] rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
-      <div aria-hidden="true" className="absolute -bottom-40 end-1/4 w-[30rem] h-[30rem] rounded-full bg-lime-400/10 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+      {/* Background: light cream with a faint dot pattern (the drifting lights are hidden). */}
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-b from-[#fbfaf6] to-[#f3f6f2] dark:from-slate-950 dark:to-slate-900" />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none dark:opacity-40" style={{ backgroundImage: 'radial-gradient(rgba(5,150,105,.10) 1.2px, transparent 1.2px)', backgroundSize: '26px 26px' }} />
+      <div aria-hidden="true" className="hidden" />
+      <div className="hidden" aria-hidden="true">
         <div className="absolute top-[12%] left-[10%] w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)] animate-float-1" />
         <div className="absolute top-[22%] right-[15%] w-5 h-5 rounded-full bg-white/90 shadow-[0_0_14px_rgba(255,255,255,0.9)] animate-float-2" />
         <div className="absolute bottom-[18%] left-[14%] w-4 h-4 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.95)] animate-float-3" />
@@ -266,8 +266,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="relative min-h-full flex flex-col lg:flex-row">
         {/* The sign-in side (on the right in RTL) */}
         <main className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:flex-none lg:w-[46%]">
-          <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-white/60 dark:border-slate-800 overflow-hidden text-right flex flex-col">
-            <div className="relative px-6 pt-8 pb-3 text-center shrink-0">
+          <div className="relative z-10 w-full max-w-[26rem] lg:mt-9 bg-[#e4f0e8] dark:bg-slate-900 rounded-[32px] border border-[#cfe2d6] dark:border-slate-800 shadow-[0_24px_50px_-28px_rgba(6,78,59,0.35)] overflow-visible text-right flex flex-col">
+            <div className="relative px-6 pt-8 lg:pt-0 pb-3 text-center shrink-0">
               {canClose && (
                 <button
                   type="button"
@@ -279,11 +279,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
               )}
               <img src={loginLogo} alt="لوگو" className="lg:hidden mx-auto mb-3 w-20 h-20 object-contain" />
-              <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center shadow-lg shadow-emerald-900/20">
+              <div className="mx-auto w-[4.4rem] h-[4.4rem] lg:-mt-[2.2rem] rounded-full bg-gradient-to-br from-[#10b981] to-[#047857] text-white flex items-center justify-center ring-[6px] ring-[#f6f7f2] dark:ring-slate-950 shadow-lg shadow-emerald-900/25">
                 <UserIcon className="w-8 h-8" />
               </div>
-              <h1 className="mt-4 text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">{mode === 'forgot' ? 'بازیابی رمز عبور' : 'ورود به سیستم'}</h1>
-              <h2 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">{brand.name}</h2>
+              <h1 className="mt-4 text-[1.55rem] font-extrabold text-[#0f3d2e] dark:text-white tracking-tight">{mode === 'forgot' ? 'بازیابی رمز عبور' : 'ورود به سیستم'}</h1>
+              <h2 className="inline-block mt-2 px-3 py-[0.15rem] rounded-full bg-[#dcebe1] dark:bg-slate-800 text-xs font-semibold text-[#2d6a4f] dark:text-emerald-300">{brand.name}</h2>
             </div>
 
             <div className="p-6 pt-3">
@@ -306,7 +306,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             /* Login Form */
             <form onSubmit={handleLogin} className="app-form space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300 mb-1.5">
                   نام کاربری یا شماره تلفن همراه
                 </label>
                 <div className="relative">
@@ -316,16 +316,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onChange={(e) => setIdentity(e.target.value)}
                     placeholder="نام کاربری یا ۰۹۱۲۳۴۵۶۷۸۹"
                     autoComplete="username"
-                    className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                    className="w-full pl-3 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                     required
                   />
-                  <UserIcon className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                  <UserIcon className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300">
                     رمز عبور
                   </label>
                   <button
@@ -338,7 +338,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         setForgotInput(identity.trim());
                       }
                     }}
-                    className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 hover:underline cursor-pointer transition-colors"
+                    className="text-[11px] font-semibold text-[#047857] dark:text-emerald-400 hover:text-[#065f46] dark:hover:text-emerald-300 hover:underline cursor-pointer transition-colors"
                   >
                     فراموشی رمز عبور؟
                   </button>
@@ -349,14 +349,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                    className="w-full pl-9 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                     required
                   />
-                  <KeyRound className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                  <KeyRound className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-2.5 p-0.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
+                    className="absolute left-3 top-[0.9rem] p-0.5 text-[#7c9487] dark:text-slate-500 hover:text-emerald-700 dark:hover:text-emerald-400 cursor-pointer transition-colors"
                     title={showPassword ? 'پنهان کردن رمز' : 'مشاهده رمز'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -402,7 +402,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={captchaAnswer}
                     onChange={(e) => setCaptchaAnswer(e.target.value)}
                     placeholder="کد نمایش‌داده‌شده در تصویر"
-                    className="w-full px-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-center tracking-[0.3em]"
+                    className="w-full px-3 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all dir-ltr text-center tracking-[0.3em]"
                   />
                 </div>
               )}
@@ -410,7 +410,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading || captchaLoading || (!!captcha && !captchaAnswer.trim())}
-                className="w-full mt-2 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full mt-2 h-[3.2rem] bg-[#047857] hover:bg-[#065f46] active:bg-[#064e3b] hover:-translate-y-px active:translate-y-0 text-white text-xs font-bold rounded-2xl shadow-[0_10px_20px_-10px_rgba(4,120,87,0.8)] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
@@ -428,7 +428,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ) : (
             /* Forgot Password Form */
             <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 pb-2 border-b border-[#cfe2d6] dark:border-slate-800">
                 <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   بازیابی رمز عبور
@@ -444,7 +444,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <button
                     type="button"
                     onClick={backToLogin}
-                    className="w-full mt-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full mt-1 h-11 bg-[#047857] hover:bg-[#065f46] text-white text-xs font-bold rounded-2xl shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>بازگشت به صفحه ورود</span>
@@ -457,7 +457,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </p>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300 mb-1.5">
                       نام کاربری یا شماره تلفن همراه
                     </label>
                     <div className="relative">
@@ -466,17 +466,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={forgotInput}
                         onChange={(e) => setForgotInput(e.target.value)}
                         placeholder={'مثلاً: user123 یا ۰۹۱۲۳۴۵۶۷۸۹'}
-                        className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                        className="w-full pl-3 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                         required
                       />
-                      <UserIcon className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                      <UserIcon className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full h-[3.2rem] bg-[#047857] hover:bg-[#065f46] active:bg-[#064e3b] hover:-translate-y-px active:translate-y-0 text-white text-xs font-bold rounded-2xl shadow-[0_10px_20px_-10px_rgba(4,120,87,0.8)] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
@@ -510,7 +510,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   )}
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300 mb-1.5">
                       کد تأیید پیامک‌شده
                     </label>
                     <div className="relative">
@@ -521,17 +521,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={resetCode}
                         onChange={(e) => setResetCode(e.target.value)}
                         placeholder={'مثلاً: ۱۲۳۴۵۶'}
-                        className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                        className="w-full pl-3 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                         required
                       />
-                      <KeyRound className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                      <KeyRound className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full h-[3.2rem] bg-[#047857] hover:bg-[#065f46] active:bg-[#064e3b] hover:-translate-y-px active:translate-y-0 text-white text-xs font-bold rounded-2xl shadow-[0_10px_20px_-10px_rgba(4,120,87,0.8)] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
@@ -568,7 +568,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : (
                 <form onSubmit={handleSetNewPassword} className="app-form space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300 mb-1.5">
                       رمز عبور جدید
                     </label>
                     <div className="relative">
@@ -578,15 +578,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder={'حداقل ۸ کاراکتر'}
-                        className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                        className="w-full pl-3 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                         required
                       />
-                      <KeyRound className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                      <KeyRound className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label className="block text-xs font-bold text-[#2d4a3c] dark:text-slate-300 mb-1.5">
                       تکرار رمز عبور جدید
                     </label>
                     <div className="relative">
@@ -595,17 +595,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         autoComplete="new-password"
                         value={newPasswordConfirm}
                         onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                        className="w-full pl-3 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all dir-ltr text-right"
+                        className="w-full pl-3 pr-10 h-[3.1rem] bg-white dark:bg-slate-800 border-[1.5px] border-[#cfe0d5] dark:border-slate-700 rounded-2xl text-xs text-[#0f3d2e] dark:text-slate-100 placeholder:text-[#a3b3aa] dark:placeholder:text-slate-500 shadow-sm! hover:border-[#9fc9b0]! focus:outline-none! focus-visible:outline-none! focus:border-[#059669]! focus:shadow-[0_0_0_4px_rgba(5,150,105,0.12)]! transition-all [&:-webkit-autofill]:[-webkit-text-fill-color:#0f3d2e] [&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#fff_inset]! [&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#fff_inset,0_0_0_4px_rgba(5,150,105,0.12)]! dark:[&:-webkit-autofill]:[-webkit-text-fill-color:#f1f5f9] dark:[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_#1e293b_inset]! dark:[&:-webkit-autofill:focus]:[box-shadow:0_0_0_1000px_#1e293b_inset,0_0_0_4px_rgba(5,150,105,0.2)]! dir-ltr text-right"
                         required
                       />
-                      <KeyRound className="w-4 h-4 absolute right-3 top-3 text-slate-400" />
+                      <KeyRound className="w-4 h-4 absolute right-3 top-[1.05rem] text-[#7c9487] dark:text-slate-500" />
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full h-[3.2rem] bg-[#047857] hover:bg-[#065f46] active:bg-[#064e3b] hover:-translate-y-px active:translate-y-0 text-white text-xs font-bold rounded-2xl shadow-[0_10px_20px_-10px_rgba(4,120,87,0.8)] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isLoading ? (
                       <>
@@ -634,13 +634,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
 
           {/* Company Footer Info */}
-          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800 text-center space-y-1">
-            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+          <div className="mt-5 pt-1 text-center space-y-1">
+            <p className="text-xs font-bold text-[#5f7468] dark:text-slate-300">
               تهیه شده توسط شرکت مدیریت پروژه پارس
             </p>
-            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2 dir-ltr">
+            <p className="text-[11px] font-medium text-[#5f7468] dark:text-slate-400 flex items-center justify-center gap-2 dir-ltr">
               <span>پشتیبانی: ۸۸۷۳۱۶۰۱</span>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
+              <span className="text-[#9db2a5] dark:text-slate-700">|</span>
               <span>info@parspmi.ir</span>
             </p>
           </div>
@@ -650,12 +650,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
-          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
+          <div className="w-56 h-56 rounded-full bg-white border border-[#e3ebe5] shadow-[0_0_0_12px_#eef5f0,0_0_0_13px_#dfeae2,0_18px_40px_-18px_rgba(6,78,59,0.35)] dark:shadow-[0_0_0_12px_#0f1f19,0_0_0_13px_#1c3a2d] flex items-center justify-center overflow-hidden">
             <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
           </div>
           <div>
-            <p className="brand-display text-5xl font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
-            <p className="mt-1 text-sm font-semibold text-emerald-100/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
+            <p className="brand-display text-5xl font-semibold text-[#0f3d2e] dark:text-white leading-tight tracking-wide">{brand.name}</p>
+            <p className="mt-1 text-sm font-semibold text-[#2d6a4f] dark:text-emerald-200/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
           </div>
           <LoginClock />
           <div className="grid grid-cols-2 gap-3 w-full max-w-md">
@@ -665,11 +665,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               { icon: Network, title: 'ساختار سازمانی', text: 'چارت، پست و جانشینی' },
               { icon: MessagesSquare, title: 'گفتگوی تیمی', text: 'ارتباط بر پایه سلسله‌مراتب' },
             ].map(({ icon: Icon, title, text }) => (
-              <div key={title} className="flex items-center gap-3 rounded-2xl bg-white/10 backdrop-blur border border-white/15 shadow-sm px-3 py-2.5 text-right">
-                <span className="w-10 h-10 rounded-xl bg-white/10 text-emerald-200 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
+              <div key={title} className="flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 border border-[#e5ebe6] dark:border-slate-800 shadow-[0_2px_6px_-2px_rgba(6,78,59,0.08)]! px-3 py-2.5 text-right transition-all duration-200 hover:-translate-y-[3px] hover:border-[#a7d8bf] hover:shadow-[0_14px_26px_-14px_rgba(5,150,105,0.35)]!">
+                <span className="w-10 h-10 rounded-xl bg-[#ecf6f0] dark:bg-slate-800 text-[#059669] flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-extrabold text-white">{title}</span>
-                  <span className="block text-[11px] text-emerald-100/70 truncate">{text}</span>
+                  <span className="block text-sm font-extrabold text-[#0f3d2e] dark:text-white">{title}</span>
+                  <span className="block text-[11px] text-[#5f7468] dark:text-slate-400 truncate">{text}</span>
                 </span>
               </div>
             ))}
