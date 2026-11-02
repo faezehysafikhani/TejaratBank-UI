@@ -19,7 +19,7 @@ const LoginClock: React.FC = () => {
   const day = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
   return (
     <div className="text-emerald-950" dir="rtl">
-      <p className="text-4xl font-black tracking-wider tabular-nums" aria-label="ساعت">{time}</p>
+      <p className="text-4xl font-black tabular-nums" dir="ltr" aria-label="ساعت">{time}</p>
       <p className="mt-1 text-base font-bold">{day}</p>
     </div>
   );
@@ -637,7 +637,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
-          <img src={loginLogo} alt="لوگوی سامانه" className="w-60 h-60 object-contain mix-blend-multiply drop-shadow-sm" />
+          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-emerald-900/20 ring-8 ring-white/50 flex items-center justify-center overflow-hidden">
+            <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
+          </div>
           <div>
             <p className="text-3xl font-extrabold text-emerald-950">{brand.name}</p>
             <p className="mt-1 text-sm font-semibold text-emerald-900/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
