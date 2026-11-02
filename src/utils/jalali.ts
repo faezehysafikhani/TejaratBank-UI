@@ -424,3 +424,33 @@ export function getJalaliHoliday(jy: number, jm: number, jd: number): JalaliHoli
   }
   return { isHoliday: false };
 }
+
+/** Today in Iran (yyyy-MM-dd). */
+export function getIranTodayISO(): string {
+  return isoToIranDateTimeParts(new Date().toISOString())!.date;
+}
+
+/** Before today (Iran time): no task or meeting may be created on such a day. */
+export function isPastDay(isoDate: string): boolean {
+  const day = isoToIranDateTimeParts(isoDate)?.date;
+  return !!day && day < getIranTodayISO();
+}
+
+/** Friday or an official Iranian holiday. `isoDate` is yyyy-MM-dd (or a full ISO instant, read in Iran time). */
+export function isSchedulingOffDay(isoDate: string): boolean {
+  const day = isoToIranDateTimeParts(isoDate)?.date;
+  const [gy, gm, gd] = (day ?? '').split('-').map(Number);
+  if (!gy || !gm || !gd) return false;
+  if (new Date(Date.UTC(gy, gm - 1, gd)).getUTCDay() === 5) return true;
+  const { jy, jm, jd } = gregorianToJalali(gy, gm, gd);
+  return getJalaliHoliday(jy, jm, jd).isHoliday;
+}
+
+export const SCHEDULING_OFF_DAY_MESSAGE = 'در روز جمعه و تعطیلات رسمی ایران امکان ایجاد وظیفه یا جلسه وجود ندارد.';
+export const SCHEDULING_PAST_DAY_MESSAGE = 'امکان ایجاد وظیفه یا جلسه برای روزهای گذشته وجود ندارد.';
+
+/** Why a task or meeting cannot be scheduled on this day, or null when it can. */
+export function schedulingBlockReason(isoDate: string): string | null {
+  if (isPastDay(isoDate)) return SCHEDULING_PAST_DAY_MESSAGE;
+  return isSchedulingOffDay(isoDate) ? SCHEDULING_OFF_DAY_MESSAGE : null;
+}

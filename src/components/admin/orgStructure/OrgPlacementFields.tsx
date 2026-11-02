@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { Field } from '../AdminUi';
 import {
-  Company, CompanyUnitLink, OrgUnit, Position,
-  listCompanies, listCompanyUnits, listOrgUnits, listPositions,
+  Company, CompanyUnitLink, OrgNode, OrgUnit, Position,
+  listCompanies, listCompanyUnits, listNodes, listOrgUnits, listPositions,
 } from '../../../services/orgStructureApi';
 import { useLoad, UserPicker } from './orgShared';
 import { OrgPlacementTree } from './OrgPlacementTree';
@@ -29,6 +29,31 @@ export interface OrgPlacementData {
 const EMPTY_PLACEMENT_DATA: OrgPlacementData = { companies: [], positions: [], links: [], units: [] };
 
 /**
+ * Every node of a company as a place to put someone: a nested node is named with the nodes above
+ * it («معاونت مالی ‹ اداره کل حسابداری»), so the list reads as the structure does.
+ */
+export function linksOfNodes(nodes: OrgNode[], companies: Company[], topLinks: CompanyUnitLink[]): CompanyUnitLink[] {
+  const byId = new Map<string, OrgNode>(nodes.map((n) => [n.id, n]));
+  const companyName = new Map(companies.map((c) => [c.id, c.name]));
+  const seen = new Set<string>();
+  const nameOf = (node: OrgNode): string => {
+    const names = [node.name];
+    seen.clear();
+    for (let parent = node.parentNodeId ? byId.get(node.parentNodeId) : undefined; parent && !seen.has(parent.id); parent = parent.parentNodeId ? byId.get(parent.parentNodeId) : undefined) {
+      seen.add(parent.id);
+      names.unshift(parent.name);
+    }
+    return names.join(' ‹ ');
+  };
+  const links = nodes
+    .filter((n) => n.companyId && companyName.has(n.companyId))
+    .map((n) => ({ unitId: n.id, unitName: nameOf(n), companyId: n.companyId!, companyName: companyName.get(n.companyId!)! }));
+  // A company's top node the node list did not give a company to: keep its link.
+  const listed = new Set(links.map((l) => l.unitId));
+  return [...links, ...topLinks.filter((l) => !listed.has(l.unitId))];
+}
+
+/**
  * Companies, positions and units needed to render the placement fields below.
  * `enabled=false` skips the network calls entirely (the caller doesn't have the permission, or
  * the «جایگاه سازمانی» tab isn't shown) while still respecting the rules of hooks.
@@ -36,11 +61,13 @@ const EMPTY_PLACEMENT_DATA: OrgPlacementData = { companies: [], positions: [], l
 export function useOrgPlacementData(canSeeUnits: boolean, enabled: boolean) {
   return useLoad<OrgPlacementData>(async () => {
     if (!enabled) return EMPTY_PLACEMENT_DATA;
-    const [companies, positions, links, units] = await Promise.all([
+    const [companies, positions, topLinks, units, nodes] = await Promise.all([
       listCompanies(), listPositions(), listCompanyUnits(),
       canSeeUnits ? listOrgUnits() : Promise.resolve([] as OrgUnit[]),
+      // Nested nodes are in no company link (only a company's top nodes are); an older backend: none.
+      listNodes().catch(() => [] as OrgNode[]),
     ]);
-    return { companies, positions, links, units };
+    return { companies, positions, links: nodes.length > 0 ? linksOfNodes(nodes, companies, topLinks) : topLinks, units };
   }, 'دریافت اطلاعات ساختار سازمانی ممکن نشد.');
 }
 

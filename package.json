@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "check:permissions": "node scripts/check-permission-prerequisites.mjs",
+    "check:org-mocks": "tsx scripts/check-org-mocks.ts",
+    "check:org-rules": "tsx scripts/check-org-rules.ts",
+    "check:org-tidy": "tsx scripts/check-org-tidy.ts",
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --outfile=server.cjs",
     "start": "node server.cjs",

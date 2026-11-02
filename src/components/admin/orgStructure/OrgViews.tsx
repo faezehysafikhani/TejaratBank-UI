@@ -71,14 +71,14 @@ export const MyPlacementPanel: React.FC = () => {
       <AdminCard className="p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900 dark:text-white">
-            <Users className="w-5 h-5 text-indigo-600" /> کارکنان تحت سرپرستی
+            <Users className="w-5 h-5 text-indigo-600" /> همکاران زیر مجموعه
           </h3>
           <div className="w-full sm:w-72">
-            <Toggle checked={allLevels} onChange={setAllLevels} label="همه سطوح" description="نمایش کارکنان تحت سرپرستی غیرمستقیم هم" />
+            <Toggle checked={allLevels} onChange={setAllLevels} label="همه سطوح" description="نمایش همکاران زیر مجموعه غیرمستقیم هم" />
           </div>
         </div>
         {subordinates.loading ? <LoadingRow /> : subordinates.error ? <Notice type="error">{subordinates.error}</Notice>
-          : (subordinates.data || []).length === 0 ? <EmptyRow>کارمندی تحت سرپرستی شما ثبت نشده است.</EmptyRow> : (
+          : (subordinates.data || []).length === 0 ? <EmptyRow>همکاری در زیر مجموعه شما ثبت نشده است.</EmptyRow> : (
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {subordinates.data!.map((s) => (
                 <div key={s.userId} className="flex flex-wrap items-center justify-between gap-2 py-2.5">

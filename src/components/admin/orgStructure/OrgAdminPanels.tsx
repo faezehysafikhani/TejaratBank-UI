@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Network, Link2, Unlink, Loader2, Ban, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Network, Loader2, Ban, CheckCircle2 } from 'lucide-react';
 import {
   AdminCard, AdminDialog, Field, IconAction, Notice, PrimaryButton, SecondaryButton, StatusBadge, Toggle, inputClass,
 } from '../AdminUi';
 import { userErrorMessage } from '../../../utils/errorMessages';
 import {
-  Company, CompanyUnitLink, OrgUnit, Position, createCompany, createOrgUnit, createPosition, deactivateOrgUnit,
-  deleteCompany, deletePosition, linkUnitToCompany, listCompanies, listCompanyUnits, listOrgUnits,
-  listAssignments, listPositions, sortOrgUnits, unlinkUnit, updateCompany, updateOrgUnit, updatePosition, UserAssignment,
+  Company, CompanyUnitLink, Position, createOrgUnit, createPosition, deactivateOrgUnit,
+  deleteCompany, deletePosition, listCompanies, listCompanyUnits, listNodes, listOrgUnits, listTemplates, type OrgNode, type StructureTemplate,
+  headTitleOf, listAssignments, listPositions, sortOrgUnits, updateOrgUnit, updatePosition, UserAssignment,
 } from '../../../services/orgStructureApi';
 import { EmptyRow, LoadingRow, useLoad } from './orgShared';
+import { CompanyFormDialog } from './nodes/CompanyFormDialog';
+import { CompanyLogo } from './nodes/CompanyLogo';
 
 type Message = { type: 'success' | 'error'; text: string } | null;
 
@@ -39,36 +41,24 @@ function useAction(reload: () => void, setMessage: (m: Message) => void) {
 
 // ============================================================================ companies
 
-interface CompanyDraft { id?: string; name: string; code: string; description: string; headName: string | null; isActive: boolean }
-
-export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean }> = ({ canManage, canSeeUnits }) => {
+export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean; advanced?: boolean }> = ({ canManage, canSeeUnits, advanced = false }) => {
   const data = useLoad(async () => {
-    const [companies, links, units] = await Promise.all([listCompanies(), listCompanyUnits(), canSeeUnits ? listOrgUnits() : Promise.resolve([] as OrgUnit[])]);
-    return { companies, links, units };
+    const [companies, links, templates] = await Promise.all([
+      listCompanies(), listCompanyUnits(),
+      // Ready structures to start a company from; a backend without them: none.
+      listTemplates().catch(() => [] as StructureTemplate[]),
+    ]);
+    return { companies, links, templates };
   }, 'دریافت فهرست شرکت‌ها ممکن نشد.');
   const [message, setMessage] = useState<Message>(null);
-  const [draft, setDraft] = useState<CompanyDraft | null>(null);
-  const [unitsOf, setUnitsOf] = useState<Company | null>(null);
+  /** The company being edited; null: a new one; undefined: no form open. */
+  const [editing, setEditing] = useState<Company | null | undefined>(undefined);
   const [confirmDelete, setConfirmDelete] = useState<Company | null>(null);
   const { busy, run } = useAction(data.reload, setMessage);
-  // A message from before the dialog opened is not the dialog's.
-  const dialogOpen = !!draft;
-  useEffect(() => { if (dialogOpen) setMessage(null); }, [dialogOpen]);
-
-  const save = async () => {
-    if (!draft) return;
-    const input = { name: draft.name, code: draft.code, description: draft.description || null };
-    const ok = await run(
-      () => (draft.id ? updateCompany(draft.id, { ...input, isActive: draft.isActive }) : createCompany(input)),
-      draft.id ? 'شرکت ویرایش شد.' : 'شرکت ایجاد شد.',
-      'ذخیره شرکت انجام نشد.',
-    );
-    if (ok) setDraft(null);
-  };
 
   return (
     <div className="space-y-4">
-      {message && !(draft && message.type === 'error') && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
+      {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -76,7 +66,7 @@ export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean
             <p className="text-xs text-slate-500 mt-0.5">شرکت‌های این سازمان و معاونت‌هایی که هر کدام در اختیار دارد.</p>
           </div>
           {canManage && (
-            <PrimaryButton onClick={() => setDraft({ name: '', code: '', description: '', headName: null, isActive: true })}>
+            <PrimaryButton onClick={() => setEditing(null)}>
               <Plus className="w-4 h-4" /> شرکت جدید
             </PrimaryButton>
           )}
@@ -86,14 +76,14 @@ export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
-                  <th className={th}>نام شرکت</th><th className={th}>کد</th><th className={th}>رئیس کل</th><th className={th}>معاونت‌ها</th><th className={th}>وضعیت</th><th className={th} />
+                  <th className={th}>نام شرکت</th><th className={th}>کد</th><th className={th}>رئیس شرکت</th><th className={th}>معاونت‌ها</th><th className={th}>وضعیت</th><th className={th} />
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {data.data!.companies.map((c) => (
                     <tr key={c.id}>
-                      <td className={`${td} font-bold text-slate-900 dark:text-slate-100`}>{c.name}</td>
+                      <td className={`${td} font-bold text-slate-900 dark:text-slate-100`}><span className="flex items-center gap-2"><CompanyLogo logoUrl={c.logoUrl} name={c.name} className="w-8 h-8" fallback={null} />{c.name}</span></td>
                       <td className={`${td} dir-ltr text-right text-slate-500`}>{c.code}</td>
-                      <td className={td}>{c.manager?.displayName || '—'}</td>
+                      <td className={td}>{c.manager ? <>{c.manager.displayName} <span className="text-[11px] text-slate-400">({headTitleOf(c)})</span></> : '—'}</td>
                       <td className={td}>
                         <div className="flex flex-wrap gap-1">
                           {data.data!.links.filter((l) => l.companyId === c.id).map((l) => <StatusBadge key={l.unitId} tone="indigo">{l.unitName}</StatusBadge>)}
@@ -102,10 +92,7 @@ export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean
                       </td>
                       <td className={td}>{c.isActive ? <StatusBadge tone="green">فعال</StatusBadge> : <StatusBadge tone="red">غیرفعال</StatusBadge>}</td>
                       <td className={`${td} whitespace-nowrap text-left`}>
-                        {canManage && canSeeUnits && <IconAction icon={Link2} label="تعیین معاونت‌های شرکت" onClick={() => setUnitsOf(c)} />}
-                        {canManage && (
-                          <IconAction icon={Pencil} label="ویرایش" onClick={() => setDraft({ id: c.id, name: c.name, code: c.code, description: c.description || '', headName: c.manager?.displayName || null, isActive: c.isActive })} />
-                        )}
+                        {canManage && <IconAction icon={Pencil} label="ویرایش" onClick={() => setEditing(c)} />}
                         {canManage && <IconAction icon={Trash2} tone="rose" label="حذف" onClick={() => setConfirmDelete(c)} />}
                       </td>
                     </tr>
@@ -116,28 +103,15 @@ export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean
           )}
       </AdminCard>
 
-      {draft && (
-        <AdminDialog
-          title={draft.id ? 'ویرایش شرکت' : 'شرکت جدید'}
-          onClose={() => setDraft(null)}
-          footer={<>
-            <SecondaryButton onClick={() => setDraft(null)}>انصراف</SecondaryButton>
-            <PrimaryButton onClick={save} disabled={busy || !draft.name.trim() || !draft.code.trim()}>{busy && <Loader2 className="w-4 h-4 animate-spin" />} ذخیره</PrimaryButton>
-          </>}
-        >
-          {/* An error of this dialog shows in it, not behind it. */}
-          {message?.type === 'error' && <Notice type="error" onClose={() => setMessage(null)}>{message.text}</Notice>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="نام شرکت" required><input className={inputClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-            <Field label="کد شرکت" required hint="کد یکتا، مثلاً TJ"><input className={`${inputClass} dir-ltr text-right`} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} /></Field>
-          </div>
-          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-xs leading-6 text-slate-600 dark:text-slate-300">
-            {draft.headName ? <>رئیس کل: <b className="text-slate-900 dark:text-white">{draft.headName}</b>. </> : null}
-            رئیس کل اینجا تعیین نمی‌شود: در بخش «سمت‌ها» سمتِ بدون مافوقِ این شرکت را تعریف کنید و آن را مستقیم در همین شرکت به یک کاربر بدهید.
-          </div>
-          <Field label="توضیحات"><textarea rows={3} className={inputClass} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></Field>
-          {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="شرکت فعال است" />}
-        </AdminDialog>
+      {editing !== undefined && data.data && (
+        <CompanyFormDialog
+          company={editing}
+          templates={data.data.templates}
+          parentChoices={advanced ? data.data.companies : undefined}
+          canLinkUnits={canSeeUnits}
+          onSaved={async () => { setMessage({ type: 'success', text: editing ? 'شرکت ویرایش شد.' : 'شرکت ساخته شد.' }); await data.reload(); }}
+          onClose={() => setEditing(undefined)}
+        />
       )}
 
       {confirmDelete && (
@@ -152,64 +126,7 @@ export const CompaniesPanel: React.FC<{ canManage: boolean; canSeeUnits: boolean
           <p className="text-sm text-slate-700 dark:text-slate-300">شرکت «{confirmDelete.name}» حذف شود؟ شرکتی که معاونت یا کارمند دارد حذف نمی‌شود؛ به‌جای آن غیرفعالش کنید.</p>
         </AdminDialog>
       )}
-
-      {unitsOf && data.data && (
-        <CompanyUnitsDialog
-          company={unitsOf}
-          units={data.data.units}
-          links={data.data.links}
-          onClose={() => setUnitsOf(null)}
-          onChanged={data.reload}
-        />
-      )}
     </div>
-  );
-};
-
-/** Which units belong to a company. */
-const CompanyUnitsDialog: React.FC<{
-  company: Company;
-  units: OrgUnit[];
-  links: CompanyUnitLink[];
-  onClose: () => void;
-  onChanged: () => void;
-}> = ({ company, units, links, onClose, onChanged }) => {
-  const [message, setMessage] = useState<Message>(null);
-  const [selected, setSelected] = useState('');
-  const { busy, run } = useAction(onChanged, setMessage);
-
-  const covered = useMemo(() => {
-    return new Set(links.map((link) => link.unitId));
-  }, [links]);
-  const eligible = useMemo(
-    () => sortOrgUnits(units.filter((unit) => unit.isActive && !covered.has(unit.id))),
-    [units, covered],
-  );
-  const mine = links.filter((l) => l.companyId === company.id);
-
-  return (
-    <AdminDialog title={`معاونت‌های ${company.name}`} onClose={onClose} footer={<SecondaryButton onClick={onClose}>بستن</SecondaryButton>}>
-      {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
-      <p className="text-xs text-slate-500 leading-relaxed">معاونت‌ها و واحدها را به‌صورت جداگانه به شرکت اختصاص دهید.</p>
-      {/* Adding comes first; the deputies already in the company are listed under it. */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <select className={inputClass} value={selected} onChange={(e) => setSelected(e.target.value)}>
-          <option value="">انتخاب معاونت یا واحد...</option>
-          {eligible.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <PrimaryButton disabled={!selected || busy} onClick={async () => { if (await run(() => linkUnitToCompany(selected, company.id), 'معاونت به شرکت اختصاص یافت.', 'اختصاص معاونت انجام نشد.')) setSelected(''); }}>
-          <Link2 className="w-4 h-4" /> افزودن
-        </PrimaryButton>
-      </div>
-      <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-        {mine.length === 0 ? <p className="text-sm text-slate-500">هنوز معاونتی اختصاص داده نشده است.</p> : mine.map((l) => (
-          <div key={l.unitId} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span className="flex items-center gap-2 text-sm font-bold"><Network className="w-4 h-4 text-indigo-600" /> {l.unitName}</span>
-            <IconAction icon={Unlink} tone="rose" label="حذف از شرکت" disabled={busy} onClick={() => run(() => unlinkUnit(l.unitId), 'معاونت از شرکت جدا شد.', 'جدا کردن معاونت انجام نشد.')} />
-          </div>
-        ))}
-      </div>
-    </AdminDialog>
   );
 };
 
@@ -219,8 +136,13 @@ interface UnitDraft { id?: string; name: string; managerUserId: string | null; m
 
 export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canDeactivate: boolean }> = ({ canCreate, canUpdate, canDeactivate }) => {
   const data = useLoad(async () => {
-    const [units, links] = await Promise.all([listOrgUnits(), listCompanyUnits().catch(() => [] as CompanyUnitLink[])]);
-    return { units, links };
+    const [units, links, nodes] = await Promise.all([
+      listOrgUnits(),
+      listCompanyUnits().catch(() => [] as CompanyUnitLink[]),
+      // Each unit's type and the node above it; a backend without the node API: none.
+      listNodes().catch(() => [] as OrgNode[]),
+    ]);
+    return { units, links, nodes };
   }, 'دریافت واحدهای سازمانی ممکن نشد.');
   const [message, setMessage] = useState<Message>(null);
   const [draft, setDraft] = useState<UnitDraft | null>(null);
@@ -234,8 +156,20 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
     const map = new Map<string, string>();
     if (!data.data) return map;
     for (const link of data.data.links) map.set(link.unitId, link.companyName);
+    // A nested node belongs to the company of the nearest node above it that is linked to one.
+    const byId = new Map<string, OrgNode>(data.data.nodes.map((n) => [n.id, n]));
+    for (const node of data.data.nodes) {
+      const seen = new Set<string>();
+      for (let current: OrgNode | undefined = node; current && !seen.has(current.id); current = current.parentNodeId ? byId.get(current.parentNodeId) : undefined) {
+        seen.add(current.id);
+        const name = map.get(current.id);
+        if (name) { map.set(node.id, name); break; }
+      }
+    }
     return map;
   }, [data.data]);
+  const nodeOf = useMemo(() => new Map((data.data?.nodes || []).map((n) => [n.id, n])), [data.data]);
+  const hasNodes = (data.data?.nodes.length ?? 0) > 0;
   const save = async () => {
     if (!draft) return;
     const ok = await run(
@@ -254,21 +188,19 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">معاونت‌ها و واحدها</h3>
-            <p className="text-xs text-slate-500 mt-0.5">درخت واحدهای سازمانی. مدیر هر معاونت، دارندهٔ پست بالای آن در چارت سازمانی است.</p>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">فهرست واحدها</h3>
+            <p className="text-xs text-slate-500 mt-0.5">برای ساخت واحد تازه از چارت سازمانی دکمه‌ی «+» یا «افزودن واحد» را بزنید تا نوع و جای آن هم مشخص شود. اینجا واحدها دیده، ویرایش و غیرفعال می‌شوند.</p>
           </div>
-          {canCreate && (
-            <PrimaryButton onClick={() => setDraft({ name: '', managerUserId: null, managerName: null, isActive: true })}>
-              <Plus className="w-4 h-4" /> واحد جدید
-            </PrimaryButton>
-          )}
         </div>
         {data.loading ? <LoadingRow /> : data.error ? <div className="p-5"><Notice type="error">{data.error}</Notice></div>
           : rows.length === 0 ? <EmptyRow>هنوز واحدی تعریف نشده است.</EmptyRow> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px]">
                 <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
-                  <th className={th}>نام واحد</th><th className={th}>شرکت</th><th className={th}>وضعیت</th><th className={th} />
+                  <th className={th}>نام واحد</th>
+                  {hasNodes && <th className={th}>نوع واحد</th>}
+                  {hasNodes && <th className={th}>مافوق</th>}
+                  <th className={th}>شرکت</th><th className={th}>وضعیت</th><th className={th} />
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {rows.map((u) => (
@@ -278,6 +210,8 @@ export const UnitsPanel: React.FC<{ canCreate: boolean; canUpdate: boolean; canD
                           <Network className="w-4 h-4 shrink-0 text-indigo-600" /> {u.name}
                         </span>
                       </td>
+                      {hasNodes && <td className={td}>{nodeOf.get(u.id)?.nodeTypeName || <span className="text-xs text-slate-400">—</span>}</td>}
+                      {hasNodes && <td className={td}>{(nodeOf.get(u.id)?.parentNodeId && nodeOf.get(nodeOf.get(u.id)!.parentNodeId!)?.name) || <span className="text-xs text-slate-400">بالاترین سطح</span>}</td>}
                       <td className={td}>{companyOf.get(u.id) || <span className="text-xs text-slate-400">بدون شرکت</span>}</td>
                       <td className={td}>{u.isActive ? <StatusBadge tone="green">فعال</StatusBadge> : <StatusBadge tone="red">غیرفعال</StatusBadge>}</td>
                       <td className={`${td} whitespace-nowrap text-left`}>

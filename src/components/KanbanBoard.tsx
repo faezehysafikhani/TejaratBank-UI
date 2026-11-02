@@ -3,6 +3,7 @@ import { Task, TaskStatus, Attachment, User } from '../types';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskGroupColumn } from './TaskGroupColumn';
 import { TaskListView } from './TaskListView';
+import { TaskMatrixBoard } from './TaskMatrixBoard';
 import { getTaskLastModifiedTime } from '../utils/helpers';
 import { BoardViewSettings, DEFAULT_BOARD_VIEW, buildTaskGroups, isCurrentTask } from '../utils/boardView';
 
@@ -46,7 +47,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   // Group tasks by status in a single pass, then sort each column by last
   // modification time (newest first). Every status always gets a column, even with zero tasks
-  // (but «خاتمه یافته» while only current tasks are shown).
+  // (all four statuses, also while only current tasks are shown).
   const columns = useMemo(() => {
     const byStatus = new Map<TaskStatus, Task[]>();
     for (const task of boardTasks) {
@@ -57,23 +58,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         byStatus.set(task.status, [task]);
       }
     }
-    const keys = view.currentOnly ? STATUS_KEYS.filter((st) => st !== 'completed') : STATUS_KEYS;
-    return keys.map((st) => ({
+
+    return STATUS_KEYS.map((st) => ({
       status: st,
       tasks: (byStatus.get(st) ?? [])
         .sort((a, b) => getTaskLastModifiedTime(b) - getTaskLastModifiedTime(a)),
     }));
-  }, [boardTasks, view.currentOnly]);
+  }, [boardTasks]);
 
   const groups = useMemo(
-    () => (view.groupBy === 'status' || view.groupBy === 'none' ? [] : buildTaskGroups(boardTasks, view.groupBy)),
+    () => (view.groupBy === 'status' || view.groupBy === 'none' || view.groupBy === 'matrix' ? [] : buildTaskGroups(boardTasks, view.groupBy)),
     [boardTasks, view.groupBy],
   );
 
   return (
     <div className="w-full space-y-6">
       {view.groupBy === 'status' && (
-        <div className={`grid gap-4 sm:gap-4.5 items-start grid-cols-1 md:grid-cols-2 ${columns.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+        <div className={`grid gap-4 sm:gap-4.5 items-start grid-cols-1 md:grid-cols-2 lg:grid-cols-4`}>
           {columns.map(({ status, tasks: columnTasks }) => (
             <KanbanColumn
               key={status}
@@ -98,7 +99,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         <TaskListView tasks={boardTasks} showDetails={view.showDetails} onViewDetails={onViewDetails} />
       )}
 
-      {view.groupBy !== 'status' && view.groupBy !== 'none' && (
+      {view.groupBy === 'matrix' && (
+        <TaskMatrixBoard
+          tasks={boardTasks}
+          currentUser={currentUser}
+          showDetails={view.showDetails}
+          onEditTask={onEditTask}
+          onDeleteTask={onDeleteTask}
+          onStatusChange={onStatusChange}
+          onPreviewAttachment={onPreviewAttachment}
+          onViewDetails={onViewDetails}
+          onOpenProjectDetails={onOpenProjectDetails}
+          onToggleSubTask={onToggleSubTask}
+        />
+      )}
+
+      {view.groupBy !== 'status' && view.groupBy !== 'none' && view.groupBy !== 'matrix' && (
         groups.length === 0 ? (
           <div className="h-32 flex items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40">
             <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">هیچ فعالیتی برای نمایش وجود ندارد</p>

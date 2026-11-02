@@ -1,0 +1,131 @@
+{
+  "when": "2026-10-29T18:56:08.724Z",
+  "userAgent": "headless chromium",
+  "runs": 3,
+  "results": [
+    {
+      "mock": "flat",
+      "drawMs": 100,
+      "loadToDrawnMs": 212,
+      "cards": 3,
+      "lines": 0,
+      "contentWidth": 1106,
+      "contentHeight": 694,
+      "domNodes": 394,
+      "jsHeapMB": 3.2,
+      "layoutMs": 43,
+      "styleMs": 18,
+      "scriptMs": 88,
+      "dragFrameMedianMs": 16.7,
+      "dragFrameP95Ms": 16.7,
+      "expandAllMs": 21,
+      "domNodesExpanded": 427,
+      "pdf": {
+        "ms": 1320,
+        "kb": 194,
+        "image": "2340×1614",
+        "mediaBox": "0 0 877.5 605.25",
+        "pages": 1
+      },
+      "errors": [],
+      "drawMsAllRuns": [
+        162,
+        100,
+        82
+      ]
+    },
+    {
+      "mock": "postBank",
+      "drawMs": 147,
+      "loadToDrawnMs": 262,
+      "cards": 52,
+      "lines": 9,
+      "contentWidth": 3118,
+      "contentHeight": 2393,
+      "domNodes": 3564,
+      "jsHeapMB": 5.5,
+      "layoutMs": 74,
+      "styleMs": 46,
+      "scriptMs": 157,
+      "dragFrameMedianMs": 16.7,
+      "dragFrameP95Ms": 33.2,
+      "expandAllMs": 49,
+      "domNodesExpanded": 3987,
+      "pdf": {
+        "ms": 9779,
+        "kb": 2019,
+        "image": "6364×5012",
+        "mediaBox": "0 0 2386.5 1879.5",
+        "pages": 1
+      },
+      "errors": [],
+      "drawMsAllRuns": [
+        221,
+        137,
+        147
+      ]
+    },
+    {
+      "mock": "large40",
+      "drawMs": 137,
+      "loadToDrawnMs": 287,
+      "cards": 40,
+      "lines": 3,
+      "contentWidth": 3500,
+      "contentHeight": 1983,
+      "domNodes": 3502,
+      "jsHeapMB": 5.6,
+      "layoutMs": 54,
+      "styleMs": 47,
+      "scriptMs": 186,
+      "dragFrameMedianMs": 16.7,
+      "dragFrameP95Ms": 16.8,
+      "expandAllMs": 62,
+      "domNodesExpanded": 4045,
+      "pdf": {
+        "ms": 11483,
+        "kb": 1818,
+        "image": "7128×4192",
+        "mediaBox": "0 0 2673. 1572.",
+        "pages": 1
+      },
+      "errors": [],
+      "drawMsAllRuns": [
+        161,
+        137,
+        130
+      ]
+    },
+    {
+      "mock": "large400",
+      "drawMs": 788,
+      "loadToDrawnMs": 983,
+      "cards": 400,
+      "lines": 3,
+      "contentWidth": 9978,
+      "contentHeight": 6313,
+      "domNodes": 36358,
+      "jsHeapMB": 29.7,
+      "layoutMs": 480,
+      "styleMs": 421,
+      "scriptMs": 659,
+      "dragFrameMedianMs": 16.7,
+      "dragFrameP95Ms": 66.7,
+      "expandAllMs": 421,
+      "domNodesExpanded": 42457,
+      "pdf": {
+        "ms": 137365,
+        "kb": 6329,
+        "image": "9000×5759",
+        "mediaBox": "0 0 7531.5 4819.5",
+        "pages": 1
+      },
+      "errors": [],
+      "drawMsAllRuns": [
+        698,
+        788,
+        1049
+      ]
+    }
+  ]
+}

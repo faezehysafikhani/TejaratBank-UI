@@ -17,6 +17,7 @@ const CODE_MESSAGES: Record<string, string> = {
   'validation.error': 'اطلاعات واردشده معتبر نیست. لطفاً موارد را بررسی کنید.',
   not_found: 'مورد درخواستی پیدا نشد یا به آن دسترسی ندارید.',
   conflict: 'این اطلاعات با اطلاعات ثبت‌شده قبلی تداخل دارد.',
+  'conflict.changed': 'این مورد را کس دیگری همین حالا تغییر داده است؛ دوباره بارگذاری کنید و دوباره امتحان کنید.',
   unauthorized: SESSION_EXPIRED_ERROR,
   'unauthorized.captcha_required': 'نام کاربری، شماره تلفن یا رمز عبور صحیح نیست.',
   forbidden: FORBIDDEN_ERROR,

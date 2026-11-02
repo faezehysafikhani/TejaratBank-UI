@@ -102,6 +102,9 @@ const DETAIL_CONCURRENCY = 6;
 // ---------------------------------------------------------------------------
 
 interface UserDto {
+  address?: string | null;
+  fatherName?: string | null;
+  birthDate?: string | null;
   id: string;
   tenantId: string;
   email: string | null;
@@ -1421,6 +1424,19 @@ export function withoutEditDuplicates(logs: TaskLog[]): TaskLog[] {
   });
 }
 
+/**
+ * Comments for building a task: the server answers 404 to anyone but the owner and the responsible
+ * people, and that must not fail the whole board - such a task simply shows no conversation.
+ */
+async function fetchCommentsIfAllowed(taskId: string): Promise<TaskComment[]> {
+  try {
+    return await fetchComments(taskId);
+  } catch (error) {
+    if (error instanceof NexusApiError && error.httpStatus === 404) return [];
+    throw error;
+  }
+}
+
 async function fetchActivity(taskId: string): Promise<TaskLog[]> {
   const items = await request<TaskActivityDto[]>('GET', `${TASKS}/${taskId}/activity`);
   return withoutEditDuplicates(withoutDuplicateCreation(items || []).map(mapActivity))
@@ -1440,7 +1456,7 @@ export async function fetchTasks(): Promise<Task[]> {
   return mapWithLimit(list, DETAIL_CONCURRENCY, async (item) => {
     const [dto, comments, logs] = await Promise.all([
       getTaskDto(item.id),
-      fetchComments(item.id),
+      fetchCommentsIfAllowed(item.id),
       fetchActivity(item.id),
     ]);
     return mapTask(dto, comments, logs);
@@ -1448,7 +1464,7 @@ export async function fetchTasks(): Promise<Task[]> {
 }
 
 export async function fetchTask(taskId: string): Promise<Task> {
-  const [dto, comments, logs] = await Promise.all([getTaskDto(taskId), fetchComments(taskId), fetchActivity(taskId)]);
+  const [dto, comments, logs] = await Promise.all([getTaskDto(taskId), fetchCommentsIfAllowed(taskId), fetchActivity(taskId)]);
   return mapTask(dto, comments, logs);
 }
 
@@ -1931,6 +1947,10 @@ export async function updateMyPreferences(settings: { theme?: string; colorPalet
 
 /** A user as the administration grid shows it. */
 export interface AdminUser {
+  address: string;
+  fatherName: string;
+  birthDate: string;
+  avatarUrl: string;
   id: string;
   firstName: string;
   lastName: string;
@@ -1946,6 +1966,7 @@ export interface AdminUser {
 
 function toAdminUser(u: UserDto & { firstName?: string | null; lastName?: string | null; isSystem?: boolean }): AdminUser {
   return {
+    address: u.address || '', fatherName: u.fatherName || '', birthDate: u.birthDate || '', avatarUrl: u.avatarUrl || '',
     id: u.id,
     firstName: u.firstName || '',
     lastName: u.lastName || '',
@@ -1993,6 +2014,10 @@ export async function listUsersPage(options: { page: number; pageSize: number; s
 }
 
 export interface AdminUserInput {
+  address?: string;
+  fatherName?: string;
+  birthDate?: string;
+  avatarUrl?: string;
   firstName: string;
   lastName: string;
   username: string;
@@ -2005,6 +2030,7 @@ export interface AdminUserInput {
 export async function adminCreateUser(input: AdminUserInput, roleIds: string[]): Promise<AdminUser> {
   const created = await request<UserDto>('POST', '/api/identity/users', {
     body: {
+      address: input.address?.trim() || '', fatherName: input.fatherName?.trim() || '', birthDate: input.birthDate || null, avatarUrl: input.avatarUrl || '',
       tenantId: getSessionTenantId(),
       username: input.username.trim(),
       firstName: input.firstName.trim(),
@@ -2025,6 +2051,7 @@ export async function adminCreateUser(input: AdminUserInput, roleIds: string[]):
 export async function adminUpdateUser(user: AdminUser, input: AdminUserInput): Promise<AdminUser> {
   const saved = await request<UserDto>('PUT', `/api/identity/users/${requireGuid(user.id, 'کاربر')}`, {
     body: {
+      address: input.address?.trim() || '', fatherName: input.fatherName?.trim() || '', birthDate: input.birthDate || null, clearBirthDate: !input.birthDate, avatarUrl: input.avatarUrl === user.avatarUrl ? undefined : input.avatarUrl || '',
       displayName: `${input.firstName.trim()} ${input.lastName.trim()}`.trim() || user.displayName,
       isActive: user.isActive,
       firstName: input.firstName.trim(),
@@ -2032,7 +2059,7 @@ export async function adminUpdateUser(user: AdminUser, input: AdminUserInput): P
       username: input.username.trim(),
       phoneNumber: input.phoneNumber.trim(),
       email: (input.email ?? '').trim(),
-      password: input.password?.trim() || null,
+      password: input.password || null,
     },
   });
   return toAdminUser(saved);

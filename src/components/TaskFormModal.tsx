@@ -6,7 +6,7 @@ import { readFileAsDataUrl } from '../utils/storage';
 import { isAllowedUploadFile, UPLOAD_TYPE_ERROR_MESSAGE, ALLOWED_UPLOAD_ACCEPT } from '../utils/uploadPolicy';
 import { formatFileSize, toPersianDigits, computeAutoTaskStatus, formatToJalali } from '../utils/helpers';
 import { JalaliDateTimePicker } from './JalaliDateTimePicker';
-import { endOfTodayISO, getNowISO, iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
+import { endOfTodayISO, getNowISO, iranDateTimeToISO, isoToIranDateTimeParts, schedulingBlockReason } from '../utils/jalali';
 import { fetchUserTeamsPB, fetchUserTeamsAsyncPB, fetchAllUsersPB } from '../services/dataService';
 import { generateRecurringOccurrences } from '../utils/recurring';
 import {
@@ -59,6 +59,10 @@ interface TaskFormModalProps {
   initialStatus?: TaskStatus;
   initialDueDate?: string;
   initialTitle?: string;
+  /** Labels a new task starts with (a task made from a meeting resolution). */
+  initialTags?: string[];
+  /** The labels in `initialTags` cannot be removed (the ones a meeting's resolution gives its task: the meeting and its agenda item). */
+  lockInitialTags?: boolean;
   initialDescription?: string;
   /** The description given in `initialDescription` cannot be edited (a task made from a message or comment). */
   lockInitialDescription?: boolean;
@@ -78,6 +82,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   initialStatus = 'todo',
   initialDueDate,
   initialTitle = '',
+  initialTags,
+  lockInitialTags = false,
   initialDescription = '',
   lockInitialDescription = false,
   parentTask = null,
@@ -175,7 +181,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
   const [availableTeams, setAvailableTeams] = useState<WorkTeam[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [errors, setErrors] = useState<{ title?: string; assignee?: string }>({});
+  const [errors, setErrors] = useState<{ title?: string; assignee?: string; dueDate?: string }>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -382,7 +388,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       setStatus(initialStatus);
       setAttachments([]);
       setResponsibleIds([]);
-      setTags([]);
+      setTags(initialTags ? [...initialTags] : []);
       setTagInput('');
       setIsProject(false);
       setProjectCharterManager(currentUser ? currentUser.name || currentUser.username : '');
@@ -495,7 +501,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     setTagInput('');
   };
 
+  // The labels a new task from a meeting's resolution starts with stay on it: they say which meeting
+  // and agenda item it came from. Others added by hand can be removed as before.
+  const lockedTags = !taskToEdit && lockInitialTags ? (initialTags ?? []) : [];
+
   const handleRemoveTag = (tagToRemove: string) => {
+    if (lockedTags.includes(tagToRemove)) return;
     setTags((prev) => prev.filter((t) => t !== tagToRemove));
   };
 
@@ -567,6 +578,13 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     e.preventDefault();
     if (!title.trim()) {
       setErrors({ title: isProject ? 'عنوان پروژه الزامی است' : 'عنوان فعالیت الزامی است' });
+      return;
+    }
+    // No past days, Fridays or official holidays for new work (the server enforces this too); an unchanged old date stays.
+    const dueDateProblem = !hideDueDate && (!taskToEdit || isoToIranDateTimeParts(dueDateISO)?.date !== isoToIranDateTimeParts(taskToEdit.dueDate)?.date)
+      ? schedulingBlockReason(dueDateISO) : null;
+    if (dueDateProblem) {
+      setErrors({ dueDate: dueDateProblem });
       return;
     }
     // Every new task needs someone responsible for doing it (the server enforces this too).
@@ -1413,6 +1431,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   disabled={isStatusOnlyEdit}
                   required
                 />
+                {errors.dueDate && <p className="text-xs text-red-500 font-medium mt-1">{errors.dueDate}</p>}
               </div>
             )}
 
@@ -2099,13 +2118,19 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
                   >
                     #{t}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(t)}
-                      className="text-indigo-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer p-0.5 rounded-md"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    {lockedTags.includes(t) ? (
+                      <span className="text-indigo-400 p-0.5" title="این برچسب خودکار از جلسه آمده و حذف نمی‌شود" aria-label="برچسب ثابت (از جلسه)">
+                        <Lock className="w-3 h-3" />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(t)}
+                        className="text-indigo-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer p-0.5 rounded-md"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>

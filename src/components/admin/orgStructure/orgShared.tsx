@@ -118,7 +118,8 @@ export const UserPicker: React.FC<{
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
-        <div className="absolute z-20 inset-x-0 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
+        // In the flow of the form (not floating): a dialog grows to show it instead of cutting it off.
+        <div role="listbox" aria-label="نتیجه‌ی جستجوی کاربر" className="mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
           {busy || resultsFor !== query ? (
             <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-slate-500"><Loader2 className="w-3.5 h-3.5 animate-spin" /> در حال جستجو...</div>
           ) : denied ? (
@@ -132,7 +133,9 @@ export const UserPicker: React.FC<{
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => { e.preventDefault(); onChange(u.id, u.displayName || u.username); setQuery(''); setOpen(false); }}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-right text-sm hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer"
+                role="option"
+                aria-selected="false"
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-right text-sm hover:bg-indigo-50 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <span className="font-bold text-slate-800 dark:text-slate-100 truncate">{u.displayName || u.username}</span>
                 <span className="text-[11px] text-slate-400 dir-ltr shrink-0">{u.username}</span>

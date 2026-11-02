@@ -230,7 +230,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         >
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 shrink-0" />
-            <span className="truncate">گزارش فعالیت‌ها</span>
+            <span className="truncate">گزارشات</span>
           </div>
         </button>
         )}

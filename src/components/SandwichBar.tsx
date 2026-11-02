@@ -116,12 +116,12 @@ export const SandwichBar: React.FC<SandwichBarProps> = ({
                         ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
                         : 'bg-slate-800 hover:bg-slate-700 text-sky-400'
                     }`}
-                    title="گزارش فعالیت‌ها"
-                    aria-label="گزارش فعالیت‌ها"
+                    title="گزارشات"
+                    aria-label="گزارشات"
                   >
                     <BarChart3 className="w-5.5 h-5.5" />
                   
-                    <span className="absolute right-full mr-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-lg pointer-events-none">گزارش فعالیت‌ها</span>
+                    <span className="absolute right-full mr-2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white shadow-lg pointer-events-none">گزارشات</span>
                   </button>
                   )}
 

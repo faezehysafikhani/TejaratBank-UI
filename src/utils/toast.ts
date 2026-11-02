@@ -13,7 +13,7 @@ export function subscribeToasts(listener: Listener): () => void {
   return () => { listeners.delete(listener); };
 }
 
-export function showToast(text: string, kind: ToastKind = 'info', ms = 4200): void {
+export function showToast(text: string, kind: ToastKind = 'info', ms = 7000): void {
   const id = nextId++;
   items = [...items, { id, text, kind }];
   listeners.forEach((l) => l(items));

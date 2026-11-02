@@ -90,6 +90,11 @@ export const SubstitutionInboxView: React.FC<{ onChanged?: () => void }> = ({ on
               <div className="min-w-0">
                 <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{postLabel(post)}</p>
                 <p className="text-[11px] text-slate-500 truncate">{post.place}</p>
+                {post.holderName && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 truncate">
+                    مسئول: {post.holderName}{post.actingUntil ? ` · جانشینی تا ${new Date(new Date(post.actingUntil).getTime() - 1).toLocaleDateString('fa-IR')}` : ''}
+                  </p>
+                )}
               </div>
               <StatusBadge tone="amber">خالی</StatusBadge>
             </div>

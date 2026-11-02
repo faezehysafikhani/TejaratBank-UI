@@ -4,7 +4,7 @@ import { Task, Priority, PRIORITIES, TaskStatus } from '../types';
 import { getDaysDiff, getTaskLastModifiedTime, isOverdue } from './helpers';
 import { responsibleIdsOf } from './taskPeople';
 
-export type BoardGroupBy = 'status' | 'owner' | 'responsible' | 'priority' | 'dueDate' | 'tag' | 'none';
+export type BoardGroupBy = 'status' | 'owner' | 'responsible' | 'priority' | 'dueDate' | 'tag' | 'matrix' | 'none';
 
 export interface BoardViewSettings {
   groupBy: BoardGroupBy;
@@ -23,6 +23,7 @@ export const BOARD_GROUP_LABELS: Record<BoardGroupBy, string> = {
   priority: 'درجه اهمیت (اولویت)',
   dueDate: 'موعد انجام',
   tag: 'برچسب کاری',
+  matrix: 'ماتریس اهمیت و فوریت',
   none: 'بدون گروه‌بندی (لیست ردیف‌دار)',
 };
 
@@ -209,4 +210,54 @@ function byTag(tasks: Task[]): TaskGroup[] {
   const named = Array.from(map.values()).sort(byName);
   named.forEach((group, i) => { group.tone = NAMED_TONES[i % NAMED_TONES.length]; });
   return none.length > 0 ? [...named, { key: 'tag:none', title: 'بدون برچسب', tone: 'slate', tasks: none }] : named;
+}
+
+// ---- «ماتریس اهمیت و فوریت» -------------------------------------------------------------------
+// Rows are the task's priority (importance); columns come from its due date (urgency). Finished
+// tasks are not part of the matrix: it answers "what should I look at first".
+
+export type Urgency = 'high' | 'medium' | 'low';
+
+export const URGENCY_ORDER: Urgency[] = ['high', 'medium', 'low'];
+export const IMPORTANCE_ORDER: Priority[] = ['high', 'medium', 'low'];
+
+export const URGENCY_INFO: Record<Urgency, { title: string; hint: string }> = {
+  high: { title: 'فوریت زیاد', hint: 'عقب‌افتاده، امروز یا فردا' },
+  medium: { title: 'فوریت متوسط', hint: 'تا یک هفته‌ی آینده' },
+  low: { title: 'فوریت کم', hint: 'بیش از یک هفته یا بدون موعد' },
+};
+
+export const IMPORTANCE_INFO: Record<Priority, { title: string; hint: string }> = {
+  high: { title: 'اهمیت زیاد', hint: 'حیاتی و راهبردی' },
+  medium: { title: 'اهمیت متوسط', hint: 'عملیاتی و روزمره' },
+  low: { title: 'اهمیت کم', hint: 'پشتیبانی و فرعی' },
+};
+
+export function urgencyOf(task: Task): Urgency {
+  if (!task.dueDate) return 'low';
+  if (isOverdue(task.dueDate, task.status)) return 'high';
+  const { days } = getDaysDiff(task.dueDate);
+  if (days <= 1) return 'high';
+  if (days <= 7) return 'medium';
+  return 'low';
+}
+
+export interface MatrixCell {
+  importance: Priority;
+  urgency: Urgency;
+  tasks: Task[];
+}
+
+/** 3x3 cells, importance-major (rows high..low), each sorted newest first. */
+export function buildMatrix(tasks: Task[]): MatrixCell[] {
+  const cells: MatrixCell[] = [];
+  for (const importance of IMPORTANCE_ORDER) {
+    for (const urgency of URGENCY_ORDER) cells.push({ importance, urgency, tasks: [] });
+  }
+  for (const task of tasks) {
+    if (!isCurrentTask(task)) continue;
+    cells.find((c) => c.importance === task.priority && c.urgency === urgencyOf(task))?.tasks.push(task);
+  }
+  for (const cell of cells) cell.tasks.sort((a, b) => getTaskLastModifiedTime(b) - getTaskLastModifiedTime(a));
+  return cells;
 }

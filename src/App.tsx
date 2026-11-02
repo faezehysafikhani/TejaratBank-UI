@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { TaskTitleContext } from './components/TaskCardList';
 import { Task, TaskStatus, Priority, Attachment, User, WorkTeam, AppTheme, AppColorPalette, TaskComment, STATUSES, PRIORITIES, AppNotification, setMaxAttachmentBytes, SubTaskProgress } from './types';
 import { getUploadPolicy, refreshUploadPolicy } from './utils/uploadPolicy';
+import { iranDateTimeToISO, schedulingBlockReason } from './utils/jalali';
 import { isOverdue, toPersianDigits, formatToJalali, getTaskLastModifiedTime, computeAutoTaskStatus } from './utils/helpers';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
@@ -21,7 +22,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Lazy loaded views & modals for secondary views
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
-const ReportsView = lazy(() => import('./components/ReportsView').then(m => ({ default: m.ReportsView })));
+const ReportsPage = lazy(() => import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
 const PersonalNotesView = lazy(() => import('./components/PersonalNotesView').then(m => ({ default: m.PersonalNotesView })));
@@ -76,6 +77,7 @@ import { NexusApiError, SESSION_ENDED_EVENT, SESSION_END_MESSAGES, TASK_CREATED_
 import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
+import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
@@ -90,7 +92,7 @@ const PAGE_TITLES: Record<string, string> = {
   overdue: 'موعد گذشته',
   chat: 'گفتگوی تیمی',
   notes: 'یادداشت‌های شخصی',
-  reports: 'گزارش فعالیت‌ها',
+  reports: 'گزارشات',
   substitution: 'کارتابل جانشینی',
   settings: 'تنظیمات و پروفایل',
 };
@@ -241,6 +243,11 @@ export default function App() {
   const [initialStatusForNewTask, setInitialStatusForNewTask] = useState<TaskStatus>('todo');
   const [initialDueDateForNewTask, setInitialDueDateForNewTask] = useState<string | undefined>(undefined);
   const [initialTitleForNewTask, setInitialTitleForNewTask] = useState<string>('');
+  const [initialTagsForNewTask, setInitialTagsForNewTask] = useState<string[]>([]);
+  // The labels above cannot be removed from the form (a task made from a meeting's resolution).
+  const [lockInitialTags, setLockInitialTags] = useState(false);
+  // Runs once with the id of the task the open «new task» form creates (a meeting resolution links itself to its meeting).
+  const onTaskCreatedRef = useRef<((taskId: string) => void) | null>(null);
   const [lockInitialDescription, setLockInitialDescription] = useState<boolean>(false);
   const [parentForNewTask, setParentForNewTask] = useState<{ id: string; title: string } | null>(null);
   const [initialDescriptionForNewTask, setInitialDescriptionForNewTask] = useState<string>('');
@@ -418,7 +425,7 @@ export default function App() {
   const showSubstitution = !!substitution?.enabled && (substitution.canManageAll || substitution.posts.length > 0);
   const canOpenSection = useCallback(
     (tab: ActiveTab) => canOpenTab(currentUser, tab)
-      && (tab !== 'reports' || reportScope !== null)
+      && (tab !== 'reports' || Object.values(reportTabsFor(currentUser, reportScope)).some(Boolean))
       && (tab !== 'substitution' || showSubstitution),
     [currentUser, reportScope, showSubstitution],
   );
@@ -464,6 +471,11 @@ export default function App() {
     taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>,
     taskId?: string
   ) => {
+    // What to do once a NEW task exists (a task from a meeting's resolution is linked to the meeting).
+    // Taken now, before the form calls onClose, which clears the reference: reading it after the
+    // save would find it empty and the task would never be linked.
+    const afterCreate = taskId ? null : onTaskCreatedRef.current;
+    if (!taskId) onTaskCreatedRef.current = null;
     setIsSyncing(true);
     try {
       if (taskId) {
@@ -545,6 +557,8 @@ export default function App() {
             prev.map((t) => (t.id === created.id ? { ...t, logs: [newLog, ...(t.logs || []).filter((l) => l.action !== TASK_CREATED_ACTION)] } : t))
           );
         }
+        showToast(`فعالیت «${created.title}» ساخته شد.`, 'ok');
+        afterCreate?.(created.id);
       }
       setPbError(null);
     } catch (err: any) {
@@ -752,9 +766,15 @@ export default function App() {
     isoDate?: string,
     initialTitle: string = '',
     initialDescription: string = '',
-    parent?: { id: string; title: string }
+    parent?: { id: string; title: string },
+    initialTags: string[] = [],
+    onCreated?: (taskId: string) => void,
+    lockTags = false,
   ) => {
     if (!can(currentUser, PERMISSIONS.tasksCreate)) return;
+    setInitialTagsForNewTask(initialTags);
+    setLockInitialTags(lockTags);
+    onTaskCreatedRef.current = onCreated || null;
     setTaskToEdit(null);
     setInitialStatusForNewTask(status);
     // No date chosen (e.g. not from the calendar): the form's own default (end of today).
@@ -779,6 +799,9 @@ export default function App() {
     setTaskToEdit(task);
     setInitialDueDateForNewTask(undefined);
     setInitialTitleForNewTask('');
+    setInitialTagsForNewTask([]);
+    setLockInitialTags(false);
+    onTaskCreatedRef.current = null;
     setInitialDescriptionForNewTask('');
     setParentForNewTask(null);
     setIsFormModalOpen(true);
@@ -1440,9 +1463,11 @@ export default function App() {
             {activeTab === 'calendar' && canOpenTab(currentUser, 'calendar') && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
                 <JalaliCalendarView
+                  registeredUsers={allUsers}
                   tasks={visibleTasks}
                   currentUser={currentUser}
                   onOpenCreateForDate={canCreateTask ? (isoDate) => handleOpenCreateModal('todo', isoDate) : undefined}
+                  onConvertMeetingToTask={canCreateTask ? (title, meetingDate, tags, onCreated) => handleOpenCreateModal('todo', meetingDate && !schedulingBlockReason(meetingDate) ? iranDateTimeToISO(meetingDate, '23:59') : undefined, title, '', undefined, tags, onCreated, true) : undefined}
                   onEditTask={handleOpenEditModal}
                   onDeleteTask={handleDeleteTask}
                   onStatusChange={handleStatusChange}
@@ -1469,9 +1494,9 @@ export default function App() {
             )}
 
             {/* Task reports (only where the backend offers them) */}
-            {activeTab === 'reports' && reportScope && canOpenTab(currentUser, 'reports') && (
+            {activeTab === 'reports' && canOpenSection('reports') && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
-                <ReportsView scope={reportScope} refreshKey={reportRefreshKey} visibleTasks={visibleTasks} onOpenTask={handleOpenTaskDetail} generatedBy={currentUser?.name || currentUser?.username} />
+                <ReportsPage currentUser={currentUser} scope={reportScope} refreshKey={reportRefreshKey} visibleTasks={visibleTasks} people={allUsers} onOpenTask={handleOpenTaskDetail} generatedBy={currentUser?.name || currentUser?.username} />
               </Suspense>
             )}
 
@@ -1556,12 +1581,14 @@ export default function App() {
         {isFormModalOpen && (
           <TaskFormModal
             isOpen={isFormModalOpen}
-            onClose={() => setIsFormModalOpen(false)}
+            onClose={() => { onTaskCreatedRef.current = null; setIsFormModalOpen(false); }}
             onSave={handleSaveTask}
             taskToEdit={taskToEdit}
             initialStatus={initialStatusForNewTask}
             initialDueDate={initialDueDateForNewTask}
             initialTitle={initialTitleForNewTask}
+            initialTags={initialTagsForNewTask}
+            lockInitialTags={lockInitialTags}
             initialDescription={initialDescriptionForNewTask}
             lockInitialDescription={lockInitialDescription}
             parentTask={parentForNewTask}

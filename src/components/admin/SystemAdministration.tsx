@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, MonitorSmartphone, LogOut } from 'lucide-react';
+import React, { useEffect, useId, useState } from 'react';
+import { Smartphone, MessageSquare, Users, History, Network, KeyRound, Loader2, Save, User as UserIcon, Palette, FileText, UploadCloud, Building2, BadgeCheck, ShieldCheck, Image as ImageIcon, RotateCcw, MonitorSmartphone, LogOut, ChevronDown, ChevronUp } from 'lucide-react';
 import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneChange, confirmPhoneChange, fetchUploadPolicy, updateMaxUploadSizeKb } from '../../services/nexusApi';
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
@@ -15,6 +15,7 @@ import { refreshUploadPolicy } from '../../utils/uploadPolicy';
 import { isOrgStructureAvailable, orgStructureLookupKey, ORG_STRUCTURE_PERMISSIONS, ORG_UNIT_PERMISSIONS, TITLE_PERMISSIONS } from '../../services/orgStructureApi';
 import { useLookup } from '../../utils/lookupCache';
 import { OrgStructureSection } from './orgStructure/OrgStructureSection';
+import { MyPlacementPanel } from './orgStructure/OrgViews';
 import { TitlesPanel } from './orgStructure/TitlesPanel';
 import { canSeeWorkTeams } from '../../utils/permissions';
 import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
@@ -111,6 +112,8 @@ function isStrongPassword(value: string): boolean {
 }
 
 export const ChangePasswordCard: React.FC = () => {
+  const [open, setOpen] = useState(true);
+  const panelId = useId();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -136,11 +139,21 @@ export const ChangePasswordCard: React.FC = () => {
 
   return (
     <AdminCard className="p-5 sm:p-6">
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex items-center gap-2">
-          <KeyRound className="w-5 h-5 text-indigo-700 dark:text-indigo-400" />
-          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">تغییر رمز عبور</h3>
-        </div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen(value => !value)}
+        className={`w-full flex items-center justify-between text-slate-900 dark:text-white font-bold text-sm select-none cursor-pointer group ${open ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : ''}`}
+      >
+        <span className="flex items-center gap-2">
+          <KeyRound className="w-5 h-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+          <span>تغییر رمز عبور</span>
+        </span>
+        {open ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+      </button>
+      <div id={panelId} hidden={!open}>
+      <form onSubmit={submit} className="space-y-4 pt-4">
         {message && <Notice type={message.type} onClose={() => setMessage(null)}>{message.text}</Notice>}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field label="رمز عبور فعلی" required>
@@ -160,6 +173,7 @@ export const ChangePasswordCard: React.FC = () => {
           </PrimaryButton>
         </div>
       </form>
+      </div>
     </AdminCard>
   );
 };
@@ -470,7 +484,7 @@ type ProfileTab = 'avatar' | 'password' | 'phone' | 'sessions' | 'account';
  * «پروفایل»: one page for everything about the signed-in person - profile and avatar, password,
  * mobile number, sessions, account and sign-out - as a row of tabs with an underline.
  */
-const ProfileHub: React.FC<{ sections: ProfileSections; can: (permission: string) => boolean }> = ({ sections, can }) => {
+const ProfileHub: React.FC<{ sections: ProfileSections; can: (permission: string) => boolean; placement?: React.ReactNode }> = ({ sections, can, placement }) => {
   const [active, setActive] = useState<ProfileTab>('avatar');
   const tabs: { id: ProfileTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'avatar', label: 'پروفایل و آواتار', icon: UserIcon },
@@ -518,7 +532,7 @@ const ProfileHub: React.FC<{ sections: ProfileSections; can: (permission: string
       </div>
 
       <div role="tabpanel">
-        {active === 'avatar' && sections.avatar}
+        {active === 'avatar' && <>{sections.avatar}{placement}</>}
         {active === 'password' && sections.password}
         {active === 'phone' && sections.phone}
         {active === 'sessions' && <SessionsPanel can={can} />}
@@ -573,7 +587,7 @@ export const SystemAdministration: React.FC<{
         ) : tabs.length > 1 && <SegmentedTabs tabs={tabs} active={current} onChange={setActive} />}
       </AdminCard>
 
-      {current === 'profile' && <ProfileHub sections={profile} can={can} />}
+      {current === 'profile' && <ProfileHub sections={profile} can={can} placement={orgStructureAvailable ? <MyPlacementPanel /> : null} />}
       {current === 'team' && canSeeWorkTeams(permissions) && team}
       {current === 'appearance' && (
         <div className="space-y-5">

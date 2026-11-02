@@ -3,6 +3,7 @@ build/
 dist/
 server.cjs
 server.cjs.map
+dist-org-sandbox/
 coverage/
 .DS_Store
 *.log
