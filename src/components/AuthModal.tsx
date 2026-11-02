@@ -1,4 +1,3 @@
-import { LoginSilk } from './LoginSilk';
 import React, { useState } from 'react';
 import { CalendarDays, KanbanSquare, MessagesSquare, Network, LogIn, KeyRound, User as UserIcon, AlertCircle, X, Loader2, Eye, EyeOff, CheckCircle2, ArrowRight, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 import { AppTheme } from '../types';
@@ -248,12 +247,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       {/* Background. Small screens: deep green. Wide screens: a pale green wash with the logo embossed and faded on the brand side, and flowing green ribbons behind the form. */}
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none lg:hidden" style={{ background: 'linear-gradient(160deg,#064e3b 0%,#022c22 100%)' }} />
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none hidden lg:block" style={{ background: 'linear-gradient(110deg,#f4fdf8 0%,#dcfce9 38%,#bbf7d0 60%,#86efac 100%)' }} />
-      <div
+      <img
+        src="/login-mark.png"
+        alt=""
         aria-hidden="true"
-        className="hidden lg:block absolute left-0 top-0 h-full w-[60%] pointer-events-none"
-        style={{ backgroundImage: 'url(/login-relief.webp)', backgroundSize: 'auto 112%', backgroundPosition: '40% 46%', backgroundRepeat: 'no-repeat', opacity: 0.95 }}
+        draggable={false}
+        className="hidden lg:block absolute pointer-events-none select-none max-w-none"
+        style={{ left: '-4%', top: '50%', height: '125%', transform: 'translateY(-50%)', opacity: 0.17, filter: 'drop-shadow(-4px -4px 5px rgba(255,255,255,0.95)) drop-shadow(5px 6px 7px rgba(4,78,59,0.4)) saturate(0.75)' }}
       />
-      <LoginSilk className="hidden lg:block absolute right-0 top-0 h-full w-[66%] pointer-events-none" />
+      <svg aria-hidden="true" className="hidden lg:block absolute right-0 top-0 h-full w-[64%] pointer-events-none" viewBox="0 0 1000 900" preserveAspectRatio="xMaxYMid slice">
+        <defs>
+          <linearGradient id="lg-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#34d399" /><stop offset="0.5" stopColor="#059669" /><stop offset="1" stopColor="#064e3b" /></linearGradient>
+          <linearGradient id="lg-b" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#065f46" /><stop offset="1" stopColor="#022c22" /></linearGradient>
+          <linearGradient id="lg-c" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#10b981" stopOpacity="0.85" /><stop offset="1" stopColor="#a7f3d0" stopOpacity="0.4" /></linearGradient>
+        </defs>
+        <path d="M1000 0 H430 C560 120 400 250 480 410 C560 570 430 730 540 900 H1000 Z" fill="url(#lg-b)" />
+        <path d="M1000 60 C780 110 640 250 700 430 C760 610 600 730 500 900 H1000 Z" fill="url(#lg-a)" opacity="0.9" />
+        <path d="M1000 0 C860 90 720 70 590 0 Z" fill="url(#lg-c)" />
+        <path d="M1000 330 C870 360 780 440 800 560 C820 680 740 780 660 900 H1000 Z" fill="url(#lg-c)" opacity="0.55" />
+        <path d="M430 0 C560 120 400 250 480 410 C560 570 430 730 540 900" fill="none" stroke="#ecfdf5" strokeOpacity="0.55" strokeWidth="2" />
+        <path d="M700 430 C760 610 600 730 500 900" fill="none" stroke="#d1fae5" strokeOpacity="0.45" strokeWidth="1.5" />
+        <path d="M800 560 C820 680 740 780 660 900" fill="none" stroke="#ecfdf5" strokeOpacity="0.4" strokeWidth="1.5" />
+      </svg>
 
       <div className="relative min-h-full flex flex-col lg:flex-row">
         {/* The sign-in side (on the right in RTL) */}
