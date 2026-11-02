@@ -81,7 +81,7 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
   const saveRules = async () => {
     if (!edited) return;
     if (wouldConflict > 0 && !(await appConfirm(
-      `${toPersianDigits(wouldConflict)} گره‌ی موجود با قاعده‌های جدید جور نیست. این گره‌ها حذف یا جابه‌جا نمی‌شوند؛ فقط در فهرست «ناسازگار» می‌آیند تا خودتان جابه‌جایشان کنید. قاعده‌ها ذخیره شود؟`,
+      `${toPersianDigits(wouldConflict)} واحد موجود با قاعده‌های جدید جور نیست. این واحدها حذف یا جابه‌جا نمی‌شوند؛ فقط در فهرست «ناسازگار» می‌آیند تا خودتان جابه‌جایشان کنید. قاعده‌ها ذخیره شود؟`,
       { confirmLabel: 'ذخیره‌ی قاعده‌ها', danger: true },
     ))) return;
     let result: Awaited<ReturnType<typeof setNodeTypeRules>> | null = null;
@@ -99,15 +99,15 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       () => (draft.id
         ? updateNodeType(draft.id, { name: draft.name.trim(), color: draft.style.color, icon: draft.style.icon, isDomainBoundary: draft.isDomainBoundary, sortOrder: types.find((t) => t.id === draft.id)?.sortOrder ?? 0, isActive: draft.isActive })
         : createNodeType({ name: draft.name.trim(), color: draft.style.color, icon: draft.style.icon, isDomainBoundary: draft.isDomainBoundary })),
-      draft.id ? 'جزء چارت ویرایش شد.' : 'جزء چارت ساخته شد.',
-      'ذخیره‌ی جزء چارت انجام نشد.',
+      draft.id ? 'نوع واحد ویرایش شد.' : 'نوع واحد ساخته شد.',
+      'ذخیره‌ی نوع واحد انجام نشد.',
     );
     if (ok) { setDraft(null); await data.reload(); }
   };
 
   const removeType = async (type: NodeType) => {
-    if (!(await appConfirm(`جزء چارت «${type.name}» حذف شود؟`, { danger: true, confirmLabel: 'حذف' }))) return;
-    if (await act(() => deleteNodeType(type.id), 'جزء چارت حذف شد.', 'حذف جزء چارت انجام نشد.')) await data.reload();
+    if (!(await appConfirm(`نوع واحد «${type.name}» حذف شود؟`, { danger: true, confirmLabel: 'حذف' }))) return;
+    if (await act(() => deleteNodeType(type.id), 'نوع واحد حذف شد.', 'حذف نوع واحد انجام نشد.')) await data.reload();
   };
 
   if (data.loading && !data.data) return <AdminCard><LoadingRow /></AdminCard>;
@@ -120,26 +120,26 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">اجزای چارت</h3>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">نوع‌های واحد</h3>
             <p className="text-xs text-slate-500 mt-0.5">«معاونت»، «اداره کل»، «کمیته»… هر جزء رنگ و آیکون خودش را دارد. جزئی که «معاونت جدا» باشد، افراد زیرمجموعه‌اش را هم‌معاونت حساب می‌کند.</p>
           </div>
           <PrimaryButton onClick={() => setDraft({ name: '', style: { color: '#2563eb', icon: 'folder' }, isDomainBoundary: true, isActive: true })}>
             <Plus className="w-4 h-4" /> جزء جدید
           </PrimaryButton>
         </div>
-        {types.length === 0 ? <EmptyRow>هنوز جزئی برای چارت تعریف نشده است؛ شرکت بدون اجزای چارت، ساختار مسطح دارد.</EmptyRow> : (
+        {types.length === 0 ? <EmptyRow>هنوز جزئی برای چارت تعریف نشده است؛ شرکت بدون نوع‌های واحد، ساختار مسطح دارد.</EmptyRow> : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {types.map((type) => (
               <div key={type.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${safeColor(type.color)}1a`, color: safeColor(type.color) }}><NodeTypeIcon icon={type.icon} className="w-[18px] h-[18px]" /></span>
                 <span className="min-w-0 flex-1">
                   <span className={`block text-sm font-bold ${type.isActive ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 line-through'}`}>{type.name}</span>
-                  <span className="block text-[11px] text-slate-500">{toPersianDigits(type.nodeCount)} گره{type.isDomainBoundary ? ' · معاونت جدا (مرز هم‌معاونت)' : ''}</span>
+                  <span className="block text-[11px] text-slate-500">{toPersianDigits(type.nodeCount)} واحد{type.isDomainBoundary ? ' · معاونت جدا (مرز هم‌معاونت)' : ''}</span>
                 </span>
                 {!type.isActive && <StatusBadge tone="red">غیرفعال</StatusBadge>}
                 <IconAction icon={Briefcase} label={`پست‌های پیش‌فرض ${type.name}`} onClick={() => setPatternOf(type)} />
                 <IconAction icon={Pencil} label={`ویرایش ${type.name}`} onClick={() => setDraft({ id: type.id, name: type.name, style: { color: type.color, icon: type.icon }, isDomainBoundary: type.isDomainBoundary, isActive: type.isActive })} />
-                <IconAction icon={Trash2} tone="rose" label={`حذف ${type.name}`} disabled={busy || type.nodeCount > 0} disabledReason="جزئی که گره‌ای از آن دارد حذف نمی‌شود" onClick={() => removeType(type)} />
+                <IconAction icon={Trash2} tone="rose" label={`حذف ${type.name}`} disabled={busy || type.nodeCount > 0} disabledReason="جزئی که واحدی از آن دارد حذف نمی‌شود" onClick={() => removeType(type)} />
               </div>
             ))}
           </div>
@@ -159,11 +159,11 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
         </div>
         <div className="p-5 space-y-3">
           {current.length === 0 && types.length > 0 && (
-            <Notice type="info">هنوز هیچ قاعده‌ای تیک نخورده است: همه‌ی گره‌ها در بالاترین سطح می‌مانند و جابه‌جایی «زیر گره‌ی دیگر» ممکن نیست.</Notice>
+            <Notice type="info">هنوز هیچ قاعده‌ای تیک نخورده است: همه‌ی واحدها در بالاترین سطح می‌مانند و جابه‌جایی «زیر واحد دیگر» ممکن نیست.</Notice>
           )}
           <NodeTypeRulesMatrix types={types.filter((t) => t.isActive || usage[`company>${t.id}`] !== undefined || current.some((r) => r.childTypeId === t.id || r.parentTypeId === t.id)).map(asChartType)} rules={current} onChange={setEdited} usage={usage} />
           {dirty && wouldConflict > 0 && (
-            <p className="text-[11px] text-amber-700 dark:text-amber-300">با این تغییر {toPersianDigits(wouldConflict)} گره‌ی موجود ناسازگار می‌شود؛ هنگام ذخیره از شما تأیید گرفته می‌شود.</p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-300">با این تغییر {toPersianDigits(wouldConflict)} واحد موجود ناسازگار می‌شود؛ هنگام ذخیره از شما تأیید گرفته می‌شود.</p>
           )}
         </div>
       </AdminCard>
@@ -171,17 +171,17 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
       <AdminCard>
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900 dark:text-white">
-            <AlertTriangle className={`w-5 h-5 ${shownConflicts.length ? 'text-amber-600' : 'text-slate-400'}`} /> گره‌های ناسازگار با قاعده‌ها
+            <AlertTriangle className={`w-5 h-5 ${shownConflicts.length ? 'text-amber-600' : 'text-slate-400'}`} /> واحدهای ناسازگار با قاعده‌ها
             {shownConflicts.length > 0 && <StatusBadge tone="amber">{toPersianDigits(shownConflicts.length)}</StatusBadge>}
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">این گره‌ها حذف نشده‌اند و کار می‌کنند؛ فقط جایشان با قاعده‌ی فعلی نمی‌خواند. در چارت، آن‌ها را جابه‌جا کنید.</p>
+          <p className="text-xs text-slate-500 mt-0.5">این واحدها حذف نشده‌اند و کار می‌کنند؛ فقط جایشان با قاعده‌ی فعلی نمی‌خواند. در چارت، آن‌ها را جابه‌جا کنید.</p>
         </div>
-        {shownConflicts.length === 0 ? <EmptyRow>همه‌ی گره‌ها با قاعده‌ها می‌خوانند.</EmptyRow> : (
+        {shownConflicts.length === 0 ? <EmptyRow>همه‌ی واحدها با قاعده‌ها می‌خوانند.</EmptyRow> : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px]" data-testid="conflicts">
               <thead className="bg-slate-50 dark:bg-slate-800/60"><tr>
-                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">گره</th>
-                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">جزء چارت</th>
+                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">واحد</th>
+                <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">نوع واحد</th>
                 <th className="px-4 py-2 text-right text-xs font-bold text-slate-500">فعلاً زیر</th>
               </tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -202,7 +202,7 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
 
       {draft && (
         <AdminDialog
-          title={draft.id ? 'ویرایش جزء چارت' : 'جزء جدید چارت'}
+          title={draft.id ? 'ویرایش نوع واحد' : 'جزء جدید چارت'}
           onClose={() => !busy && setDraft(null)}
           footer={<>
             <SecondaryButton onClick={() => setDraft(null)} disabled={busy}>انصراف</SecondaryButton>
@@ -212,8 +212,8 @@ export const OrgRulesPanel: React.FC<{ canApplyPosts?: boolean }> = ({ canApplyP
           {message?.type === 'error' && <Notice type="error" onClose={() => setMessage(null)}>{message.text}</Notice>}
           <Field label="نام جزء" required hint="مثلاً «معاونت»، «اداره کل»، «کمیته»"><input className={inputClass} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} maxLength={120} autoFocus /></Field>
           <NodeTypeStylePicker value={draft.style} onChange={(style) => setDraft({ ...draft, style })} previewName={draft.name.trim() || 'نمونه'} />
-          <Toggle checked={draft.isDomainBoundary} onChange={(v) => setDraft({ ...draft, isDomainBoundary: v })} label="معاونتِ جدا (مرز هم‌معاونت)" description="کارکنان یک گره از این نوع، «هم‌معاونت» حساب می‌شوند؛ گره‌ی دیگر جزو معاونت نزدیک‌ترین گره‌ی بالایی است که این‌طور باشد." />
-          {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="فعال" description="جزء غیرفعال برای گره‌ی تازه پیشنهاد نمی‌شود؛ گره‌های موجود می‌مانند." />}
+          <Toggle checked={draft.isDomainBoundary} onChange={(v) => setDraft({ ...draft, isDomainBoundary: v })} label="معاونتِ جدا (مرز هم‌معاونت)" description="کارکنان یک واحد از این نوع، «هم‌معاونت» حساب می‌شوند؛ واحد دیگر جزو معاونت نزدیک‌ترین واحد بالایی است که این‌طور باشد." />
+          {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="فعال" description="جزء غیرفعال برای واحد تازه پیشنهاد نمی‌شود؛ واحدهای موجود می‌مانند." />}
         </AdminDialog>
       )}
     </div>

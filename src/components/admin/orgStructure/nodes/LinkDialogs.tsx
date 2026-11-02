@@ -73,13 +73,13 @@ export const AddLinkDialog: React.FC<{
               {types.map((t) => <option key={t.id} value={t.id}>{t.name} ({LINE_STYLE_TITLES[t.lineStyle]}{t.countsAsManager ? '، مدیر حساب می‌شود' : ''})</option>)}
             </select>
           </Field>
-          <Field label="به کدام گره وصل شود؟" required>
+          <Field label="به کدام واحد وصل شود؟" required>
             <select className={inputClass} value={toId} onChange={(e) => setToId(e.target.value)} disabled={!typeId}>
               <option value="">— انتخاب کنید —</option>
               {targets.map((u) => <option key={u.unitId} value={u.unitId}>{pathOf(company, u)}</option>)}
             </select>
           </Field>
-          {type && <p className="text-[11px] leading-5 text-slate-500">{type.countsAsManager ? 'مدیر گره‌ی مقصد، مدیر دوم افراد این گره هم حساب می‌شود (مدیر اصلی‌شان عوض نمی‌شود).' : 'این رابطه فقط در چارت کشیده می‌شود؛ مدیر گره‌ی مقصد، مدیر کسی حساب نمی‌شود.'}</p>}
+          {type && <p className="text-[11px] leading-5 text-slate-500">{type.countsAsManager ? 'مدیر واحد مقصد، مدیر دوم افراد این واحد هم حساب می‌شود (مدیر اصلی‌شان عوض نمی‌شود).' : 'این رابطه فقط در چارت کشیده می‌شود؛ مدیر واحد مقصد، مدیر کسی حساب نمی‌شود.'}</p>}
         </>
       )}
     </AdminDialog>
@@ -95,7 +95,7 @@ export const RemoveLinkDialog: React.FC<{
 }> = ({ link, onRemoved, onReload, onClose }) => (
   <ImpactPreviewDialog
     title="برداشتن رابطه"
-    summary={<>رابطه‌ی «{link.type.name}» از «{link.from}» به «{link.to}» برداشته شود؟ گره‌ها و افراد تغییری نمی‌کنند.</>}
+    summary={<>رابطه‌ی «{link.type.name}» از «{link.from}» به «{link.to}» برداشته شود؟ واحدها و افراد تغییری نمی‌کنند.</>}
     changes={[{ kind: 'unlink-link', linkId: link.id }]}
     confirmLabel="رابطه را بردار"
     onConfirm={async () => { await deleteLink(link.id); await onRemoved(); onClose(); }}
@@ -143,7 +143,7 @@ export const AutoLinkChoiceDialog: React.FC<{
       </>}
     >
       {error && <Notice type="error" onClose={() => setError(null)}>{error}</Notice>}
-      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">گره‌ی تازه طبق قاعده‌ی رابطه‌ی خودکار باید به یکی از چند گره وصل شود؛ کدام؟ اگر الان انتخاب نکنید، بعداً از «افزودن مافوق دوم» می‌توانید.</p>
+      <p className="text-xs leading-6 text-slate-600 dark:text-slate-300">واحد تازه طبق قاعده‌ی رابطه‌ی خودکار باید به یکی از چند واحد وصل شود؛ کدام؟ اگر الان انتخاب نکنید، بعداً از «افزودن مافوق دوم» می‌توانید.</p>
       {choices.map((c) => (
         <Field key={keyOf(c)} label={`«${c.nodeName}» ← ${c.linkTypeName}`}>
           <select className={inputClass} value={picked[keyOf(c)] || ''} onChange={(e) => setPicked({ ...picked, [keyOf(c)]: e.target.value })}>

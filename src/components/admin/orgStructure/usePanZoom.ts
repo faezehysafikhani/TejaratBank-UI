@@ -34,7 +34,9 @@ export function localRect(el: HTMLElement, content: HTMLElement) {
  * moves; a drag never counts as a click on the card under it. Lists inside the canvas marked
  * data-scrollable keep scrolling with the wheel while they can. `active`: the viewport is mounted.
  */
-export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean) {
+export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean, inset?: () => number) {
+  /** The room kept at the top: the narrow-screen controls, and whatever lies over the canvas (the toolbar). */
+  const tp = (vp: HTMLElement) => topPad(vp) + (inset?.() ?? 0);
   const view = useRef<PanZoomView>({ x: 0, y: 0, s: 1 });
   const listeners = useRef(new Set<(view: PanZoomView) => void>());
   /** The user moved or zoomed since the chart opened (a resize then keeps their view). */
@@ -46,7 +48,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const el = content.current;
     const vp = viewport.current;
     if (!el || !vp || !el.offsetWidth || !el.offsetHeight || !vp.clientWidth || !vp.clientHeight) return 1;
-    return Math.max(0.01, Math.min(1, (vp.clientWidth - 2 * PAD) / el.offsetWidth, (vp.clientHeight - topPad(vp) - PAD) / el.offsetHeight));
+    return Math.max(0.01, Math.min(1, (vp.clientWidth - 2 * PAD) / el.offsetWidth, (vp.clientHeight - tp(vp) - PAD) / el.offsetHeight));
   }, [content, viewport]);
 
   /** Zooming out stops where the whole chart is in view. */
@@ -86,7 +88,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     if (!el || !vp || !vp.clientWidth || !vp.clientHeight) return;
     const w = el.offsetWidth;
     const h = el.offsetHeight;
-    const top = topPad(vp);
+    const top = tp(vp);
     const s = fitScale();
     moved.current = false;
     set({ s, x: (vp.clientWidth - w * s) / 2, y: Math.max(top, (vp.clientHeight - h * s) / 2) }, animate);
@@ -97,7 +99,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const el = content.current;
     const vp = viewport.current;
     if (!el || !vp || !vp.clientWidth || !vp.clientHeight) return;
-    const top = topPad(vp);
+    const top = tp(vp);
     const s = clampScale(START_SCALE);
     const w = el.offsetWidth * s;
     const h = el.offsetHeight * s;
@@ -145,7 +147,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
       s: ns,
       x: vw / 2 - (r.x + r.w / 2) * ns,
       // A third of the way down, so what hangs under the card (a deputy's teams) shows too.
-      y: r.h * ns > vh - topPad(vp) - PAD ? topPad(vp) - r.y * ns : Math.max(topPad(vp), vh / 3 - (r.h * ns) / 2) - r.y * ns,
+      y: r.h * ns > vh - tp(vp) - PAD ? tp(vp) - r.y * ns : Math.max(tp(vp), vh / 3 - (r.h * ns) / 2) - r.y * ns,
     }, true);
   }, [clampScale, content, set, viewport]);
 
@@ -187,6 +189,8 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if ((e.target as Element).closest('input, select, textarea')) return;
+      // A card of the free layout is dragged by itself, not the whole chart.
+      if ((e.target as Element).closest('[data-free-drag]') && !(e.target as Element).closest('button')) { dragged.current = false; return; }
       pointers.set(e.pointerId, local(e));
       if (pointers.size === 1) {
         start = local(e);

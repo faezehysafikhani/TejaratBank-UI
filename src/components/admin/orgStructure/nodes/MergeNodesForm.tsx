@@ -13,11 +13,11 @@ export interface MergeNodesInput { sourceNodeId: string; targetNodeId: string; e
 
 /** Why a merge cannot be done, or null. */
 export function mergeProblem(company: ChartCompany, sourceNodeId: string, targetNodeId: string): string | null {
-  if (!sourceNodeId || !targetNodeId) return 'گره‌ی مبدأ و مقصد را انتخاب کنید.';
+  if (!sourceNodeId || !targetNodeId) return 'واحد مبدأ و مقصد را انتخاب کنید.';
   if (sourceNodeId === targetNodeId) return 'مبدأ و مقصد نباید یکی باشند.';
   const tree = unitTree(company);
   const start = tree.findIndex((t) => t.unit.unitId === sourceNodeId);
-  if (start < 0 || !tree.some((t) => t.unit.unitId === targetNodeId)) return 'گره‌ی انتخاب‌شده در این شرکت نیست.';
+  if (start < 0 || !tree.some((t) => t.unit.unitId === targetNodeId)) return 'واحد انتخاب‌شده در این شرکت نیست.';
   // The source's subtree: the nodes after it in the tree until one at its depth or above.
   for (let i = start + 1; i < tree.length && tree[i].depth > tree[start].depth; i++) {
     if (tree[i].unit.unitId === targetNodeId) return 'مقصد نمی‌تواند زیرمجموعه‌ی مبدأ باشد.';
@@ -55,14 +55,14 @@ export const MergeNodesForm: React.FC<{
       onSubmit={(e) => { e.preventDefault(); if (ready) onSubmit({ sourceNodeId: sourceId, targetNodeId: targetId, effectiveDate: date }); }}
     >
       <div className="grid sm:grid-cols-[1fr_auto_1fr] items-end gap-3">
-        <Field label="گره‌ای که ادغام می‌شود (مبدأ)" required>
+        <Field label="واحدی که ادغام می‌شود (مبدأ)" required>
           <select className={inputClass} value={sourceId} onChange={(e) => setSourceId(e.target.value)} disabled={busy}>
             <option value="">انتخاب کنید</option>
             {tree.map(option)}
           </select>
         </Field>
         <ArrowLeft className="hidden sm:block w-5 h-5 mb-3 text-slate-400" aria-hidden />
-        <Field label="گره‌ای که می‌ماند (مقصد)" required>
+        <Field label="واحدی که می‌ماند (مقصد)" required>
           <select className={inputClass} value={targetId} onChange={(e) => setTargetId(e.target.value)} disabled={busy}>
             <option value="">انتخاب کنید</option>
             {tree.filter((t) => t.unit.unitId !== sourceId).map(option)}
@@ -83,7 +83,7 @@ export const MergeNodesForm: React.FC<{
             «{source.name}» در «{target.name}» ادغام می‌شود.
           </div>
           <ul className="list-disc ps-5 space-y-0.5">
-            <li>{toPersianDigits(source.children?.length ?? 0)} گره‌ی زیرمجموعه به زیر «{target.name}» می‌رود.</li>
+            <li>{toPersianDigits(source.children?.length ?? 0)} واحد زیرمجموعه به زیر «{target.name}» می‌رود.</li>
             <li>{toPersianDigits(positionsOf(source).length)} پست ({toPersianDigits(unitHeadcount(source))} نفر) به «{target.name}» منتقل می‌شود؛ وظایف باز همچنان به همان پست‌ها وصل‌اند.</li>
             <li>«{source.name}» غیرفعال می‌شود و سابقه‌اش می‌ماند.</li>
           </ul>

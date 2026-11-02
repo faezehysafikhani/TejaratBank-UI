@@ -191,10 +191,14 @@ export const OrgChartDetails: React.FC<{
   /** Opens the move dialog of a node, or the add dialog under a node (null: at the top of the company). */
   onRequestMove?: (unitId: string) => void;
   onRequestAdd?: (parentId: string | null) => void;
+  /** «افزودن پست» to this unit (null: the user chooses it). */
+  onRequestPosts?: (unitId: string | null) => void;
+  /** Opens the «افزودن نفر به پست» window, filled (a post, or a person with no place). */
+  onRequestPlace?: (pick: { unitId?: string; positionId?: string; userId?: string | null; userName?: string | null }) => void;
   selection: ChartSelection | null;
   onSelect: (selection: ChartSelection) => void;
   onChanged: () => Promise<void> | void;
-}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, selection, onSelect, onChanged }) => {
+}> = ({ can, chart, positions, unplaced, nodes = [], nodeTypes = [], linkTypes = [], rules = [], onRequestMove, onRequestAdd, onRequestPosts, onRequestPlace, selection, onSelect, onChanged }) => {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   /** Dialogs that bring their own footer and steps: saving a template, adding or removing a link. */
   const [extra, setExtra] = useState<
@@ -213,7 +217,7 @@ export const OrgChartDetails: React.FC<{
   const [message, setMessage] = useState<PanelMessage | null>(null);
   /** The version of a node as the chart was loaded: a change over a newer one is refused by the server. */
   const versionOf = (unitId: string) => nodes.find((n) => n.id === unitId)?.rowVersion ?? null;
-  const NO_VERSION = 'نسخه‌ی این گره دریافت نشده؛ چارت را دوباره بارگذاری کنید و دوباره امتحان کنید.';
+  const NO_VERSION = 'نسخه‌ی این واحد دریافت نشده؛ چارت را دوباره بارگذاری کنید و دوباره امتحان کنید.';
   /** The version a change must be sent with. Without it the server could not tell that someone else changed the node first, so nothing is sent. */
   const needVersion = (unitId: string): string => {
     const version = versionOf(unitId);
@@ -275,7 +279,7 @@ export const OrgChartDetails: React.FC<{
             {!company.manager && (
               <p className="text-[11px] leading-5 text-slate-500 py-2">{headTitleOf(company)} کسی است که سمتِ بدون مافوقِ این شرکت را مستقیم در شرکت (بدون معاونت) داشته باشد.</p>
             )}
-            <InfoRow label={isNestedCompany(company) ? 'گره‌ها' : 'معاونت‌ها'}>{toPersianDigits(nodeCount(company))}</InfoRow>
+            <InfoRow label={isNestedCompany(company) ? 'واحدها' : 'معاونت‌ها'}>{toPersianDigits(nodeCount(company))}</InfoRow>
             <InfoRow label="سمت‌ها">{toPersianDigits(positionCount)}{vacant > 0 ? ` (${toPersianDigits(vacant)} خالی)` : ''}</InfoRow>
             <InfoRow label="تعداد افراد">{toPersianDigits(companyHeadcount(company))} نفر</InfoRow>
             <InfoRow label="سطح نمایش">
@@ -306,7 +310,7 @@ export const OrgChartDetails: React.FC<{
           )}
           {company.units.length > 0 && (
             <div className="space-y-1">
-              <p className="text-xs font-bold text-slate-500">{isNestedCompany(company) ? 'گره‌های بالایی' : 'معاونت‌ها'}</p>
+              <p className="text-xs font-bold text-slate-500">{isNestedCompany(company) ? 'واحدهای بالایی' : 'معاونت‌ها'}</p>
               {company.units.map((u) => (
                 <button key={u.unitId} type="button" onClick={() => onSelect({ kind: 'unit', companyId: company.companyId, unitId: u.unitId })} className="w-full flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 text-right hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
                   <span className="flex items-center gap-2 min-w-0 text-sm font-bold text-slate-800 dark:text-slate-100"><Network className="w-4 h-4 text-emerald-600 shrink-0" /> {u.name}</span>
@@ -326,17 +330,15 @@ export const OrgChartDetails: React.FC<{
                 setMessage({ type: 'error', text: userErrorMessage(err, 'دریافت اطلاعات شرکت ممکن نشد.') });
               }
             }} />}
-            {nodes.length === 0 && can(P.manageCompanies) && can(U.create) && <ActionTile icon={Plus} label="افزودن معاونت" onClick={() => setDialog({ kind: 'addUnit', company })} />}
+
             {atLeast(levelOf(company), 'advanced') && canNode(can, 'manageTemplates') && (
               <ActionTile icon={LayoutTemplate} label="ذخیره به‌عنوان قالب" onClick={() => setExtra({ kind: 'saveTemplate', company })} />
             )}
-            {nodes.length > 0 && canNode(can, 'create') && onRequestAdd && (
-              <ActionTile
-                icon={Plus}
-                label="افزودن گره"
-                disabled={addableTypes(nodeTypes, rules, null).length === 0}
-                onClick={() => onRequestAdd(null)}
-              />
+            {canNode(can, 'create') && onRequestAdd && (
+              <ActionTile icon={Plus} label="افزودن واحد" onClick={() => onRequestAdd(null)} />
+            )}
+            {can(P.managePositions) && onRequestPosts && (
+              <ActionTile icon={Briefcase} label="افزودن پست" onClick={() => onRequestPosts(null)} />
             )}
             {can(P.managePositions) && positions.some((p) => p.companyIds !== undefined) && <ActionTile icon={Briefcase} label="افزودن پست در شرکت" onClick={() => setDialog({ kind: 'addCompanyPost', company })} />}
           </QuickActions>
@@ -378,7 +380,7 @@ export const OrgChartDetails: React.FC<{
               const rows: [string, string | null | undefined][] = [['کد', info.code], ['نام لاتین', info.latinName], ['عنوان مکاتباتی', info.correspondenceTitle], ['تلفن', info.phone], ['نشانی', info.address]];
               return rows.filter(([, v]) => v).map(([label, v]) => <InfoRow key={label} label={label}><span className={label === 'نام لاتین' || label === 'تلفن' || label === 'کد' ? 'dir-ltr' : ''}>{v}</span></InfoRow>);
             })()}
-            {unit.nodeType && <InfoRow label="جزء چارت"><NodeTypeBadge name={unit.nodeType.name} color={unit.nodeType.color} icon={unit.nodeType.icon} /></InfoRow>}
+            {unit.nodeType && <InfoRow label="نوع واحد"><NodeTypeBadge name={unit.nodeType.name} color={unit.nodeType.color} icon={unit.nodeType.icon} /></InfoRow>}
             {ancestorsOf(company, unit.unitId).length > 0 && (
               <InfoRow label="مسیر">
                 <span className="flex flex-wrap items-center justify-end gap-x-1 gap-y-0.5 text-xs">
@@ -477,9 +479,9 @@ export const OrgChartDetails: React.FC<{
             <NodePostTools key={unit.unitId} unit={unit} hasPattern={!!unit.nodeType} onChanged={onChanged} />
           )}
           <QuickActions>
-            {(nodes.length > 0 ? canNode(can, 'update') : can(U.update)) && <ActionTile icon={Pencil} label={nodes.length > 0 ? 'ویرایش گره' : 'ویرایش معاونت'} onClick={() => setDialog({ kind: 'editUnit', unit })} />}
+            {(nodes.length > 0 ? canNode(can, 'update') : can(U.update)) && <ActionTile icon={Pencil} label={nodes.length > 0 ? 'ویرایش واحد' : 'ویرایش معاونت'} onClick={() => setDialog({ kind: 'editUnit', unit })} />}
             {nodes.length > 0 && atLeast(levelOf(company), 'advanced') && canNode(can, 'move') && (
-              <ActionTile icon={GitMerge} label="ادغام در گره‌ی دیگر" disabled={busy || unit.isActive === false} onClick={() => openWithVersion(unit, { kind: 'merge', company, unit })} />
+              <ActionTile icon={GitMerge} label="ادغام در واحد دیگر" disabled={busy || unit.isActive === false} onClick={() => openWithVersion(unit, { kind: 'merge', company, unit })} />
             )}
             {nodes.length > 0 && atLeast(levelOf(company), 'advanced') && canNode(can, 'view') && (
               <ActionTile icon={History} label="تاریخچه و بازگردانی" onClick={() => openWithVersion(unit, { kind: 'history', company, unit })} />
@@ -488,14 +490,14 @@ export const OrgChartDetails: React.FC<{
               <ActionTile icon={Link2} label="افزودن مافوق دوم" disabled={busy || unit.isActive === false} onClick={() => setExtra({ kind: 'addLink', company, unit })} />
             )}
             {nodes.length > 0 && canNode(can, 'assign') && (
-              <ActionTile icon={UserRound} label="تعیین مدیر گره" disabled={busy} onClick={() => setDialog({ kind: 'nodeManager', unit })} />
+              <ActionTile icon={UserRound} label="تعیین مدیر واحد" disabled={busy} onClick={() => setDialog({ kind: 'nodeManager', unit })} />
             )}
             {nodes.length > 0 && canNode(can, 'create') && onRequestAdd && (
               <ActionTile
                 icon={Plus}
                 label="افزودن زیرمجموعه"
                 title="افزودن زیرمجموعه (روی کارت: کلید N)"
-                disabled={busy || unit.isActive === false || addableTypes(nodeTypes, rules, unit).length === 0}
+                disabled={busy || unit.isActive === false}
                 onClick={() => onRequestAdd(unit.unitId)}
               />
             )}
@@ -508,7 +510,7 @@ export const OrgChartDetails: React.FC<{
                   icon={Power}
                   label="فعال کردن"
                   disabled={busy}
-                  onClick={() => run(() => activateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» فعال شد.`, 'فعال کردن گره انجام نشد.')}
+                  onClick={() => run(() => activateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» فعال شد.`, 'فعال کردن واحد انجام نشد.')}
                 />
               ) : (
                 <ActionTile
@@ -516,12 +518,14 @@ export const OrgChartDetails: React.FC<{
                   tone="rose"
                   label="غیرفعال کردن"
                   disabled={busy}
-                  onClick={async () => await appConfirm(`گره «${unit.name}» غیرفعال شود؟`)
-                    && run(() => deactivateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» غیرفعال شد.`, 'غیرفعال کردن گره انجام نشد.')}
+                  onClick={async () => await appConfirm(`واحد «${unit.name}» غیرفعال شود؟`)
+                    && run(() => deactivateNode(unit.unitId, needVersion(unit.unitId)), `«${unit.name}» غیرفعال شد.`, 'غیرفعال کردن واحد انجام نشد.')}
                 />
               )
             )}
-            {canArrange && <ActionTile icon={Briefcase} label="افزودن سمت" onClick={() => setDialog({ kind: 'addUnitPosition', unit })} />}
+            {canArrange && (onRequestPosts
+              ? <ActionTile icon={Briefcase} label="افزودن پست" title="عنوان پست را بنویسید و تعداد را بدهید؛ عنوان تازه همین‌جا ساخته می‌شود" onClick={() => onRequestPosts(unit.unitId)} />
+              : <ActionTile icon={Briefcase} label="افزودن پست" onClick={() => setDialog({ kind: 'addUnitPosition', unit })} />)}
             {can(P.manageAssignments) && <ActionTile icon={UserPlus} label="افزودن فرد" onClick={() => setDialog({ kind: 'addUnitMember', company, unit })} />}
           </QuickActions>
           {can(P.manageCompanies) && !unit.parentNodeId && unitHeadcount(unit) > 0 && <p className="text-[11px] text-slate-400">برای جدا کردن معاونت از شرکت، ابتدا افراد آن را جابه‌جا کنید.</p>}
@@ -625,7 +629,7 @@ export const OrgChartDetails: React.FC<{
             />
           </div>
           <QuickActions>
-            {can(P.manageAssignments) && position.isActive && position.holders.length === 0 && <ActionTile icon={UserPlus} label="گذاشتن فرد در این پست" onClick={() => setDialog({ kind: 'addHolder', company, unit, position })} />}
+            {can(P.manageAssignments) && position.isActive && position.holders.length === 0 && <ActionTile icon={UserPlus} label="گذاشتن فرد در این پست" onClick={() => (unit && onRequestPlace ? onRequestPlace({ unitId: unit.unitId, positionId: position.positionId }) : setDialog({ kind: 'addHolder', company, unit, position }))} />}
             {can(P.manageAssignments) && position.isActive && (
               <ActionTile icon={UserCog} label={position.holders.length ? 'تعویض مسئول' : 'انتصاب با تاریخ'} title="انتصاب از امروز یا از روزی بعد؛ مسئول فعلی همان روز پایان می‌یابد" disabled={busy} onClick={() => setExtra({ kind: 'appoint', post: position, placeName })} />
             )}
@@ -678,7 +682,7 @@ export const OrgChartDetails: React.FC<{
           </div>
           <p className="text-xs text-slate-500">این فرد هنوز در هیچ شرکت یا معاونتی قرار نگرفته است.</p>
           <QuickActions>
-            {can(P.manageAssignments) && <ActionTile icon={UserPlus} label="قرار دادن در ساختار" onClick={() => setDialog({ kind: 'placeUser', userId: person.userId, name: person.displayName })} />}
+            {can(P.manageAssignments) && <ActionTile icon={UserPlus} label="قرار دادن در ساختار" onClick={() => (onRequestPlace ? onRequestPlace({ userId: person.userId, userName: person.displayName }) : setDialog({ kind: 'placeUser', userId: person.userId, name: person.displayName }))} />}
           </QuickActions>
         </>
       );
@@ -976,7 +980,7 @@ const ChartDialog: React.FC<{
       break;
     }
     case 'editUnit': {
-      title = useNodeApi ? 'ویرایش گره' : 'ویرایش معاونت';
+      title = useNodeApi ? 'ویرایش واحد' : 'ویرایش معاونت';
       canSave = canSave && !!name.trim();
       const unit = dialog.unit;
       const mainChanged = name.trim() !== unit.name || typeId !== (unit.nodeType?.nodeTypeId ?? '');
@@ -993,12 +997,12 @@ const ChartDialog: React.FC<{
           }
           return undefined;
         },
-        'گره ویرایش شد.', 'ویرایش گره انجام نشد.'));
+        'واحد ویرایش شد.', 'ویرایش واحد انجام نشد.'));
       const tabs = [{ id: 'main' as const, label: 'اطلاعات اصلی' }, { id: 'extra' as const, label: 'تکمیلی' }, { id: 'contact' as const, label: 'تماس' }];
       content = (
         <>
           {useNodeApi && (
-            <div role="tablist" aria-label="بخش‌های فرم گره" className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
+            <div role="tablist" aria-label="بخش‌های فرم واحد" className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
               {tabs.map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer ${tab === t.id ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-xs' : 'text-slate-500'}`}>{t.label}</button>
               ))}
@@ -1008,21 +1012,21 @@ const ChartDialog: React.FC<{
             <>
               <Field label="نام" required><input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={200} /></Field>
               {useNodeApi && nodeTypes.length > 0 && (
-                <Field label="جزء چارت" hint="با تغییر جزء، جای گره در ساختار عوض نمی‌شود؛ اگر با قاعده‌ی «سلسله‌مراتب مجاز» نخواند، در صفحه‌ی قواعد در فهرست ناسازگارها می‌آید.">
+                <Field label="نوع واحد" hint="با تغییر جزء، جای واحد در ساختار عوض نمی‌شود؛ اگر با قاعده‌ی «سلسله‌مراتب مجاز» نخواند، در صفحه‌ی قواعد در فهرست ناسازگارها می‌آید.">
                   <select className={inputClass} value={typeId} onChange={(e) => setTypeId(e.target.value)}>
                     <option value="">— بدون جزء (واحد ساده) —</option>
                     {nodeTypes.filter((t) => t.isActive || t.id === typeId).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </Field>
               )}
-              {useNodeApi && <Field label="کد گره" hint="اختیاری؛ در هر شرکت یکتاست (مثلاً کد شعبه)."><input className={`${inputClass} dir-ltr text-right`} value={nodeCode} onChange={(e) => setNodeCode(e.target.value)} maxLength={40} /></Field>}
+              {useNodeApi && <Field label="کد واحد" hint="اختیاری؛ در هر شرکت یکتاست (مثلاً کد شعبه)."><input className={`${inputClass} dir-ltr text-right`} value={nodeCode} onChange={(e) => setNodeCode(e.target.value)} maxLength={40} /></Field>}
               {!useNodeApi && can(U.update) && <Toggle checked={active} onChange={setActive} label="فعال" />}
             </>
           )}
           {useNodeApi && tab === 'extra' && (
             <>
               <Field label="نام لاتین" hint="اختیاری؛ مثلاً برای مکاتبات و گزارش‌های دوزبانه."><input className={`${inputClass} dir-ltr text-right`} value={latinName} onChange={(e) => setLatinName(e.target.value)} maxLength={200} /></Field>
-              <Field label="عنوان مکاتباتی" hint="اختیاری؛ عنوانی که در نامه‌ها به‌جای نام گره می‌آید."><input className={inputClass} value={letterTitle} onChange={(e) => setLetterTitle(e.target.value)} maxLength={200} /></Field>
+              <Field label="عنوان مکاتباتی" hint="اختیاری؛ عنوانی که در نامه‌ها به‌جای نام واحد می‌آید."><input className={inputClass} value={letterTitle} onChange={(e) => setLetterTitle(e.target.value)} maxLength={200} /></Field>
             </>
           )}
           {useNodeApi && tab === 'contact' && (
@@ -1040,14 +1044,14 @@ const ChartDialog: React.FC<{
       title = `مدیر «${dialog.unit.name}»`;
       save = async () => done(await run(
         () => setNodeManager(dialog.unit.unitId, personId, versionOf(dialog.unit.unitId)),
-        personId ? `«${personName}» مدیر گره شد.` : 'مدیر گره برداشته شد.', 'تعیین مدیر گره انجام نشد.'));
+        personId ? `«${personName}» مدیر واحد شد.` : 'مدیر واحد برداشته شد.', 'تعیین مدیر واحد انجام نشد.'));
       content = (
         <PersonField
-          label="مدیر گره"
+          label="مدیر واحد"
           personId={personId}
           personName={personName}
           onChange={(id, n) => { setPersonId(id); setPersonName(n); }}
-          hint="خالی بگذارید تا مدیر گره، دارنده‌ی «پست مدیر» آن باشد. مدیر تعیین‌شده بر دارنده‌ی پست مقدم است."
+          hint="خالی بگذارید تا مدیر واحد، دارنده‌ی «پست مدیر» آن باشد. مدیر تعیین‌شده بر دارنده‌ی پست مقدم است."
         />
       );
       break;

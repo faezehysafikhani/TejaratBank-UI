@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Briefcase, Building2, Layers, Link2, LayoutTemplate, ListChecks, Network } from 'lucide-react';
+import { Briefcase, Building2, GitFork, Layers, Link2, LayoutTemplate, ListChecks, Network } from 'lucide-react';
 import { AdminCard, AdminDialog, Notice, SecondaryButton } from '../AdminUi';
 import { ORG_STRUCTURE_PERMISSIONS as P, ORG_UNIT_PERMISSIONS as U, type OrgUiLevel, canNode, getChart } from '../../../services/orgStructureApi';
 import { OrgChartBoard } from './OrgChartBoard';
@@ -16,8 +16,10 @@ import { atLeast, highestLevel } from './orgUiLevel';
 type ToolId = 'companies' | 'units' | 'positions' | 'group' | 'links' | 'templates' | 'rules';
 
 const TOOL_TITLES: Record<ToolId, string> = {
-  companies: 'شرکت‌ها', units: 'معاونت‌ها و واحدها', positions: 'سمت‌ها', group: 'چارت گروه', links: 'رابطه‌ها', templates: 'قالب‌ها', rules: 'قواعد ساختار',
+  companies: 'شرکت‌ها', units: 'فهرست واحدها', positions: 'سمت‌ها (عنوان‌های شغلی)', group: 'چارت گروه', links: 'رابطه‌ها', templates: 'قالب‌ها', rules: 'قواعد ساختار',
 };
+/** The tools a user making one company does not need: they sit under «پیشرفته». */
+const ADVANCED_TOOLS: ToolId[] = ['group', 'links', 'templates', 'rules'];
 const TOOL_ICONS: Record<ToolId, React.ComponentType<{ className?: string }>> = {
   companies: Building2, units: Network, positions: Briefcase, group: Layers, links: Link2, templates: LayoutTemplate, rules: ListChecks,
 };
@@ -44,10 +46,21 @@ export const OrgStructureSection: React.FC<{ can: (permission: string) => boolea
   const board = useLoad(loadPlacementBoard, 'دریافت اطلاعات ساختار سازمانی ممکن نشد.');
   const [pick, setPick] = useState<PlacementPick | null>(null);
   const [tool, setTool] = useState<ToolId | null>(null);
+  const [moreTools, setMoreTools] = useState(false);
+  const toolButton = (id: ToolId) => {
+    const Icon = TOOL_ICONS[id];
+    return (
+      <button key={id} type="button" onClick={() => setTool(id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+        <Icon className="w-3.5 h-3.5" /> {TOOL_TITLES[id]}
+      </button>
+    );
+  };
   /** A company asked for from the group chart: the chart opens on it. */
   const [chartCompanyId, setChartCompanyId] = useState<string | undefined>(undefined);
   /** Bumped to draw the chart again after the form saved. */
   const [chartKey, setChartKey] = useState(0);
+  /** The «افزودن نفر به پست» window (the form, with everything: person, post, start day, direct manager). */
+  const [placeOpen, setPlaceOpen] = useState(false);
 
   const tools: ToolId[] = [
     ...(reader ? ['companies' as const] : []),
@@ -67,27 +80,22 @@ export const OrgStructureSection: React.FC<{ can: (permission: string) => boolea
   return (
     <div className="space-y-4">
       {board.error && <Notice type="error">{board.error}</Notice>}
-      <OrgPlacementForm
-        board={board.data}
-        pick={pick}
-        canAssign={can(P.manageAssignments)}
-        canCreateUnits={canNode(can, 'create') || can(U.create)}
-        canCreatePositions={can(P.managePositions)}
-        onSaved={async () => { setChartKey((k) => k + 1); await board.reload(); }}
-        onTool={(id) => setTool(id)}
-      />
       <AdminCard className="p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">چارت سازمانی</h3>
+          <h3 className="flex items-center gap-2 text-base font-extrabold text-slate-900 dark:text-white"><GitFork className="w-5 h-5 text-indigo-600" aria-hidden="true" /> چارت سازمانی</h3>
           <div className="flex flex-wrap gap-1.5">
-            {tools.map((id) => {
-              const Icon = TOOL_ICONS[id];
-              return (
-                <button key={id} type="button" onClick={() => setTool(id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
-                  <Icon className="w-3.5 h-3.5" /> {TOOL_TITLES[id]}
-                </button>
-              );
-            })}
+            {tools.filter((id) => !ADVANCED_TOOLS.includes(id)).map((id) => toolButton(id))}
+            {tools.some((id) => ADVANCED_TOOLS.includes(id)) && (
+              <button
+                type="button"
+                onClick={() => setMoreTools((v) => !v)}
+                aria-expanded={moreTools}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-500 hover:text-indigo-600 cursor-pointer"
+              >
+                پیشرفته {moreTools ? '▴' : '▾'}
+              </button>
+            )}
+            {moreTools && tools.filter((id) => ADVANCED_TOOLS.includes(id)).map((id) => toolButton(id))}
           </div>
         </div>
         <OrgChartBoard
@@ -96,8 +104,24 @@ export const OrgStructureSection: React.FC<{ can: (permission: string) => boolea
           onLevelChange={setLevel}
           initialCompanyId={chartCompanyId}
           onPlacementPick={(next) => setPick({ ...next, at: Date.now() })}
+          onStructureChanged={() => void board.reload()}
+          onRequestPlace={(next) => { setPick({ ...next, at: Date.now() }); setPlaceOpen(true); }}
         />
       </AdminCard>
+      {placeOpen && (
+        <AdminDialog wide title="افزودن نفر به پست" onClose={() => setPlaceOpen(false)} footer={<SecondaryButton onClick={() => setPlaceOpen(false)}>بستن</SecondaryButton>}>
+          <OrgPlacementForm
+            embedded
+            board={board.data}
+            pick={pick}
+            canAssign={can(P.manageAssignments)}
+            canCreateUnits={canNode(can, 'create') || can(U.create)}
+            canCreatePositions={can(P.managePositions)}
+            onSaved={async () => { setChartKey((k) => k + 1); await board.reload(); }}
+            onDone={() => setPlaceOpen(false)}
+          />
+        </AdminDialog>
+      )}
       {tool && (
         <AdminDialog wide title={TOOL_TITLES[tool]} onClose={close} footer={<SecondaryButton onClick={close}>بستن</SecondaryButton>}>
           {tool === 'companies' && <CompaniesPanel canManage={can(P.manageCompanies)} canSeeUnits={can(U.view)} advanced={advanced} />}

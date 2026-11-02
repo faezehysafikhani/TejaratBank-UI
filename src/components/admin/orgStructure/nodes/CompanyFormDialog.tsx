@@ -182,10 +182,10 @@ export const CompanyFormDialog: React.FC<{
       {!editing && templates.length > 0 && (
         <Field label="ساختار اولیه" hint="قالب فقط کپی می‌شود و بعد از ساخت به آن وصل نیست.">
           <select className={inputClass} value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-            <option value="">شرکت خالی (خودتان گره‌ها را می‌سازید)</option>
+            <option value="">شرکت خالی (خودتان واحدها را می‌سازید)</option>
             {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.isSystem ? '' : ' (قالب شما)'}</option>)}
           </select>
-          {template && <span className="block mt-1 text-[11px] text-slate-500">{toPersianDigits(template.nodeCount)} گره · {toPersianDigits(template.nodeTypeCount)} جزء چارت · سطح نمایش {UI_LEVEL_TITLES[template.uiLevel] || template.uiLevel}</span>}
+          {template && <span className="block mt-1 text-[11px] text-slate-500">{toPersianDigits(template.nodeCount)} واحد · {toPersianDigits(template.nodeTypeCount)} نوع واحد · سطح نمایش {UI_LEVEL_TITLES[template.uiLevel] || template.uiLevel}</span>}
         </Field>
       )}
 
@@ -193,7 +193,7 @@ export const CompanyFormDialog: React.FC<{
         <fieldset className="space-y-2">
           <legend className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">معاونت‌های شرکت {chosenCount > 0 && <span className="text-slate-500 font-normal">({toPersianDigits(chosenCount)} انتخاب‌شده)</span>}</legend>
           {units.loading ? <p className="text-xs text-slate-500">در حال دریافت…</p> : units.error ? <Notice type="error">{units.error}</Notice>
-            : unitChoices.length === 0 ? <p className="text-xs text-slate-500">معاونتی بدون شرکت نیست. معاونت تازه را بعد از ساخت شرکت در چارت با «افزودن معاونت» بسازید.</p> : (
+            : unitChoices.length === 0 ? <p className="text-xs text-slate-500">واحد بدون شرکتی نیست. واحدها را بعد از ثبت شرکت در چارت با «افزودن واحد» بسازید.</p> : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 p-2">
                 {unitChoices.map((u) => (
                   <label key={u.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">

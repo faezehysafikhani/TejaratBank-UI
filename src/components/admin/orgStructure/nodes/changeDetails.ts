@@ -43,7 +43,7 @@ const pair = (label: string, before: string, after: string): string[] =>
   before === after ? [] : [`${label}: ${before || EMPTY} ← ${after || EMPTY}`];
 
 const DETAIL_FIELDS: [string, string][] = [
-  ['code', 'کد گره'], ['LatinName', 'نام لاتین'], ['CorrespondenceTitle', 'عنوان مکاتباتی'], ['Phone', 'تلفن'], ['Address', 'نشانی'],
+  ['code', 'کد واحد'], ['LatinName', 'نام لاتین'], ['CorrespondenceTitle', 'عنوان مکاتباتی'], ['Phone', 'تلفن'], ['Address', 'نشانی'],
 ];
 
 /** The change in short Persian lines; empty when there is nothing to add to its title. */
@@ -60,7 +60,7 @@ export function describeChange(action: string, details: string | null | undefine
   switch (action) {
     case 'create': {
       const lines = [`نام: ${text(field(data, 'name')) || EMPTY}`];
-      if (text(field(data, 'type'))) lines.push(`جزء چارت: ${named(names.type, field(data, 'type'))}`);
+      if (text(field(data, 'type'))) lines.push(`نوع واحد: ${named(names.type, field(data, 'type'))}`);
       lines.push(text(field(data, 'parent')) ? `زیر: ${named(names.node, field(data, 'parent'))}` : `بالاترین سطح ${named(names.company, field(data, 'company'), '')}`.trim());
       const autoLinks = field(data, 'autoLinks');
       if (Array.isArray(autoLinks) && autoLinks.length > 0) lines.push(`${toPersianDigits(autoLinks.length)} رابطه‌ی خودکار`);
@@ -69,12 +69,12 @@ export function describeChange(action: string, details: string | null | undefine
     case 'update':
       return [
         ...pair('نام', text(field(before, 'name')), text(field(after, 'name'))),
-        ...pair('جزء چارت', named(names.type, field(before, 'type'), 'بدون جزء'), named(names.type, field(after, 'type'), 'بدون جزء')),
+        ...pair('نوع واحد', named(names.type, field(before, 'type'), 'بدون جزء'), named(names.type, field(after, 'type'), 'بدون جزء')),
       ];
     case 'details':
       return DETAIL_FIELDS.flatMap(([key, label]) => pair(label, text(field(before, key)), text(field(after, key))));
     case 'manager':
-      return pair('مدیر گره', named(names.user, before, 'ندارد'), named(names.user, after, 'ندارد'));
+      return pair('مدیر واحد', named(names.user, before, 'ندارد'), named(names.user, after, 'ندارد'));
     case 'move': {
       const place = (value: unknown) => (text(field(value, 'parent'))
         ? `زیر ${named(names.node, field(value, 'parent'))}`

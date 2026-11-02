@@ -91,7 +91,7 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
             {links.map((l) => (
               <li key={l.id} className="flex items-center gap-3 px-5 py-2.5">
                 <LineSample style={l.lineStyle} />
-                <span className="flex-1 text-sm leading-7 text-slate-800 dark:text-slate-100">{linkSentence(l.fromName, l.toName, l)}</span>
+                <span className="flex-1 text-sm leading-7 text-slate-800 dark:text-slate-100">{linkSentence(l.fromName, l.toName, { name: l.linkTypeName, lineStyle: l.lineStyle, countsAsManager: l.countsAsManager })}</span>
                 {canEditLinks && (
                   <IconAction icon={Trash2} tone="rose" label={`برداشتن رابطه‌ی ${l.fromName} به ${l.toName}`} disabled={busy} onClick={async () => {
                     if (await appConfirm(`رابطه‌ی «${l.fromName}» به «${l.toName}» برداشته شود؟`, { danger: true, confirmLabel: 'بردار' })) {
@@ -109,7 +109,7 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">نوع رابطه‌ها</h3>
-            <p className="text-xs text-slate-500 mt-0.5">شکل خط در چارت و اینکه مدیر گره‌ی مقصد، مدیر حساب شود یا نه. خط نقطه‌چین هیچ‌وقت مدیر حساب نمی‌شود.</p>
+            <p className="text-xs text-slate-500 mt-0.5">شکل خط در چارت و اینکه مدیر واحد مقصد، مدیر حساب شود یا نه. خط نقطه‌چین هیچ‌وقت مدیر حساب نمی‌شود.</p>
           </div>
           {canManageTypes && <PrimaryButton onClick={() => setDraft({ name: '', lineStyle: 'dashed', countsAsManager: false, isActive: true })}><Plus className="w-4 h-4" /> نوع جدید</PrimaryButton>}
         </div>
@@ -139,7 +139,7 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white">رابطه‌ی خودکار</h3>
-            <p className="text-xs text-slate-500 mt-0.5">وقتی گره‌ای از جزء مبدأ ساخته شود، خودش به گره‌ی جزء مقصد وصل می‌شود (اگر چند گره‌ی مقصد باشد، از شما می‌پرسد). فقط برای گره‌های تازه است؛ گره‌های موجود را با «پیش‌نمایش اجرا» می‌شود یک‌جا وصل کرد.</p>
+            <p className="text-xs text-slate-500 mt-0.5">وقتی واحدی از جزء مبدأ ساخته شود، خودش به واحد جزء مقصد وصل می‌شود (اگر چند واحد مقصد باشد، از شما می‌پرسد). فقط برای واحدهای تازه است؛ واحدهای موجود را با «پیش‌نمایش اجرا» می‌شود یک‌جا وصل کرد.</p>
           </div>
           {canManageTypes && (
             <div className="flex items-center gap-2">
@@ -172,18 +172,18 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
       </AdminCard>
 
       {plan && (
-        <AdminDialog title="اجرای رابطه‌ی خودکار روی گره‌های موجود" wide onClose={() => setPlan(null)} footer={<>
+        <AdminDialog title="اجرای رابطه‌ی خودکار روی واحدهای موجود" wide onClose={() => setPlan(null)} footer={<>
           <SecondaryButton onClick={() => setPlan(null)}>بستن</SecondaryButton>
           <PrimaryButton disabled={busy || plan.links.length === 0} onClick={async () => {
             if (await act(() => applyAutoLinks(plan.links.map((l) => ({ fromNodeId: l.fromNodeId, toNodeId: l.toNodeId, linkTypeId: l.linkTypeId }))), `${toPersianDigits(plan.links.length)} رابطه اضافه شد.`, 'اضافه کردن رابطه‌ها انجام نشد.')) { setPlan(null); await data.reload(); }
           }}>{busy && <Loader2 className="w-4 h-4 animate-spin" />} اضافه کردن {toPersianDigits(plan.links.length)} رابطه</PrimaryButton>
         </>}>
-          {plan.links.length === 0 && plan.ambiguous.length === 0 ? <p className="text-sm text-slate-600">همه‌ی گره‌ها همین حالا مطابق قاعده‌ها وصل‌اند.</p> : (
+          {plan.links.length === 0 && plan.ambiguous.length === 0 ? <p className="text-sm text-slate-600">همه‌ی واحدها همین حالا مطابق قاعده‌ها وصل‌اند.</p> : (
             <>
               <ul className="space-y-1 max-h-80 overflow-y-auto text-sm" data-scrollable>
                 {plan.links.map((l, i) => <li key={i}><Link2 className="inline w-3.5 h-3.5 me-1 text-indigo-600" />«{l.fromName}» ← {l.linkTypeName} ← «{l.toName}»</li>)}
               </ul>
-              {plan.ambiguous.length > 0 && <Notice type="info">{toPersianDigits(plan.ambiguous.length)} گره چند مقصد ممکن دارد و اضافه نمی‌شود: {plan.ambiguous.map((a) => a.nodeName).join('، ')}. برایشان از چارت، «افزودن مافوق دوم» را بزنید.</Notice>}
+              {plan.ambiguous.length > 0 && <Notice type="info">{toPersianDigits(plan.ambiguous.length)} واحد چند مقصد ممکن دارد و اضافه نمی‌شود: {plan.ambiguous.map((a) => a.nodeName).join('، ')}. برایشان از چارت، «افزودن مافوق دوم» را بزنید.</Notice>}
             </>
           )}
         </AdminDialog>
@@ -207,7 +207,7 @@ export const OrgLinksPanel: React.FC<{ canEditLinks: boolean; canManageTypes: bo
               ))}
             </div>
           </fieldset>
-          <Toggle checked={draft.countsAsManager} disabled={draft.lineStyle === 'dotted'} onChange={(v) => setDraft({ ...draft, countsAsManager: v })} label="مدیر گره‌ی مقصد، مدیر دوم حساب شود" description={draft.lineStyle === 'dotted' ? 'خط نقطه‌چین هیچ‌وقت مدیر حساب نمی‌شود.' : 'افراد گره‌ی مبدأ یک مدیر دوم پیدا می‌کنند؛ مدیر اصلی، زیردستان و ارجاع کارشان عوض نمی‌شود.'} />
+          <Toggle checked={draft.countsAsManager} disabled={draft.lineStyle === 'dotted'} onChange={(v) => setDraft({ ...draft, countsAsManager: v })} label="مدیر واحد مقصد، مدیر دوم حساب شود" description={draft.lineStyle === 'dotted' ? 'خط نقطه‌چین هیچ‌وقت مدیر حساب نمی‌شود.' : 'افراد واحد مبدأ یک مدیر دوم پیدا می‌کنند؛ مدیر اصلی، زیردستان و ارجاع کارشان عوض نمی‌شود.'} />
           {draft.id && <Toggle checked={draft.isActive} onChange={(v) => setDraft({ ...draft, isActive: v })} label="فعال" />}
         </AdminDialog>
       )}

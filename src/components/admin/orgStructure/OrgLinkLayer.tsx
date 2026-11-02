@@ -40,7 +40,9 @@ export const OrgLinkLayer: React.FC<{
   content: RefObject<HTMLDivElement | null>;
   /** The selected node: its lines are drawn stronger. */
   highlightNodeId?: string | null;
-}> = ({ company, content, highlightNodeId }) => {
+  /** Cards moved by hand in the free layout (by card key): the lines follow them. */
+  offsets?: Record<string, { x: number; y: number }>;
+}> = ({ company, content, highlightNodeId, offsets }) => {
   const links = useMemo(() => linksOf(company), [company]);
   const [drawn, setDrawn] = useState<DrawnLink[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -57,7 +59,9 @@ export const OrgLinkLayer: React.FC<{
     const boxOf = (unitId: string) => {
       if (!boxes.has(unitId)) {
         const el = host.querySelector(`[data-node="unit:${CSS.escape(unitId)}"]`) as HTMLElement | null;
-        boxes.set(unitId, el && el.offsetParent ? localRect(el, host) : null);
+        const r = el && el.offsetParent ? localRect(el, host) : null;
+        const o = offsets?.[`unit:${unitId}`];
+        boxes.set(unitId, r && o ? { ...r, x: r.x + o.x, y: r.y + o.y } : r);
       }
       return boxes.get(unitId)!;
     };
@@ -70,7 +74,7 @@ export const OrgLinkLayer: React.FC<{
     }
     setDrawn(next);
     setSize({ w: root.offsetWidth, h: root.offsetHeight });
-  }, [content, links]);
+  }, [content, links, offsets]);
 
   useLayoutEffect(() => { measure(); }, [measure]);
 

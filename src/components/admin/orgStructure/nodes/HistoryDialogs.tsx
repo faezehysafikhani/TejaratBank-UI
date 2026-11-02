@@ -21,7 +21,7 @@ import { useLoad } from '../orgShared';
 import { ImpactPreviewDialog } from './ImpactPreviewDialog';
 import { MergeNodesForm, type MergeNodesInput } from './MergeNodesForm';
 
-/** «ادغام در گره‌ی دیگر»: choose the target and the date, see what it changes for people, then merge. */
+/** «ادغام در واحد دیگر»: choose the target and the date, see what it changes for people, then merge. */
 export const MergeNodeDialog: React.FC<{
   company: ChartCompany;
   unit: ChartUnit;
@@ -51,14 +51,14 @@ export const MergeNodeDialog: React.FC<{
     );
   }
   return (
-    <AdminDialog title={`ادغام «${unit.name}» در گره‌ی دیگر`} wide onClose={onClose} footer={<SecondaryButton type="button" onClick={onClose}>بستن</SecondaryButton>}>
+    <AdminDialog title={`ادغام «${unit.name}» در واحد دیگر`} wide onClose={onClose} footer={<SecondaryButton type="button" onClick={onClose}>بستن</SecondaryButton>}>
       <MergeNodesForm company={company} initialSourceId={unit.unitId} onSubmit={setInput} onCancel={onClose} />
     </AdminDialog>
   );
 };
 
 const ACTION_TITLES: Record<string, string> = {
-  create: 'ساخته شد', update: 'ویرایش نام یا جزء چارت', manager: 'تغییر مدیر', move: 'جابه‌جایی', reorder: 'تغییر ترتیب', deactivate: 'غیرفعال شد', activate: 'فعال شد',
+  create: 'ساخته شد', update: 'ویرایش نام یا نوع واحد', manager: 'تغییر مدیر', move: 'جابه‌جایی', reorder: 'تغییر ترتیب', deactivate: 'غیرفعال شد', activate: 'فعال شد',
   details: 'ویرایش اطلاعات', validity: 'تغییر تاریخ وجود', merge: 'ادغام', unmerge: 'برگشت ادغام', undo: 'بازگردانی', link: 'افزودن رابطه', unlink: 'برداشتن رابطه',
 };
 const actionTitle = (action: string) => ACTION_TITLES[action] || ACTION_TITLES[action.split('.').pop() || ''] || action;
@@ -87,7 +87,7 @@ export const NodeHistoryDialog: React.FC<{
   const last = changes[0];
 
   const undo = async () => {
-    if (!(await appConfirm('آخرین تغییر این گره برگردانده شود؟ بازگردانی هم مثل هر تغییر دیگر بررسی و در تاریخچه ثبت می‌شود.', { confirmLabel: 'بازگردان' }))) return;
+    if (!(await appConfirm('آخرین تغییر این واحد برگردانده شود؟ بازگردانی هم مثل هر تغییر دیگر بررسی و در تاریخچه ثبت می‌شود.', { confirmLabel: 'بازگردان' }))) return;
     setBusy(true);
     setMessage(null);
     try {
