@@ -241,11 +241,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const loginLogo = brand.hasCustomLogo ? brand.logo : '/login-mark.png';
+  const loginLogo = brand.hasCustomLogo ? brand.logo : '/login-logo.jpg';
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto animate-in fade-in duration-200" data-testid="login-page">
       {/* Background: deep green with soft glows and small white lights drifting like stars. */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-950 to-black" />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
       <div aria-hidden="true" className="absolute -top-32 -start-24 w-[34rem] h-[34rem] rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
       <div aria-hidden="true" className="absolute -bottom-40 end-1/4 w-[30rem] h-[30rem] rounded-full bg-lime-400/10 blur-3xl pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
@@ -650,7 +650,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
-          <img src={loginLogo} alt="لوگوی سامانه" className="h-72 w-auto max-w-[22rem] object-contain" style={{ filter: 'drop-shadow(0 0 14px rgba(236,253,245,0.55)) drop-shadow(0 6px 12px rgba(0,0,0,0.45))' }} />
+          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
+            <img src={loginLogo} alt="لوگوی سامانه" className="w-44 h-44 object-contain" />
+          </div>
           <div>
             <p className="brand-display text-5xl font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
             <p className="mt-1 text-sm font-semibold text-emerald-100/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
