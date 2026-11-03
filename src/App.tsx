@@ -1348,7 +1348,7 @@ export default function App() {
             onOpenCreateModal={canCreateTask ? () => handleOpenCreateModal('todo') : undefined}
             canOpenTab={canOpenSection}
             onOpenSettings={() => handleNavigateTab('settings')}
-            onOpenPdfCatalog={() => setIsPdfCatalogOpen(true)}
+            onOpenPdfCatalog={() => { window.open('/docs/system-guide.pdf', '_blank', 'noopener'); }}
             onLogout={handleLogout}
             overdueCount={overdueCount}
             unreadChatCount={totalUnreadChatCount}
@@ -1524,7 +1524,7 @@ export default function App() {
                   onOpenAuthModal={() => setIsAuthModalOpen(true)}
                   onSaveProfile={handleSaveProfile}
                   onTeamsUpdated={handleTeamsUpdated}
-                  onOpenPdfCatalog={() => setIsPdfCatalogOpen(true)}
+                  onOpenPdfCatalog={() => { window.open('/docs/system-guide.pdf', '_blank', 'noopener'); }}
                   onBackToKanban={() => handleNavigateTab('kanban')}
                 />
               </Suspense>
@@ -1626,7 +1626,7 @@ export default function App() {
             onOpenAuthModal={() => setIsAuthModalOpen(true)}
             onSaveProfile={handleSaveProfile}
             onTeamsUpdated={handleTeamsUpdated}
-            onOpenPdfCatalog={() => setIsPdfCatalogOpen(true)}
+            onOpenPdfCatalog={() => { window.open('/docs/system-guide.pdf', '_blank', 'noopener'); }}
           />
         )}
 

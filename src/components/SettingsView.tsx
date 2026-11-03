@@ -691,7 +691,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>مشاهده و چاپ کاتالوگ (PDF)</span>
+                  <span>مشاهده و دریافت دفترچه راهنما (PDF)</span>
                 </button>
               </div>
             </div>
