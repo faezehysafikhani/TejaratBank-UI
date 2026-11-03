@@ -243,12 +243,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const loginLogo = brand.hasCustomLogo ? brand.logo : '/login-logo.jpg';
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto animate-in fade-in duration-200" data-testid="login-page">
+    <div className="fixed inset-0 z-50 overflow-y-auto lg:overflow-hidden animate-in fade-in duration-200" data-testid="login-page">
       {/* Background: deep green with soft glows and small white lights drifting like stars. */}
-      <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
-      <div aria-hidden="true" className="absolute -top-32 -start-24 w-[34rem] h-[34rem] rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
-      <div aria-hidden="true" className="absolute -bottom-40 end-1/4 w-[30rem] h-[30rem] rounded-full bg-lime-400/10 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+      <div aria-hidden="true" className="fixed inset-0 pointer-events-none bg-gradient-to-br from-emerald-950 via-emerald-900 to-slate-950" />
+      <div aria-hidden="true" className="fixed -top-32 -start-24 w-[34rem] h-[34rem] rounded-full bg-emerald-500/20 blur-3xl pointer-events-none" />
+      <div aria-hidden="true" className="fixed -bottom-40 end-1/4 w-[30rem] h-[30rem] rounded-full bg-lime-400/10 blur-3xl pointer-events-none" />
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
         <div className="absolute top-[12%] left-[10%] w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.9)] animate-float-1" />
         <div className="absolute top-[22%] right-[15%] w-5 h-5 rounded-full bg-white/90 shadow-[0_0_14px_rgba(255,255,255,0.9)] animate-float-2" />
         <div className="absolute bottom-[18%] left-[14%] w-4 h-4 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.95)] animate-float-3" />
@@ -263,10 +263,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="absolute top-[75%] right-[25%] w-3 h-3 rounded-full bg-white shadow-[0_0_9px_rgba(255,255,255,0.9)] animate-float-3" />
       </div>
 
-      <div className="relative min-h-full flex flex-col lg:flex-row">
+      <div className="relative min-h-full lg:min-h-0 lg:h-full flex flex-col lg:flex-row">
         {/* The sign-in side (on the right in RTL) */}
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:flex-none lg:w-[46%]">
-          <div className="relative z-10 w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-white/60 dark:border-slate-800 overflow-hidden text-right flex flex-col">
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-8 lg:flex-none lg:w-[46%] lg:h-full lg:min-h-0 lg:p-6">
+          <div className="relative z-10 w-full max-w-md lg:max-h-full bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-white/60 dark:border-slate-800 overflow-hidden text-right flex flex-col">
             <div className="relative px-6 pt-8 pb-3 text-center shrink-0">
               {canClose && (
                 <button
@@ -649,12 +649,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </main>
 
         {/* The brand side (on the left in RTL) */}
-        <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-5 px-10 py-12 text-center" data-testid="login-brand">
-          <div className="w-56 h-56 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
-            <img src={loginLogo} alt="لوگوی سامانه" className="w-52 h-52 object-contain" />
+        <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-[clamp(0.5rem,2vh,1.25rem)] px-10 py-4 text-center lg:h-full lg:min-h-0 overflow-hidden" data-testid="login-brand">
+          <div className="w-[min(14rem,24vh)] h-[min(14rem,24vh)] shrink-0 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
+            <img src={loginLogo} alt="لوگوی سامانه" className="w-[88%] h-[88%] object-contain" />
           </div>
           <div>
-            <p className="brand-display text-5xl font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
+            <p className="brand-display text-[clamp(2rem,7vh,3rem)] font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>
             <p className="mt-1 text-sm font-semibold text-emerald-100/80">سامانه یکپارچه وظایف، جلسات و ساختار سازمانی</p>
           </div>
           <LoginClock />
