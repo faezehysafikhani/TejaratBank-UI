@@ -379,8 +379,13 @@ export default function App() {
       setIsAuthModalOpen(true);
       // Why: signed out for inactivity, closed from another device, by an administrator...
       const message = SESSION_END_MESSAGES[sessionEndReasonOf(event) ?? ''];
-      if (message) void appAlert(message);
+      // Several requests failing together report the end several times: one notice, one click.
+      if (message && !endedNoticeOpen) {
+        endedNoticeOpen = true;
+        void appAlert(message).finally(() => { endedNoticeOpen = false; });
+      }
     };
+    let endedNoticeOpen = false;
     window.addEventListener(SESSION_ENDED_EVENT, onSessionEnded);
     return () => window.removeEventListener(SESSION_ENDED_EVENT, onSessionEnded);
   }, []);

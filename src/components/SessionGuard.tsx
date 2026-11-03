@@ -63,9 +63,14 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
   const deadlinesRef = useRef<Deadlines | null>(null);
   const checkingEndRef = useRef(false);
   const stayingRef = useRef(false);
+  // When "Continue" was last pressed: an answer to a question asked before it is out of date.
+  const stayAtRef = useRef(0);
   const [stayError, setStayError] = useState<string | null>(null);
 
-  const apply = useCallback((status: SessionStatus) => {
+  const apply = useCallback((status: SessionStatus, askedAt = Date.now()) => {
+    // A status requested before the user pressed "Continue" still carries the old idle time and
+    // would bring the dialog straight back.
+    if (askedAt < stayAtRef.current) return;
     const received = Date.now();
     const next = {
       idleAt: received + status.idleRemainingSeconds * 1000,
@@ -78,8 +83,9 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
   }, []);
 
   const resync = useCallback(async () => {
+    const askedAt = Date.now();
     try {
-      apply(await getSessionStatus());
+      apply(await getSessionStatus(), askedAt);
     } catch {
       // A 401 already signed the user out (the HTTP client reports why); anything else is retried on the next tick.
     }
@@ -118,7 +124,8 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
   useEffect(() => {
     const timer = window.setInterval(() => {
       if (!hasPendingActivity()) return;
-      keepSessionAlive().then(apply).catch(() => undefined);
+      const askedAt = Date.now();
+      keepSessionAlive().then((status) => apply(status, askedAt)).catch(() => undefined);
     }, HEARTBEAT_MS);
     return () => window.clearInterval(timer);
   }, [apply]);
@@ -158,13 +165,14 @@ export const SessionGuard: React.FC<{ identifier: string; onSignOut: () => void 
     const before = deadlinesRef.current;
     if (!before || stayingRef.current) return;
     stayingRef.current = true;
+    stayAtRef.current = Date.now();
     setStayError(null);
     const optimistic = { ...before, idleAt: Date.now() + before.idleSeconds * 1000 };
     deadlinesRef.current = optimistic;
     setDeadlines(optimistic);
     broadcastContinued();
     try {
-      apply(await keepSessionAlive());
+      apply(await keepSessionAlive(), stayAtRef.current);
     } catch (err) {
       // A 401 means the session really ended: the HTTP client has already signed the user out.
       if (err instanceof NexusApiError && err.httpStatus === 401) return;
