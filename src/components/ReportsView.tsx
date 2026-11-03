@@ -5,6 +5,7 @@ import { AdminCard, AdminDialog, Field, Notice, Pagination, SecondaryButton, Sta
 import { toPersianDigits } from '../utils/helpers';
 import { JalaliDatePicker } from './JalaliDatePicker';
 import { jalaliDate, iranDay, FieldGroup, SummaryCard } from './reports/reportShared';
+import { ChartGrid, ReportBar, ReportDoughnut, ReportViewMode, ViewModeSwitch, countBy } from './reports/ReportCharts';
 import { PrintableRow, ReportPrintPages } from './ReportPrintPages';
 import { buildXlsx, jalaliStamp, pagesToPdf, printPdf, saveBlob } from '../utils/reportExport';
 import { userErrorMessage } from '../utils/errorMessages';
@@ -12,7 +13,6 @@ import {
   REPORT_TYPE_TITLES, ReportPeriod, ReportPersonRole, ReportScope, ReportTaskType, TaskReport, TaskReportFilters, TaskReportRow, getTaskReport,
 } from '../services/taskReportApi';
 
-const PAGE_SIZE = 25;
 const STATUS_KEYS: TaskStatus[] = ['todo', 'in_progress', 'paused', 'completed'];
 const RELATION_TITLES = { self: 'خودم', direct: 'زیردست مستقیم', indirect: 'زیرمجموعه', all: '' } as const;
 
@@ -138,6 +138,8 @@ export const ReportsView: React.FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [viewMode, setViewMode] = useState<ReportViewMode>('table');
   // Overdue is not a status: it is applied to the loaded rows, on top of the other filters.
   const [onlyOverdue, setOnlyOverdue] = useState(false);
   const [readOnly, setReadOnly] = useState<TaskReportRow | null>(null);
@@ -175,12 +177,12 @@ export const ReportsView: React.FC<{
   const [pdfProgress, setPdfProgress] = useState<string | null>(null);
   const byId = useMemo(() => new Map(visibleTasks.map((t) => [t.id, t])), [visibleTasks]);
   const rows = useMemo(() => (report?.rows || []).filter((r) => !onlyOverdue || r.isOverdue), [report, onlyOverdue]);
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
   // If rows disappeared and the page no longer exists, go back to the last valid one.
   useEffect(() => {
-    const lastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    const lastPage = Math.max(1, Math.ceil(rows.length / pageSize));
     if (page > lastPage) setPage(lastPage);
-  }, [rows.length, page]);
+  }, [rows.length, page, pageSize]);
   const subordinates = scope.people.filter((p) => p.relation === 'direct' || p.relation === 'indirect').length;
   const scopeText = scope.seesAll
     ? 'همه فعالیت‌های سازمان'
@@ -361,6 +363,7 @@ export const ReportsView: React.FC<{
       <AdminCard>
         <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">فهرست فعالیت‌ها</h3>
+          <ViewModeSwitch value={viewMode} onChange={setViewMode} />
           {s && (
             <div className="flex flex-wrap gap-1.5 text-[11px]">
               <StatusBadge tone="slate">عادی: {toPersianDigits(s.normal)}</StatusBadge>
@@ -376,6 +379,23 @@ export const ReportsView: React.FC<{
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> در حال تهیه گزارش...</div>
         ) : rows.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">فعالیتی با این فیلترها پیدا نشد.</div>
+        ) : viewMode === 'chart' ? (
+          <ChartGrid>
+            <ReportDoughnut title="وضعیت فعالیت‌ها" subtitle={`${toPersianDigits(rows.length)} فعالیت در گزارش`}
+              data={[
+                ...STATUS_KEYS.map((st) => ({ label: STATUSES[st].title, value: rows.filter((r) => r.status === st).length, color: { todo: '#94a3b8', in_progress: '#3b82f6', paused: '#f59e0b', completed: '#10b981' }[st] })),
+              ]} />
+            <ReportBar title="تعداد فعالیت‌ها بر اساس مسئول انجام" subtitle="۱۰ نفر اول"
+              data={countBy<TaskReportRow>(rows, (r) => (r.responsible.length ? r.responsible.map((p) => p.displayName) : '—'))} />
+            <ReportDoughnut title="نوع فعالیت‌ها" data={countBy<TaskReportRow>(rows, (r) => REPORT_TYPE_TITLES[r.type])} />
+            <ReportDoughnut title="موعد گذشته و در موعد" subtitle="فعالیت‌های خاتمه‌نیافته"
+              data={[
+                { label: 'موعد گذشته', value: rows.filter((r) => r.isOverdue).length, color: '#ef4444' },
+                { label: 'در موعد', value: rows.filter((r) => !r.isOverdue && r.status !== 'completed').length, color: '#10b981' },
+              ]} />
+            <ReportBar title="فعالیت‌ها بر اساس برچسب" subtitle="۱۰ برچسب پرکاربرد" span="md:col-span-12 lg:col-span-4"
+              data={countBy<TaskReportRow>(rows.filter((r) => r.tags.length > 0), (r) => r.tags)} />
+          </ChartGrid>
         ) : (
           <>
             <div className="relative overflow-x-auto">
@@ -387,7 +407,7 @@ export const ReportsView: React.FC<{
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {pageRows.map((r, i) => (
                     <tr key={r.id} onClick={() => open(r)} className="cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-slate-800/60">
-                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * PAGE_SIZE + i + 1)}</td>
+                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * pageSize + i + 1)}</td>
                       <td className={`${td} min-w-[220px]`}>
                         <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100 text-sm">
                           {r.type === 'project' && <FolderKanban className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
@@ -425,7 +445,7 @@ export const ReportsView: React.FC<{
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={rows.length} onPage={setPage} />
+            <Pagination page={page} pageSize={pageSize} total={rows.length} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
           </>
         )}
       </AdminCard>

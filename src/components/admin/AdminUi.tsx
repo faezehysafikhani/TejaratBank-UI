@@ -128,15 +128,36 @@ export const IconAction: React.FC<{
   );
 };
 
-export const Pagination: React.FC<{ page: number; pageSize: number; total: number; onPage: (page: number) => void }> = ({ page, pageSize, total, onPage }) => {
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+
+export const Pagination: React.FC<{
+  page: number; pageSize: number; total: number; onPage: (page: number) => void;
+  /** With this, the user can choose how many rows a page shows (10 / 25 / 50 / 100). */
+  onPageSize?: (size: number) => void;
+}> = ({ page, pageSize, total, onPage, onPageSize }) => {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
-      <span>
-        نمایش {toPersianDigits(from)} تا {toPersianDigits(to)} از {toPersianDigits(total)} مورد
-      </span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span>
+          نمایش {toPersianDigits(from)} تا {toPersianDigits(to)} از {toPersianDigits(total)} مورد
+        </span>
+        {onPageSize && (
+          <label className="flex items-center gap-2">
+            <span>تعداد در هر صفحه</span>
+            <select
+              value={pageSize}
+              onChange={(e) => onPageSize(Number(e.target.value))}
+              aria-label="تعداد ردیف در هر صفحه"
+              className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold px-2 py-1 text-xs cursor-pointer"
+            >
+              {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{toPersianDigits(n)}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
       <div className="flex items-center gap-1.5">
         <button
           type="button"

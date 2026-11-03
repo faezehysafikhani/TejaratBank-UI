@@ -4,7 +4,7 @@ import { getKnownPermissions, getMyPermissions, changeMyPassword, requestPhoneCh
 import { AdminCard, SegmentedTabs, PillTabs, TabItem, Field, inputClass, Notice, PrimaryButton } from './AdminUi';
 import { UsersPanel } from './UsersPanel';
 import { SessionsPanel } from './SessionsPanel';
-import { OPEN_PROFILE_EVENT } from '../../utils/profileEvents';
+import { OPEN_PROFILE_EVENT, OPEN_SETTINGS_TAB_EVENT, takePendingSettingsTab } from '../../utils/profileEvents';
 import { RolesPanel } from './RolesPanel';
 import { LoginHistoryPanel } from './LoginHistoryPanel';
 import { LdapPanel } from './LdapPanel';
@@ -558,7 +558,16 @@ export const SystemAdministration: React.FC<{
   const { available: orgStructureAvailable, known: orgStructureKnown } = useOrgStructureAvailable(currentUserId);
   // Until what the user may see is known, a placeholder instead of a partial row of tabs.
   const tabsReady = permissions !== null && orgStructureKnown;
-  const [active, setActive] = useState<MainTab>('profile');
+  const [active, setActive] = useState<MainTab>(() => (takePendingSettingsTab() as MainTab | null) || 'profile');
+  // The header's book button opens «آموزش سامانه» even when this page is already on screen.
+  useEffect(() => {
+    const open = (event: Event) => {
+      const tab = (event as CustomEvent).detail?.tab as MainTab | undefined;
+      if (tab) { takePendingSettingsTab(); setActive(tab); }
+    };
+    window.addEventListener(OPEN_SETTINGS_TAB_EVENT, open);
+    return () => window.removeEventListener(OPEN_SETTINGS_TAB_EVENT, open);
+  }, []);
 
   const tabs: TabItem<MainTab>[] = [
     { id: 'profile', label: 'پروفایل', icon: UserIcon },

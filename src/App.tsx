@@ -4,6 +4,7 @@ import { Task, TaskStatus, Priority, Attachment, User, WorkTeam, AppTheme, AppCo
 import { getUploadPolicy, refreshUploadPolicy } from './utils/uploadPolicy';
 import { iranDateTimeToISO, schedulingBlockReason } from './utils/jalali';
 import { isOverdue, toPersianDigits, formatToJalali, getTaskLastModifiedTime, computeAutoTaskStatus } from './utils/helpers';
+import { requestSettingsTab } from './utils/profileEvents';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
 import { BoardViewBar } from './components/BoardViewBar';
@@ -1313,6 +1314,7 @@ export default function App() {
         onOpenNotificationModal={() => setIsNotificationModalOpen(true)}
         onOpenWelcomeModal={() => setIsWelcomeModalOpen(true)}
         onOpenUserGuide={currentUser ? () => setIsUserGuideOpen(true) : undefined}
+        onOpenTutorials={currentUser ? () => { requestSettingsTab('help'); handleNavigateTab('settings'); } : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
         onLogout={currentUser ? handleLogout : undefined}
       />

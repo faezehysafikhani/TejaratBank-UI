@@ -9,9 +9,9 @@ import { PrintInfo, tableReportBlob } from '../../utils/meetingReportPdf';
 import { useBranding } from '../../utils/branding';
 import { UsersReport as UsersReportData, UsersReportRow, getUsersReport } from '../../services/usersReportApi';
 import { FieldGroup, SummaryCard, iranDay, jalaliDate, printedAtText } from './reportShared';
+import { ChartGrid, ReportBar, ReportDoughnut, ReportViewMode, ViewModeSwitch, countBy } from './ReportCharts';
 import { ReportActions, ProgressToast, useClampedPage, useListExport } from './ReportParts';
 
-const PAGE_SIZE = 25;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type LoginFilter = 'all' | 'signed' | 'never';
@@ -83,8 +83,10 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
     return true;
   }), [data, filters]);
 
-  const [page, setPage] = useClampedPage(rows.length, PAGE_SIZE);
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(25);
+  const [viewMode, setViewMode] = useState<ReportViewMode>('table');
+  const [page, setPage] = useClampedPage(rows.length, pageSize);
+  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
   const all = data?.rows || [];
   const counts = { total: all.length, active: all.filter((r) => r.isActive).length, inactive: all.filter((r) => !r.isActive).length, never: all.filter((r) => !r.lastLoginAtUtc).length };
 
@@ -224,13 +226,31 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
       )}
 
       <AdminCard>
-        <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">فهرست کاربران</h3>
+          <ViewModeSwitch value={viewMode} onChange={setViewMode} />
         </div>
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> در حال تهیه گزارش...</div>
         ) : rows.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">کاربری با این فیلترها پیدا نشد.</div>
+        ) : viewMode === 'chart' ? (
+          <ChartGrid>
+            <ReportDoughnut title="وضعیت کاربران" subtitle={`${toPersianDigits(rows.length)} کاربر در گزارش`}
+              data={[
+                { label: 'فعال', value: rows.filter((r) => r.isActive).length, color: '#10b981' },
+                { label: 'غیرفعال', value: rows.filter((r) => !r.isActive).length, color: '#ef4444' },
+              ]} />
+            {hasStructure
+              ? <ReportBar title="تعداد کاربران بر اساس سمت" subtitle="۱۰ سمت پرتعداد" data={countBy<UsersReportRow>(rows, (r) => (r.positions.length ? r.positions[0] : '—'))} />
+              : <ReportBar title="آخرین ورود کاربران" data={countBy<UsersReportRow>(rows, (r) => (r.lastLoginAtUtc ? jalaliDate(iranDay(r.lastLoginAtUtc)).slice(0, 7) : 'هرگز'), 12)} />}
+            <ReportDoughnut title="ورود به سامانه"
+              data={[
+                { label: 'وارد شده', value: rows.filter((r) => r.lastLoginAtUtc).length, color: '#6366f1' },
+                { label: 'هرگز وارد نشده', value: rows.filter((r) => !r.lastLoginAtUtc).length, color: '#f59e0b' },
+              ]} />
+            {hasStructure && <ReportBar title="تعداد کاربران بر اساس جایگاه سازمانی" subtitle="۱۰ جایگاه پرتعداد" data={countBy<UsersReportRow>(rows, (r) => (r.places.length ? r.places[0] : '—'))} />}
+          </ChartGrid>
         ) : (
           <>
             <div className="relative overflow-x-auto">
@@ -243,7 +263,7 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {pageRows.map((r, i) => (
                     <tr key={r.id} className="hover:bg-indigo-50/50 dark:hover:bg-slate-800/60">
-                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * PAGE_SIZE + i + 1)}</td>
+                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * pageSize + i + 1)}</td>
                       <td className={`${td} font-bold text-slate-800 dark:text-slate-100 text-sm whitespace-nowrap`}>{r.name}</td>
                       <td className={`${td} font-mono dir-ltr text-right whitespace-nowrap`}>{r.nationalCode ? toPersianDigits(r.nationalCode) : '—'}</td>
                       <td className={td}>{r.isActive ? <StatusBadge tone="green">فعال</StatusBadge> : <StatusBadge tone="red">غیرفعال</StatusBadge>}</td>
@@ -258,7 +278,7 @@ export const UsersReport: React.FC<{ generatedBy?: string }> = ({ generatedBy })
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={rows.length} onPage={setPage} />
+            <Pagination page={page} pageSize={pageSize} total={rows.length} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
           </>
         )}
       </AdminCard>

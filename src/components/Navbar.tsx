@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Filter, Layers, LogIn, Bell, LayoutDashboard, CircleHelp, User as UserIcon, CalendarDays, Clock3, LogOut } from 'lucide-react';
+import { Filter, Layers, LogIn, Bell, LayoutDashboard, CircleHelp, BookOpen, User as UserIcon, CalendarDays, Clock3, LogOut } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
 import { User as UserType, AppTheme, AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
@@ -24,6 +24,8 @@ interface NavbarProps {
   onOpenWelcomeModal?: () => void;
   /** Opens the slide user guide (header "?" button). */
   onOpenUserGuide?: () => void;
+  /** Opens the training videos («تنظیمات و پروفایل» › «آموزش سامانه»). */
+  onOpenTutorials?: () => void;
   /** Avatar button: opens the signed-in user's own profile (Settings, "پروفایل" tab). */
   onOpenSettings?: () => void;
   /** «خروج» in the avatar menu. */
@@ -45,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNotificationModal,
   onOpenWelcomeModal,
   onOpenUserGuide,
+  onOpenTutorials,
   onOpenSettings,
   onLogout,
 }) => {
@@ -151,6 +154,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {toPersianDigits(unreadNotificationsCount)}
                   </span>
                 )}
+              </button>
+            )}
+
+            {/* Training videos (Icon Only) */}
+            {onOpenTutorials && (
+              <button
+                type="button"
+                onClick={onOpenTutorials}
+                title="آموزش ویدیویی"
+                aria-label="آموزش ویدیویی"
+                className="ui-raised-dark p-2.5 text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 rounded-xl border border-slate-700/80 transition-all shrink-0 cursor-pointer flex items-center justify-center my-auto"
+              >
+                <BookOpen className="w-4 h-4" />
               </button>
             )}
 

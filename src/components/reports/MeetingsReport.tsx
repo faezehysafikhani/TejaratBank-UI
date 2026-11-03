@@ -11,9 +11,9 @@ import { MeetingReportData, PrintInfo, downloadMeetingReport, tableReportBlob } 
 import { useBranding } from '../../utils/branding';
 import { Meeting, MeetingInput, listMeetings } from '../../services/meetingApi';
 import { FieldGroup, SummaryCard, jalaliDate, printedAtText } from './reportShared';
+import { ChartGrid, ReportBar, ReportDoughnut, ReportViewMode, ViewModeSwitch, countBy } from './ReportCharts';
 import { ReportActions, ProgressToast, useClampedPage, useListExport } from './ReportParts';
 
-const PAGE_SIZE = 25;
 const TYPE_LABELS = { meeting: 'جلسه حضوری', online: 'جلسه آنلاین', committee: 'کمیته' } as const;
 const ACTION_STATUS = { todo: 'شروع نشده', in_progress: 'درحال اجرا', completed: 'خاتمه یافته' } as const;
 /**
@@ -103,8 +103,10 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
     return true;
   }), [meetings, filters]);
 
-  const [page, setPage] = useClampedPage(rows.length, PAGE_SIZE);
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(25);
+  const [viewMode, setViewMode] = useState<ReportViewMode>('table');
+  const [page, setPage] = useClampedPage(rows.length, pageSize);
+  const pageRows = rows.slice((page - 1) * pageSize, page * pageSize);
   const all = meetings || [];
   const counts = {
     total: all.length,
@@ -274,13 +276,27 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
       )}
 
       <AdminCard>
-        <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">فهرست جلسات</h3>
+          <ViewModeSwitch value={viewMode} onChange={setViewMode} />
         </div>
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 className="w-4 h-4 animate-spin" /> در حال تهیه گزارش...</div>
         ) : rows.length === 0 ? (
           <div className="py-12 text-center text-sm text-slate-500">جلسه‌ای با این فیلترها پیدا نشد.</div>
+        ) : viewMode === 'chart' ? (
+          <ChartGrid>
+            <ReportDoughnut title="نوع جلسات" subtitle={`${toPersianDigits(rows.length)} جلسه در گزارش`} data={countBy<Meeting>(rows, (m) => TYPE_LABELS[m.details.type])} />
+            <ReportBar title="تعداد جلسات بر اساس برگزارکننده" subtitle="۱۰ نفر اول"
+              data={countBy<Meeting>(rows, (m) => nameOf(m.details.organizerUserId) || '—')} />
+            <ReportDoughnut title="صورت‌جلسه"
+              data={[
+                { label: 'دارای صورت‌جلسه', value: rows.filter((m) => hasMinutes(m.details)).length, color: '#10b981' },
+                { label: 'بدون صورت‌جلسه', value: rows.filter((m) => !hasMinutes(m.details)).length, color: '#f59e0b' },
+              ]} />
+            <ReportBar title="تعداد جلسات در هر ماه" subtitle="بر اساس تاریخ شمسی"
+              data={countBy<Meeting>(rows, (m) => jalaliDate(m.details.date).slice(0, 7), 12).sort((a, b) => a.label.localeCompare(b.label))} />
+          </ChartGrid>
         ) : (
           <>
             <div className="relative overflow-x-auto">
@@ -293,7 +309,7 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {pageRows.map((m, i) => (
                     <tr key={m.id} onClick={() => setOpened(m)} className="cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-slate-800/60">
-                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * PAGE_SIZE + i + 1)}</td>
+                      <td className={`${td} text-slate-400 font-bold`}>{toPersianDigits((page - 1) * pageSize + i + 1)}</td>
                       <td className={`${td} min-w-[200px] font-bold text-slate-800 dark:text-slate-100 text-sm`}><span className="line-clamp-1" title={m.details.title}>{m.details.title}</span></td>
                       <td className={`${td} whitespace-nowrap`}>{TYPE_LABELS[m.details.type]}</td>
                       <td className={`${td} whitespace-nowrap`}>{jalaliDate(m.details.date)}</td>
@@ -317,7 +333,7 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={rows.length} onPage={setPage} />
+            <Pagination page={page} pageSize={pageSize} total={rows.length} onPage={setPage} onPageSize={(n) => { setPageSize(n); setPage(1); }} />
           </>
         )}
       </AdminCard>
