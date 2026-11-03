@@ -55,30 +55,31 @@ const PATTERN_SCHEMES: { id: AppTheme; name: string; description: string; previe
 ];
 
 /** Training videos (Persian narration with captions), served from /tutorials. Grouped by subject, in the order they should be watched (each video's closing line points to the next one). */
-const TUTORIAL_CATEGORIES: { id: string; title: string; videos: { id: number; title: string; text: string }[] }[] = [
+const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: { id: number; file: string; title: string; text: string }[] }[] = [
   {
     id: 'org',
     title: 'ساختار سازمانی',
+    folder: 'org-structure',
     videos: [
-      { id: 1, title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
-      { id: 2, title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
-      { id: 3, title: 'قالب‌های ساختار', text: 'ساخت ساختار از روی قالب آماده و ذخیرهٔ قالب' },
-      { id: 4, title: 'شرکت‌ها، واحدها و سمت‌ها', text: 'کار با فهرست‌ها، ویرایش و افزودن' },
-      { id: 5, title: 'نماها و ابزارهای چارت', text: 'نمای درختی و چارت، جست‌وجو و ابزارهای نمایش' },
-      { id: 6, title: 'جزئیات واحد، پست و فرد', text: 'مشاهدهٔ اطلاعات و تاریخچهٔ هر مورد' },
-      { id: 7, title: 'پست خالی و جانشینی', text: 'تعیین فرد برای پست و معرفی جانشین' },
-      { id: 8, title: 'رابطه‌ها و مافوق دوم', text: 'خطوط نقطه‌چین و ارتباط‌های غیرمستقیم' },
-      { id: 9, title: 'جابه‌جایی واحد', text: 'انتقال واحد به جای دیگر با پیش‌نمایش اثر' },
-      { id: 10, title: 'ادغام واحدها', text: 'ادغام یک واحد در واحد دیگر با پیش‌نمایش اثر' },
-      { id: 11, title: 'تاریخچه و غیرفعال کردن', text: 'تاریخچه‌ی تغییرات، بازگردانی و غیرفعال یا فعال کردن واحد' },
-      { id: 12, title: 'مدیر و مشخصات واحد', text: 'تعیین مدیر واحد و تکمیل مشخصات واحد' },
-      { id: 13, title: 'پست‌ها و شرکت‌ها', text: 'افزودن و مدیریت پست‌ها، سازمان بالادستی و سطح نمایش' },
-      { id: 14, title: 'تنظیمات پیشرفته ساختار', text: 'سمت‌ها، قواعد، نوع رابطه، چارت گروه و شرکت‌ها' },
-      { id: 15, title: 'میانبرهای چارت', text: 'کار سریع با کیبورد در چارت سازمانی' },
+      { id: 1, file: '01-build-from-scratch', title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
+      { id: 2, file: '02-structure-rules', title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
+      { id: 3, file: '03-templates', title: 'قالب‌های ساختار', text: 'ساخت ساختار از روی قالب آماده و ذخیرهٔ قالب' },
+      { id: 4, file: '04-companies-units-titles', title: 'شرکت‌ها، واحدها و سمت‌ها', text: 'کار با فهرست‌ها، ویرایش و افزودن' },
+      { id: 5, file: '05-views-and-tools', title: 'نماها و ابزارهای چارت', text: 'نمای درختی و چارت، جست‌وجو و ابزارهای نمایش' },
+      { id: 6, file: '06-unit-post-person-details', title: 'جزئیات واحد، پست و فرد', text: 'مشاهدهٔ اطلاعات و تاریخچهٔ هر مورد' },
+      { id: 7, file: '07-manager-and-unit-details', title: 'مدیر و مشخصات واحد', text: 'تعیین مدیر واحد و تکمیل مشخصات واحد' },
+      { id: 8, file: '08-posts-and-companies', title: 'پست‌ها و شرکت‌ها', text: 'افزودن و مدیریت پست‌ها، سازمان بالادستی و سطح نمایش' },
+      { id: 9, file: '09-vacant-post-and-substitute', title: 'پست خالی و جانشینی', text: 'تعیین فرد برای پست و معرفی جانشین' },
+      { id: 10, file: '10-links-second-superior', title: 'رابطه‌ها و مافوق دوم', text: 'خطوط نقطه‌چین و ارتباط‌های غیرمستقیم' },
+      { id: 11, file: '11-move-unit', title: 'جابه‌جایی واحد', text: 'انتقال واحد به جای دیگر با پیش‌نمایش اثر' },
+      { id: 12, file: '12-merge-units', title: 'ادغام واحدها', text: 'ادغام یک واحد در واحد دیگر با پیش‌نمایش اثر' },
+      { id: 13, file: '13-history-and-deactivate', title: 'تاریخچه و غیرفعال کردن', text: 'تاریخچه‌ی تغییرات، بازگردانی و غیرفعال یا فعال کردن واحد' },
+      { id: 14, file: '14-advanced-settings', title: 'تنظیمات پیشرفته ساختار', text: 'سمت‌ها، قواعد، نوع رابطه، چارت گروه و شرکت‌ها' },
+      { id: 15, file: '15-keyboard-shortcuts', title: 'میانبرهای چارت', text: 'کار سریع با کیبورد در چارت سازمانی' },
     ],
   },
 ];
-const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos);
+const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   themeMode,
@@ -715,7 +716,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 controls
                 preload="metadata"
                 className="w-full rounded-2xl bg-black border border-slate-200 dark:border-slate-700 aspect-video"
-                src={`/tutorials/video-${activeVideo}.mp4`}
+                src={TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.src}
               />
               <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
                 {TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.title}
