@@ -78,6 +78,16 @@ const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: 
       { id: 15, file: '15-keyboard-shortcuts', title: 'میانبرهای چارت', text: 'کار سریع با کیبورد در چارت سازمانی' },
     ],
   },
+  {
+    id: 'tasks',
+    title: 'مدیریت وظایف',
+    folder: 'task-management',
+    videos: [
+      { id: 16, file: '01-calendar-view', title: 'نمای تقویم', text: 'مشاهده و ثبت فعالیت‌ها و جلسه‌ها روی تقویم' },
+      { id: 17, file: '02-reports', title: 'گزارشات', text: 'گزارش فعالیت‌ها، جلسات و کاربران با فیلتر و خروجی' },
+      { id: 18, file: '03-kanban-board', title: 'بورد کانبان', text: 'مدیریت فعالیت‌ها با ستون‌ها، فیلتر و نمودارها' },
+    ],
+  },
 ];
 const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
 
