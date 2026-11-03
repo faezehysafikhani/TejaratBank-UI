@@ -98,6 +98,14 @@ const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: 
       { id: 103, file: '03-titles-and-login-history', title: 'عنوان‌ها و تاریخچه ورود', text: 'عنوان‌های پیش از نام و فهرست ورودها' },
     ],
   },
+  {
+    id: 'settings',
+    title: 'تنظیمات سامانه',
+    folder: 'system-settings',
+    videos: [
+      { id: 201, file: '01-sms-panel', title: 'پنل پیامکی', text: 'سرویس‌دهنده، متن پیامک‌ها، یادآوری‌ها و ارسال آزمایشی (با اطلاعات نمونه)' },
+    ],
+  },
 ];
 const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
 
