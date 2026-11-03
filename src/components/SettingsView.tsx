@@ -54,18 +54,31 @@ const PATTERN_SCHEMES: { id: AppTheme; name: string; description: string; previe
   { id: 'spring', name: 'بهاری', description: 'شکوفه‌های بهاری', previewClass: 'bg-pattern-spring' },
 ];
 
-/** Training videos (Persian narration with captions), served from /tutorials. */
-const TUTORIAL_VIDEOS: { id: number; title: string; text: string }[] = [
-  { id: 1, title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
-  { id: 2, title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
-  { id: 3, title: 'قالب‌های ساختار', text: 'ساخت ساختار از روی قالب آماده و ذخیرهٔ قالب' },
-  { id: 4, title: 'شرکت‌ها، واحدها و سمت‌ها', text: 'کار با فهرست‌ها، ویرایش و افزودن' },
-  { id: 5, title: 'نماها و ابزارهای چارت', text: 'نمای درختی و چارت، جست‌وجو و ابزارهای نمایش' },
-  { id: 6, title: 'جزئیات واحد، پست و فرد', text: 'مشاهدهٔ اطلاعات و تاریخچهٔ هر مورد' },
-  { id: 7, title: 'پست خالی و جانشینی', text: 'تعیین فرد برای پست و معرفی جانشین' },
-  { id: 8, title: 'رابطه‌ها و مافوق دوم', text: 'خطوط نقطه‌چین و ارتباط‌های غیرمستقیم' },
-  { id: 9, title: 'جابه‌جایی واحد', text: 'انتقال واحد به جای دیگر با پیش‌نمایش اثر' },
+/** Training videos (Persian narration with captions), served from /tutorials. Grouped by subject, in the order they should be watched (each video's closing line points to the next one). */
+const TUTORIAL_CATEGORIES: { id: string; title: string; videos: { id: number; title: string; text: string }[] }[] = [
+  {
+    id: 'org',
+    title: 'ساختار سازمانی',
+    videos: [
+      { id: 1, title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
+      { id: 2, title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
+      { id: 3, title: 'قالب‌های ساختار', text: 'ساخت ساختار از روی قالب آماده و ذخیرهٔ قالب' },
+      { id: 4, title: 'شرکت‌ها، واحدها و سمت‌ها', text: 'کار با فهرست‌ها، ویرایش و افزودن' },
+      { id: 5, title: 'نماها و ابزارهای چارت', text: 'نمای درختی و چارت، جست‌وجو و ابزارهای نمایش' },
+      { id: 6, title: 'جزئیات واحد، پست و فرد', text: 'مشاهدهٔ اطلاعات و تاریخچهٔ هر مورد' },
+      { id: 7, title: 'پست خالی و جانشینی', text: 'تعیین فرد برای پست و معرفی جانشین' },
+      { id: 8, title: 'رابطه‌ها و مافوق دوم', text: 'خطوط نقطه‌چین و ارتباط‌های غیرمستقیم' },
+      { id: 9, title: 'جابه‌جایی واحد', text: 'انتقال واحد به جای دیگر با پیش‌نمایش اثر' },
+      { id: 10, title: 'ادغام واحدها', text: 'ادغام یک واحد در واحد دیگر با پیش‌نمایش اثر' },
+      { id: 11, title: 'تاریخچه و غیرفعال کردن', text: 'تاریخچه‌ی تغییرات، بازگردانی و غیرفعال یا فعال کردن واحد' },
+      { id: 12, title: 'مدیر و مشخصات واحد', text: 'تعیین مدیر واحد و تکمیل مشخصات واحد' },
+      { id: 13, title: 'پست‌ها و شرکت‌ها', text: 'افزودن و مدیریت پست‌ها، سازمان بالادستی و سطح نمایش' },
+      { id: 14, title: 'تنظیمات پیشرفته ساختار', text: 'سمت‌ها، قواعد، نوع رابطه، چارت گروه و شرکت‌ها' },
+      { id: 15, title: 'میانبرهای چارت', text: 'کار سریع با کیبورد در چارت سازمانی' },
+    ],
+  },
 ];
+const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos);
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   themeMode,
@@ -708,32 +721,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.title}
               </p>
             </div>
-            <ul className="lg:col-span-2 space-y-2 max-h-[22rem] overflow-y-auto pe-1">
-              {TUTORIAL_VIDEOS.map((v) => {
-                const on = v.id === activeVideo;
-                return (
-                  <li key={v.id}>
-                    <button
-                      type="button"
-                      onClick={() => setActiveVideo(v.id)}
-                      className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border text-right transition-all cursor-pointer ${
-                        on
-                          ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700'
-                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-emerald-300'
-                      }`}
-                    >
-                      <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${on ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-700'}`}>
-                        {v.id.toLocaleString('fa-IR')}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">{v.title}</span>
-                        <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">{v.text}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="lg:col-span-2 space-y-4 max-h-[22rem] overflow-y-auto pe-1">
+              {TUTORIAL_CATEGORIES.map((cat) => (
+                <section key={cat.id} aria-label={cat.title}>
+                  <h4 className="flex items-center gap-2 mb-2 text-xs font-extrabold text-emerald-800 dark:text-emerald-300">
+                    <span>{cat.title}</span>
+                    <span className="px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">{cat.videos.length.toLocaleString('fa-IR')} ویدیو</span>
+                  </h4>
+                  <ul className="space-y-2">
+                    {cat.videos.map((v, idx) => {
+                      const on = v.id === activeVideo;
+                      return (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            onClick={() => setActiveVideo(v.id)}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border text-right transition-all cursor-pointer ${
+                              on
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700'
+                                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                            }`}
+                          >
+                            <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${on ? 'bg-emerald-600 text-white' : 'bg-white dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-700'}`}>
+                              {(idx + 1).toLocaleString('fa-IR')}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">{v.title}</span>
+                              <span className="block text-[11px] text-slate-500 dark:text-slate-400 truncate">{v.text}</span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </div>
         )}
       </div>
