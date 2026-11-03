@@ -88,6 +88,16 @@ const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: 
       { id: 18, file: '03-kanban-board', title: 'بورد کانبان', text: 'مدیریت فعالیت‌ها با ستون‌ها، فیلتر و نمودارها' },
     ],
   },
+  {
+    id: 'users',
+    title: 'مدیریت کاربران',
+    folder: 'user-management',
+    videos: [
+      { id: 101, file: '01-users', title: 'مدیریت کاربران', text: 'ایجاد، ویرایش و فعال یا غیرفعال کردن کاربران' },
+      { id: 102, file: '02-roles-and-permissions', title: 'نقش‌ها و دسترسی‌ها', text: 'ساخت نقش و تعیین دسترسی کاربران' },
+      { id: 103, file: '03-titles-and-login-history', title: 'عنوان‌ها و تاریخچه ورود', text: 'عنوان‌های پیش از نام و فهرست ورودها' },
+    ],
+  },
 ];
 const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
 
@@ -691,7 +701,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer shrink-0 active:scale-95"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>مشاهده و چاپ کاتالوگ (PDF)</span>
+                  <span>مشاهده و دریافت دفترچه راهنما (PDF)</span>
                 </button>
               </div>
             </div>
