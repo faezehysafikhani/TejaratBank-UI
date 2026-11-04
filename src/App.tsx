@@ -24,6 +24,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
 const ReportsPage = lazy(() => import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const UnplacedPeopleView = lazy(() => import('./components/UnplacedPeopleView').then(m => ({ default: m.UnplacedPeopleView })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
 const PersonalNotesView = lazy(() => import('./components/PersonalNotesView').then(m => ({ default: m.PersonalNotesView })));
@@ -77,7 +78,7 @@ import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
-import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
+import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -94,6 +95,7 @@ const PAGE_TITLES: Record<string, string> = {
   notes: 'یادداشت‌های شخصی',
   reports: 'گزارشات',
   substitution: 'کارتابل جانشینی',
+  unplaced: 'کارتابل افراد بدون پست',
   settings: 'تنظیمات و پروفایل',
 };
 
@@ -428,11 +430,15 @@ export default function App() {
   const substitution = useLookup<SubstitutionInbox | null>(
     currentUserId ? `${currentUserId}:substitution` : null, getSubstitutionInbox, null).value;
   const showSubstitution = !!substitution?.enabled && (substitution.canManageAll || substitution.posts.length > 0);
+  // «کارتابل افراد بدون پست»: for those who may place people, where the structure module exists.
+  const orgAvailable = useLookup<boolean>(currentUserId ? orgStructureLookupKey(currentUserId) : null, isOrgStructureAvailable, false).value;
+  const showUnplaced = !!orgAvailable && can(currentUser, ORG_STRUCTURE_PERMISSIONS.manageAssignments);
   const canOpenSection = useCallback(
     (tab: ActiveTab) => canOpenTab(currentUser, tab)
       && (tab !== 'reports' || Object.values(reportTabsFor(currentUser, reportScope)).some(Boolean))
-      && (tab !== 'substitution' || showSubstitution),
-    [currentUser, reportScope, showSubstitution],
+      && (tab !== 'substitution' || showSubstitution)
+      && (tab !== 'unplaced' || showUnplaced),
+    [currentUser, reportScope, showSubstitution, showUnplaced],
   );
 
   const canCreateTask = can(currentUser, PERMISSIONS.tasksCreate);
@@ -1475,6 +1481,16 @@ export default function App() {
             {activeTab === 'substitution' && showSubstitution && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
                 <SubstitutionInboxView onChanged={() => currentUserId && refreshLookup(`${currentUserId}:substitution`, getSubstitutionInbox).catch(() => {})} />
+              </Suspense>
+            )}
+
+            {/* People without an organisational post (to place them) */}
+            {activeTab === 'unplaced' && showUnplaced && (
+              <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
+                <UnplacedPeopleView
+                  can={(permission) => can(currentUser, permission)}
+                  onChanged={() => currentUserId && refreshLookup(`${currentUserId}:substitution`, getSubstitutionInbox).catch(() => {})}
+                />
               </Suspense>
             )}
 

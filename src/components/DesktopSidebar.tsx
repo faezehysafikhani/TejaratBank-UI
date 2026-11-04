@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Kanban, Calendar, AlertCircle, Settings, LogOut, MessageSquare, FileText, PanelRightClose, Plus, BarChart3, UserCog } from 'lucide-react';
+import { Kanban, Calendar, AlertCircle, Settings, LogOut, MessageSquare, FileText, PanelRightClose, Plus, BarChart3, UserCog, UserX } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
 import { AppColorPalette, User as UserType } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
@@ -249,6 +249,24 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           <div className="flex items-center gap-2">
             <UserCog className="w-4 h-4 shrink-0" />
             <span className="truncate">کارتابل جانشینی</span>
+          </div>
+        </button>
+        )}
+
+        {/* 8. People without an organisational post (for those who may place people) */}
+        {canOpenTab('unplaced') && (
+        <button
+          type="button"
+          onClick={() => setActiveTab('unplaced')}
+          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'unplaced'
+              ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
+              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <UserX className="w-4 h-4 shrink-0" />
+            <span className="truncate">کارتابل افراد بدون پست</span>
           </div>
         </button>
         )}
