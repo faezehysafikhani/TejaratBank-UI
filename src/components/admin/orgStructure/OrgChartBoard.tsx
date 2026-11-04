@@ -1270,27 +1270,7 @@ export const OrgChartBoard: React.FC<{
       </div>
       )}
 
-      {(data.data?.unplaced.length || 0) > 0 && (
-        <div className="border-t border-slate-100 dark:border-slate-800 px-4 py-2 flex items-center gap-3">
-          <p className="shrink-0 flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
-            <UserX className="w-4 h-4" /> افراد بدون جایگاه سازمانی ({toPersianDigits(data.data!.unplaced.length)})
-          </p>
-          {/* One row (scrolling sideways when long), so the chart keeps the height. */}
-          <div className="flex gap-1.5 overflow-x-auto min-w-0 py-0.5">
-            {data.data!.unplaced.map((u) => (
-              <button
-                key={u.userId}
-                type="button"
-                onClick={() => setSelection({ kind: 'unplaced', userId: u.userId })}
-                className={`shrink-0 whitespace-nowrap flex items-center gap-1.5 rounded-full border ps-1 pe-3 py-1 text-xs cursor-pointer ${selectedUserId === u.userId ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/50' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'}`}
-              >
-                <PersonAvatar name={u.displayName} url={u.avatarUrl} />
-                <span className="font-bold text-slate-700 dark:text-slate-200">{u.displayName}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* People without a post are not listed under the chart: they have their own inbox («کارتابل افراد بدون پست»). */}
     </AdminCard>
   );
 
