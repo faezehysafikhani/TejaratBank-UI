@@ -78,7 +78,9 @@ import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
-import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
+import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
+import { setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
+import { ActivePostBanner } from './components/ActivePostSwitcher';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -819,10 +821,32 @@ export default function App() {
 
   // Task Visibility Rule: owner, responsible people and the task's access list - the same rule
   // the server applies. Every view (dashboard, board, calendar, chat) shows only these tasks.
-  const visibleTasks = useMemo(() => {
+  const mayViewTasks0 = useMemo(() => {
     if (!currentUser) return tasks;
     return tasks.filter((task) => isTaskVisibleTo(task, currentUser));
   }, [tasks, currentUser]);
+
+  // «نمایش بر اساس پست»: a person with several posts may look at the system through one of them (or
+  // one unit). Only what the screens show is narrowed; sub-tasks follow their parent task.
+  const activePost = useActivePost();
+  useEffect(() => { setActivePostUser(currentUser?.id ?? null); }, [currentUser?.id]);
+  useEffect(() => {
+    if (!currentUser?.id) return undefined;
+    let alive = true;
+    const loadHeld = () => getMyPlacement().then((p) => alive && setHeldPosts(p?.assignment?.positions ?? [])).catch(() => {});
+    loadHeld();
+    window.addEventListener('focus', loadHeld);
+    return () => { alive = false; window.removeEventListener('focus', loadHeld); };
+  }, [currentUser?.id]);
+  const visibleTasks = useMemo(() => {
+    if (!activePost.postIds) return mayViewTasks0;
+    const inScope = new Set(mayViewTasks0.filter((t) => taskInPosts(t, activePost.postIds)).map((t) => t.id));
+    return mayViewTasks0.filter((t) => inScope.has(t.id) || (t.parentTaskId ? inScope.has(t.parentTaskId) : false));
+  }, [mayViewTasks0, activePost.postIds]);
+  const hiddenWithoutPost = useMemo(
+    () => (activePost.postIds ? mayViewTasks0.filter((t) => !t.parentTaskId && (t.posts?.length ?? 0) === 0).length : 0),
+    [mayViewTasks0, activePost.postIds],
+  );
 
   const taskTitleById = useMemo(() => new Map(visibleTasks.map((t) => [t.id, t.title])), [visibleTasks]);
 
@@ -1059,10 +1083,13 @@ export default function App() {
     };
   }, [currentUser?.id, loadServerNotifications]);
 
-  const allNotifications = useMemo(
-    () => mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks))),
-    [appNotifications, serverNotifications, visibleTasks]
-  );
+  const allNotifications = useMemo(() => {
+    const merged = mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks)));
+    if (!activePost.postIds) return merged;
+    // One post chosen: the notices of its tasks (the others stay out of the bell until «همه» is chosen).
+    const ids = new Set(visibleTasks.map((t) => t.id));
+    return merged.filter((n) => !n.taskId || ids.has(n.taskId));
+  }, [appNotifications, serverNotifications, visibleTasks, activePost.postIds]);
 
   const unreadNotificationsCount = useMemo(
     () => allNotifications.filter((n) => !n.isRead).length,
@@ -1308,6 +1335,7 @@ export default function App() {
       )}
 
       {/* Top Navbar */}
+      {/* (the «نمایش بر اساس پست» strip comes right under it) */}
       <Navbar
         totalTasks={visibleTasks.length}
         completedTasks={completedCount}
@@ -1367,6 +1395,7 @@ export default function App() {
 
           {/* Main Content Workspace */}
           <main className="flex-1 w-full lg:w-auto min-w-0">
+        {currentUser && <ActivePostBanner hiddenWithoutPost={hiddenWithoutPost} />}
         
         {/* Error Alert */}
         {pbError && (
@@ -1634,7 +1663,7 @@ export default function App() {
             setAppColorTheme={handleSelectColorTheme}
             appColorPalette={appColorPalette}
             setAppColorPalette={handleSelectColorPalette}
-            totalTasksCount={tasks.length}
+            totalTasksCount={visibleTasks.length}
             currentUser={currentUser}
             onLogout={handleLogout}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}

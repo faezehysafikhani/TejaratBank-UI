@@ -5,6 +5,7 @@ import { User as UserType, AppTheme, AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
 import { useBranding } from '../utils/branding';
 import { OPEN_PROFILE_EVENT } from '../utils/profileEvents';
+import { ActivePostSwitcher } from './ActivePostSwitcher';
 
 interface NavbarProps {
   totalTasks: number;
@@ -128,6 +129,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
           </div>
+
+          {currentUser && <ActivePostSwitcher />}
 
           <div className="navbar-clock order-3 w-full sm:order-none sm:w-auto flex items-center justify-center gap-3.5 px-5 py-1.5" title="تاریخ و ساعت دستگاه شما؛ بدون نیاز به اینترنت">
             <span className="relative z-10 flex items-center gap-2 text-xs sm:text-sm font-bold text-indigo-100"><CalendarDays className="w-4 h-4 text-indigo-300 drop-shadow-[0_0_8px_rgba(165,180,252,0.8)]" />{systemDate}</span>
