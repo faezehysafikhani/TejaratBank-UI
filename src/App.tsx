@@ -1252,7 +1252,7 @@ export default function App() {
               <img
                 src={brand.logo}
                 alt="لوگوی برنامه"
-                className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-contain"
+                className="w-44 h-44 sm:w-56 sm:h-56 rounded-full object-contain"
               />
             </div>
           </div>

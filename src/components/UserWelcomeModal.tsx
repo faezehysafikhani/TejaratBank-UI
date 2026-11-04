@@ -124,16 +124,16 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
   const avatarUrl = currentUser.avatar;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-emerald-950/50 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto dir-rtl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto dir-rtl">
       {/* Decorative Floating Glass Background Lighting Flares */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[8%] left-[10%] w-72 h-72 rounded-full bg-emerald-500/15 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[10%] right-[8%] w-80 h-80 rounded-full bg-teal-500/15 blur-3xl animate-pulse" />
-        <div className="absolute top-[35%] right-[25%] w-56 h-56 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="absolute top-[8%] left-[10%] w-72 h-72 rounded-full bg-emerald-500/8 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[10%] right-[8%] w-80 h-80 rounded-full bg-teal-500/8 blur-3xl animate-pulse" />
+        <div className="absolute top-[35%] right-[25%] w-56 h-56 rounded-full bg-emerald-500/8 blur-3xl" />
         <div className="absolute bottom-[35%] left-[20%] w-48 h-48 rounded-full bg-cyan-500/10 blur-2xl" />
       </div>
 
-      <div className="relative w-full max-w-2xl bg-gradient-to-br from-emerald-950/90 via-teal-900/85 to-indigo-950/90 text-white rounded-3xl border border-white/30 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden z-10 my-auto animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-gradient-to-br from-slate-900/85 via-emerald-950/55 to-slate-900/85 text-white rounded-3xl border border-white/30 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden z-10 my-auto animate-in zoom-in-95 duration-200">
         
         {/* Top Header Banner */}
         <div className="relative p-6 bg-white/10 dark:bg-white/5 backdrop-blur-md border-b border-white/15">
