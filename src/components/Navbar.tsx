@@ -94,6 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-3.5">
             <img 
               src={brand.logo}
+              style={{ visibility: brand.ready ? 'visible' : 'hidden' }}
               alt={`لوگوی ${brand.name}`}
               className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-md shrink-0 object-cover border border-white/20 cursor-pointer hover:opacity-90 transition-opacity" 
               onClick={onOpenWelcomeModal}

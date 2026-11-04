@@ -279,7 +279,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <X className="w-5 h-5" />
                 </button>
               )}
-              <img src={loginLogo} alt="لوگو" className="lg:hidden mx-auto mb-3 w-20 h-20 object-contain" />
+              <img src={loginLogo} style={{ visibility: brand.ready ? 'visible' : 'hidden' }} alt="لوگو" className="lg:hidden mx-auto mb-3 w-20 h-20 object-contain" />
               <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center shadow-lg shadow-emerald-900/20">
                 <UserIcon className="w-8 h-8" />
               </div>
@@ -652,7 +652,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* The brand side (on the left in RTL) */}
         <aside className="hidden lg:flex flex-1 flex-col items-center justify-center gap-[clamp(0.5rem,2vh,1.25rem)] px-10 py-4 text-center lg:h-full lg:min-h-0 overflow-hidden" data-testid="login-brand">
           <div className="w-[min(14rem,24vh)] h-[min(14rem,24vh)] shrink-0 rounded-full bg-white shadow-2xl shadow-black/30 ring-8 ring-white/15 flex items-center justify-center overflow-hidden">
-            <img src={loginLogo} alt="لوگوی سامانه" className="w-[88%] h-[88%] object-contain" />
+            <img src={loginLogo} style={{ visibility: brand.ready ? 'visible' : 'hidden' }} alt="لوگوی سامانه" className="w-[88%] h-[88%] object-contain" />
           </div>
           <div>
             <p className="brand-display text-[clamp(2rem,7vh,3rem)] font-semibold text-white leading-tight tracking-wide drop-shadow-sm">{brand.name}</p>

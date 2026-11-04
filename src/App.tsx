@@ -1184,6 +1184,7 @@ export default function App() {
         <div className="relative z-10 text-center max-w-sm mx-auto space-y-4 p-8 rounded-3xl bg-white/10 dark:bg-slate-900/50 border border-white/10 shadow-2xl backdrop-blur-md">
           <img 
             src={brand.logo}
+            style={{ visibility: brand.ready ? 'visible' : 'hidden' }}
             alt="لوگو" 
             className="w-16 h-16 mx-auto rounded-2xl shadow-xl object-cover border border-white/20" 
           />
@@ -1251,6 +1252,7 @@ export default function App() {
             <div className="relative p-2.5 rounded-full bg-white shadow-2xl">
               <img
                 src={brand.logo}
+                style={{ visibility: brand.ready ? 'visible' : 'hidden' }}
                 alt="لوگوی برنامه"
                 className="w-44 h-44 sm:w-56 sm:h-56 rounded-full object-contain"
               />
