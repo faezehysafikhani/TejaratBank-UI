@@ -220,7 +220,7 @@ export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hidden?: 
   }
 
   return (
-    <div className={`space-y-1.5 ${className}`} data-testid="active-post-switcher">
+    <div className={`space-y-1 ${className}`} data-testid="active-post-switcher">
       <div className="flex items-center justify-between gap-2 px-0.5">
         <span className="flex items-center gap-1.5 text-[11px] font-extrabold opacity-75 text-slate-700 dark:text-slate-200">
           <span className="w-[3px] h-3 rounded-full bg-gradient-to-b from-indigo-500 to-violet-500 shrink-0" aria-hidden="true" />
@@ -244,7 +244,7 @@ export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hidden?: 
         onKeyDown={onTriggerKey}
         {...aria}
         title={title}
-        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-right cursor-pointer border border-indigo-500/[0.28] hover:border-indigo-500/50 bg-gradient-to-br from-indigo-500/10 to-violet-500/[0.08] text-indigo-700 dark:text-indigo-200 hover:shadow-md hover:shadow-indigo-500/10 transition-all"
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-right cursor-pointer border border-indigo-500/[0.28] hover:border-indigo-500/50 bg-gradient-to-br from-indigo-500/10 to-violet-500/[0.08] text-indigo-700 dark:text-indigo-200 hover:shadow-md hover:shadow-indigo-500/10 transition-all"
       >
         <Briefcase className="w-4 h-4 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1 text-xs font-bold leading-5 break-words line-clamp-2">{view.narrowed ? view.selected.label : 'همهٔ پست‌ها'}</span>
