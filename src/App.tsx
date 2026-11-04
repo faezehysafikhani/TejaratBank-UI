@@ -1221,50 +1221,46 @@ export default function App() {
   // App Initial Splash Screen with Spinning App Logo & Progress Bar
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white font-sans dir-rtl select-none transition-opacity duration-300 overflow-hidden">
-        {/* Subtle Ambient Background Lighting */}
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-indigo-950 text-white font-sans dir-rtl select-none transition-opacity duration-300 overflow-hidden">
+        {/* Aurora glows, matching the sign-in page */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[30%] left-[35%] w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl animate-pulse" />
-          <div className="absolute bottom-[30%] right-[35%] w-96 h-96 rounded-full bg-purple-600/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-[22%] left-[30%] w-96 h-96 rounded-full bg-emerald-400/25 blur-3xl animate-pulse" />
+          <div className="absolute bottom-[22%] right-[30%] w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-[40%] right-[12%] w-72 h-72 rounded-full bg-violet-500/20 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
 
         {/* Central Logo Container */}
         <div className="relative flex flex-col items-center justify-center z-10 space-y-6">
           <div className="relative flex items-center justify-center">
             {/* Outer Soft Spinning Glow Ring */}
-            <div 
-              className="absolute -inset-6 rounded-full border-2 border-transparent border-t-indigo-500/90 border-r-purple-500/70 shadow-lg shadow-indigo-500/25 animate-smooth-spin" 
+            <div
+              className="absolute -inset-7 rounded-full border-2 border-transparent border-t-emerald-300/90 border-r-cyan-300/70 shadow-lg shadow-emerald-400/25 animate-smooth-spin"
               style={{ animationDuration: '1.6s' }}
             />
 
             {/* Secondary Counter-rotating Accent Ring */}
-            <div 
-              className="absolute -inset-3 rounded-full border border-indigo-400/25 border-b-cyan-400/50 animate-smooth-spin" 
+            <div
+              className="absolute -inset-3 rounded-full border border-emerald-300/25 border-b-violet-300/50 animate-smooth-spin"
               style={{ animationDirection: 'reverse', animationDuration: '2.8s' }}
             />
-            
+
             {/* Glowing Aura */}
-            <div className="absolute inset-0 rounded-2xl bg-indigo-500/30 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-full bg-emerald-300/30 blur-xl animate-pulse" />
 
             {/* App Logo Image */}
-            <div className="relative p-2 rounded-2xl bg-slate-900 border border-white/15 shadow-2xl">
-              <img 
+            <div className="relative p-2.5 rounded-full bg-white shadow-2xl">
+              <img
                 src={brand.logo}
-                alt="لوگوی برنامه" 
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shadow-md"
+                alt="لوگوی برنامه"
+                className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-contain"
               />
             </div>
           </div>
 
-          {/* Title & Loading Status */}
-          <div className="text-center space-y-2 mt-6 sm:mt-8">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-              {brand.name}
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-indigo-200/90 animate-pulse">
-              در حال بارگذاری داده‌ها و ورود به سامانه...
-            </p>
-          </div>
+          {/* Loading Status (the system name is intentionally not shown under the logo) */}
+          <p className="mt-8 sm:mt-10 text-xs sm:text-sm font-medium text-emerald-100/90 animate-pulse text-center">
+            در حال بارگذاری داده‌ها و ورود به سامانه...
+          </p>
         </div>
       </div>
     );
