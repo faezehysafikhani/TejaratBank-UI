@@ -80,7 +80,6 @@ import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
 import { setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
-import { ActivePostBanner } from './components/ActivePostSwitcher';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -1354,6 +1353,7 @@ export default function App() {
         onOpenTutorials={currentUser ? () => { requestSettingsTab('help'); handleNavigateTab('settings'); } : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
         onLogout={currentUser ? handleLogout : undefined}
+        showPostFallback={!isDesktopSidebarOpen}
       />
 
       {!isDesktopSidebarOpen && (
@@ -1390,12 +1390,12 @@ export default function App() {
             currentUser={currentUser}
             isOpen={isDesktopSidebarOpen}
             onToggleOpen={handleToggleDesktopSidebar}
+            hiddenWithoutPost={hiddenWithoutPost}
           />
 
 
           {/* Main Content Workspace */}
           <main className="flex-1 w-full lg:w-auto min-w-0">
-        {currentUser && <ActivePostBanner hiddenWithoutPost={hiddenWithoutPost} />}
         
         {/* Error Alert */}
         {pbError && (

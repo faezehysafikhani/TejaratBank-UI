@@ -12,6 +12,9 @@ export interface ActivePostOption {
   /** 'all', 'post:<unitPositionId>' or 'unit:<unitId>'. */
   key: string;
   label: string;
+  /** The label in two lines for menus: the post (position) and, under it, its unit (or the count of posts). */
+  title: string;
+  subtitle?: string;
   /** The seats (unit position ids) this choice stands for. */
   postIds: string[];
   /** Position title and code of each seat, to match report rows (they carry no post id). */
@@ -49,9 +52,9 @@ const seatLabel = (p: HeldPosition) => `${p.title}${p.unitName ? ` · ${p.unitNa
 
 /** All the choices for the held posts: «همه», each post, and a unit when the person holds 2+ posts in it. */
 export function buildOptions(held: HeldPosition[]): ActivePostOption[] {
-  const options: ActivePostOption[] = [{ key: ALL_POSTS, label: 'همهٔ پست‌ها', postIds: held.map((p) => p.unitPositionId), seats: held.map((p) => ({ title: p.title, code: p.code ?? '' })) }];
+  const options: ActivePostOption[] = [{ key: ALL_POSTS, label: 'همهٔ پست‌ها', title: 'همهٔ پست‌ها', postIds: held.map((p) => p.unitPositionId), seats: held.map((p) => ({ title: p.title, code: p.code ?? '' })) }];
   for (const p of held) {
-    options.push({ key: `post:${p.unitPositionId}`, label: seatLabel(p), postIds: [p.unitPositionId], seats: [{ title: p.title, code: p.code ?? '' }] });
+    options.push({ key: `post:${p.unitPositionId}`, label: seatLabel(p), title: p.title, subtitle: p.unitName || undefined, postIds: [p.unitPositionId], seats: [{ title: p.title, code: p.code ?? '' }] });
   }
   const byUnit = new Map<string, HeldPosition[]>();
   for (const p of held) {
@@ -60,7 +63,7 @@ export function buildOptions(held: HeldPosition[]): ActivePostOption[] {
   }
   for (const [unitId, list] of byUnit) {
     if (list.length < 2) continue;
-    options.push({ key: `unit:${unitId}`, label: `همهٔ پست‌های ${list[0].unitName}`, postIds: list.map((p) => p.unitPositionId), seats: list.map((p) => ({ title: p.title, code: p.code ?? '' })) });
+    options.push({ key: `unit:${unitId}`, label: `همهٔ پست‌های ${list[0].unitName}`, title: `همهٔ پست‌های ${list[0].unitName}`, subtitle: `${list.length} پست`, postIds: list.map((p) => p.unitPositionId), seats: list.map((p) => ({ title: p.title, code: p.code ?? '' })) });
   }
   return options;
 }

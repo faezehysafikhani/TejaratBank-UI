@@ -31,6 +31,8 @@ interface NavbarProps {
   onOpenSettings?: () => void;
   /** «خروج» in the avatar menu. */
   onLogout?: () => void;
+  /** The right sidebar is hidden (collapsed): the post switch then shows here as a small chip (on small screens it always does). */
+  showPostFallback?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -51,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenTutorials,
   onOpenSettings,
   onLogout,
+  showPostFallback = false,
 }) => {
   const brand = useBranding();
   // The avatar opens a small menu (profile, sign out); it closes on a click elsewhere or Escape.
@@ -130,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {currentUser && <ActivePostSwitcher />}
+          {currentUser && <ActivePostSwitcher variant="chip" className={showPostFallback ? '' : 'lg:hidden'} />}
 
           <div className="navbar-clock order-3 w-full sm:order-none sm:w-auto flex items-center justify-center gap-3.5 px-5 py-1.5" title="تاریخ و ساعت دستگاه شما؛ بدون نیاز به اینترنت">
             <span className="relative z-10 flex items-center gap-2 text-xs sm:text-sm font-bold text-indigo-100"><CalendarDays className="w-4 h-4 text-indigo-300 drop-shadow-[0_0_8px_rgba(165,180,252,0.8)]" />{systemDate}</span>
