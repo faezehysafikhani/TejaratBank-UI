@@ -1,14 +1,21 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Check, ChevronDown, X } from 'lucide-react';
-import { ALL_POSTS, ActivePostOption, selectActivePost, useActivePost } from '../utils/activePost';
+import { ALL_POSTS, ActivePostOption, HiddenInfo, hiddenTotal, selectActivePost, useActivePost } from '../utils/activePost';
 import { toPersianDigits } from '../utils/helpers';
 
 const MENU_WIDTH = 270;
 const GAP = 12;
 const EDGE = 8;
 
-const HIDDEN_NOTE = 'فقط فعالیت‌ها و گزارش‌های این پست دیده می‌شود. دسترسی شما تغییر نکرده است. فعالیت‌هایی که به پست داده نشده‌اند در این حالت نمایش داده نمی‌شوند.';
+const HIDDEN_NOTE = 'فقط فعالیت‌ها و گزارش‌های این پست دیده می‌شود. دسترسی شما تغییر نکرده است.';
+
+/** «بدون پست ۱، جانشینی ۲، پست دیگر ۱» */
+const reasons = (h: HiddenInfo) => [
+  h.noPost ? `بدون پست ${toPersianDigits(h.noPost)}` : '',
+  h.standIn ? `جانشینی ${toPersianDigits(h.standIn)}` : '',
+  h.other ? `پست دیگر ${toPersianDigits(h.other)}` : '',
+].filter(Boolean).join('، ');
 
 interface Pos { top: number; left: number; from: 'left' | 'right' | 'top' }
 
@@ -154,7 +161,7 @@ const Menu: React.FC<{
  * sidebar; «chip» is the small neutral stand-in in the header while the sidebar is not shown. Both open the
  * same menu and use the same state. It narrows what the screens show; it does not change what the person may see.
  */
-export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hiddenWithoutPost?: number; className?: string }> = ({ variant = 'card', hiddenWithoutPost = 0, className = '' }) => {
+export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hidden?: HiddenInfo; className?: string }> = ({ variant = 'card', hidden, className = '' }) => {
   const view = useActivePost();
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -243,15 +250,17 @@ export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hiddenWit
         <span className="min-w-0 flex-1 text-xs font-bold leading-5 break-words line-clamp-2">{view.narrowed ? view.selected.label : 'همهٔ پست‌ها'}</span>
         <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? '-rotate-90' : 'rotate-90'}`} aria-hidden="true" />
       </button>
-      {view.narrowed && hiddenWithoutPost > 0 && (
-        <div
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-500/30"
-          title={HIDDEN_NOTE}
+      {view.narrowed && hidden && hiddenTotal(hidden) > 0 && (
+        <button
+          type="button"
+          onClick={() => selectActivePost(ALL_POSTS)}
+          className="w-full text-right inline-flex items-start gap-1.5 px-2 py-1 rounded-lg text-[10px] leading-4 font-semibold bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-500/30 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-500/20"
+          title={`${HIDDEN_NOTE}\n${hidden.titles.map((t) => `• ${t}`).join('\n')}\nبرای دیدن همه کلیک کنید.`}
           data-testid="active-post-hidden-chip"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" aria-hidden="true" />
-          {toPersianDigits(hiddenWithoutPost)} فعالیت بدون پست پنهان
-        </div>
+          <span className="w-1.5 h-1.5 mt-1 rounded-full bg-amber-500 shrink-0" aria-hidden="true" />
+          <span>{toPersianDigits(hiddenTotal(hidden))} فعالیت پنهان ({reasons(hidden)})</span>
+        </button>
       )}
       {menu}
     </div>

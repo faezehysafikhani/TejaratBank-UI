@@ -121,6 +121,10 @@ export function useActivePost(): ActivePostView {
   );
 }
 
+/** What the chosen post hides, and why (for the note under the switch). */
+export interface HiddenInfo { noPost: number; standIn: number; other: number; titles: string[] }
+export const hiddenTotal = (h: HiddenInfo) => h.noPost + h.standIn + h.other;
+
 /** A task is in the chosen post(s) when any of its posts (owner, responsible or access) is one of them. */
 export function taskInPosts(task: { posts?: { postId: string }[] }, postIds: Set<string> | null): boolean {
   if (!postIds) return true;

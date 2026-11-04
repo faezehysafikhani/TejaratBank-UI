@@ -1,4 +1,5 @@
 import { ActivePostSwitcher } from './ActivePostSwitcher';
+import type { HiddenInfo } from '../utils/activePost';
 import React, { useEffect, useState } from 'react';
 import { Kanban, Calendar, AlertCircle, Settings, LogOut, MessageSquare, FileText, PanelRightClose, Plus, BarChart3, UserCog, UserX } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
@@ -23,8 +24,8 @@ interface DesktopSidebarProps {
   onToggleOpen?: () => void;
   /** Whether a section is available to the user (permissions); all are when omitted. */
   canOpenTab?: (tab: ActiveTab) => boolean;
-  /** Tasks with no post that the chosen post hides (shown under the post switch). */
-  hiddenWithoutPost?: number;
+  /** The tasks the chosen post hides, and why (a note under the post switch). */
+  hidden?: HiddenInfo;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
@@ -43,7 +44,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   isOpen = true,
   onToggleOpen,
   canOpenTab = (_tab: ActiveTab) => true,
-  hiddenWithoutPost = 0,
+  hidden,
 }) => {
   const palette = COLOR_PALETTES[appColorPalette] || COLOR_PALETTES.indigo;
 
@@ -91,7 +92,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     >
 
       {/* «حالت نمایش پست»: first thing in the sidebar, only for someone holding several posts */}
-      {currentUser && <ActivePostSwitcher variant="card" hiddenWithoutPost={hiddenWithoutPost} />}
+      {currentUser && <ActivePostSwitcher variant="card" hidden={hidden} />}
 
       {onOpenCreateModal && (
         <button

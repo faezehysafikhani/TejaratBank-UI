@@ -79,7 +79,7 @@ import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './uti
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
-import { setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
+import { HiddenInfo, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -842,10 +842,20 @@ export default function App() {
     const inScope = new Set(mayViewTasks0.filter((t) => taskInPosts(t, activePost.postIds)).map((t) => t.id));
     return mayViewTasks0.filter((t) => inScope.has(t.id) || (t.parentTaskId ? inScope.has(t.parentTaskId) : false));
   }, [mayViewTasks0, activePost.postIds]);
-  const hiddenWithoutPost = useMemo(
-    () => (activePost.postIds ? mayViewTasks0.filter((t) => !t.parentTaskId && (t.posts?.length ?? 0) === 0).length : 0),
-    [mayViewTasks0, activePost.postIds],
-  );
+  // What the chosen post hides, and why: no post at all (given to a person), a stand-in's work, or another post's.
+  const hiddenInfo = useMemo<HiddenInfo>(() => {
+    const info: HiddenInfo = { noPost: 0, standIn: 0, other: 0, titles: [] };
+    if (!activePost.postIds) return info;
+    const shown = new Set(visibleTasks.map((t) => t.id));
+    for (const t of mayViewTasks0) {
+      if (t.parentTaskId || shown.has(t.id)) continue;
+      if ((t.posts?.length ?? 0) === 0) info.noPost++;
+      else if (t.standIns?.some((s) => s.userId === currentUser?.id)) info.standIn++;
+      else info.other++;
+      if (info.titles.length < 6) info.titles.push(t.title);
+    }
+    return info;
+  }, [mayViewTasks0, visibleTasks, activePost.postIds, currentUser?.id]);
 
   const taskTitleById = useMemo(() => new Map(visibleTasks.map((t) => [t.id, t.title])), [visibleTasks]);
 
@@ -1390,7 +1400,7 @@ export default function App() {
             currentUser={currentUser}
             isOpen={isDesktopSidebarOpen}
             onToggleOpen={handleToggleDesktopSidebar}
-            hiddenWithoutPost={hiddenWithoutPost}
+            hidden={hiddenInfo}
           />
 
 
