@@ -25,11 +25,14 @@ interface State {
   userId: string | null;
   held: HeldPosition[];
   selected: string;
+  /** A switch is under way: what the new post allows and shows is still being read. */
+  switching: boolean;
 }
 
 const STORAGE_PREFIX = 'tm_active_post_v1:';
 const listeners = new Set<() => void>();
-let state: State = { userId: null, held: [], selected: ALL_POSTS };
+let state: State = { userId: null, held: [], selected: ALL_POSTS, switching: false };
+let switchGuard: ReturnType<typeof setTimeout> | null = null;
 
 const read = (userId: string): string => {
   try {
@@ -71,7 +74,7 @@ export function buildOptions(held: HeldPosition[]): ActivePostOption[] {
 /** Called when somebody signs in (null at sign-out): the saved choice of that person comes back. */
 export function setActivePostUser(userId: string | null) {
   if (state.userId === userId) return;
-  state = { userId, held: [], selected: userId ? read(userId) : ALL_POSTS };
+  state = { userId, held: [], selected: userId ? read(userId) : ALL_POSTS, switching: false };
   emit();
 }
 
@@ -83,11 +86,24 @@ export function setHeldPosts(held: HeldPosition[]) {
   emit();
 }
 
+/** Marks the switch as done (or under way). It never stays on: a guard clears it if nothing else does. */
+export function setActivePostSwitching(on: boolean) {
+  if (switchGuard) { clearTimeout(switchGuard); switchGuard = null; }
+  if (on) switchGuard = setTimeout(() => setActivePostSwitching(false), 20000);
+  if (state.switching === on) return;
+  state = { ...state, switching: on };
+  emit();
+}
+
 export function selectActivePost(key: string) {
-  if (!state.userId) return;
+  if (!state.userId || state.switching || key === state.selected) return;
+  const before = activePostsHeader();
   state = { ...state, selected: key };
   write(state.userId, key);
-  emit();
+  // Only a switch that changes what the server is told has anything to wait for.
+  const waits = activePostsHeader() !== before;
+  if (waits) setActivePostSwitching(true);
+  else emit();
 }
 
 export interface ActivePostView {
@@ -99,6 +115,8 @@ export interface ActivePostView {
   narrowed: boolean;
   /** The seat ids to keep, or null for «همه» (nothing is narrowed). */
   postIds: Set<string> | null;
+  /** A switch is under way: its permissions and data are still being read (the switch waits). */
+  switching: boolean;
 }
 
 let cached: { src: State; view: ActivePostView } | null = null;
@@ -108,7 +126,7 @@ function viewOf(s: State): ActivePostView {
   const selected = options.find((o) => o.key === s.selected) ?? options[0];
   const canSwitch = s.held.length > 1;
   const narrowed = canSwitch && selected.key !== ALL_POSTS;
-  const view: ActivePostView = { canSwitch, options, selected, narrowed, postIds: narrowed ? new Set(selected.postIds) : null };
+  const view: ActivePostView = { canSwitch, options, selected, narrowed, postIds: narrowed ? new Set(selected.postIds) : null, switching: s.switching };
   cached = { src: s, view };
   return view;
 }

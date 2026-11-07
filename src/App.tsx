@@ -79,7 +79,7 @@ import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './uti
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
-import { HiddenInfo, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
+import { HiddenInfo, setActivePostSwitching, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -830,32 +830,34 @@ export default function App() {
   const activePost = useActivePost();
   useEffect(() => { setActivePostUser(currentUser?.id ?? null); }, [currentUser?.id]);
   // Working as another post changes what the person may do (the server then counts only that post's permissions):
-  // the menus and the sections follow at once, not at the next sign-in or focus. Quick switches count as one
-  // (a short wait), and what the server shows is read again only when the permissions really changed.
+  // the menus and the sections follow at once, not at the next sign-in or focus. The switch stays locked (with a
+  // small spinner) until the permissions and what the server shows for them are read, so a quick second switch
+  // never meets the answers still coming for the first. Data is read again only when the permissions changed.
   const activePostsKey = activePost.postIds ? [...activePost.postIds].sort().join(',') : '';
   const lastPermissionsRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentUser?.id) { lastPermissionsRef.current = null; return undefined; }
+    if (!currentUser?.id) { lastPermissionsRef.current = null; setActivePostSwitching(false); return undefined; }
     let alive = true;
-    const timer = window.setTimeout(() => {
-      refreshCurrentUserPB()
-        .then((liveUser) => {
-          if (!alive || !liveUser) return;
-          const key = `${liveUser.id}|${[...(liveUser.permissions ?? [])].sort().join(',')}`;
-          const changed = lastPermissionsRef.current !== null && lastPermissionsRef.current !== key;
-          lastPermissionsRef.current = key;
-          if (!changed) return;
-          setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
-          // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
-          void loadTasks(false);
-          void loadUsersAndTeams();
-          refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox).catch(() => {});
-          refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable).catch(() => {});
-          refreshLookup(`${liveUser.id}:report-scope`, getReportScope).catch(() => {});
-        })
-        .catch(() => {});
-    }, 400);
-    return () => { alive = false; window.clearTimeout(timer); };
+    refreshCurrentUserPB()
+      .then(async (liveUser) => {
+        if (!alive || !liveUser) return;
+        const key = `${liveUser.id}|${[...(liveUser.permissions ?? [])].sort().join(',')}`;
+        const changed = lastPermissionsRef.current !== null && lastPermissionsRef.current !== key;
+        lastPermissionsRef.current = key;
+        if (!changed) return;
+        setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
+        // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
+        await Promise.allSettled([
+          loadTasks(false),
+          loadUsersAndTeams(),
+          refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox),
+          refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable),
+          refreshLookup(`${liveUser.id}:report-scope`, getReportScope),
+        ]);
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setActivePostSwitching(false); });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, activePostsKey, loadTasks, loadUsersAndTeams]);
   useEffect(() => {
