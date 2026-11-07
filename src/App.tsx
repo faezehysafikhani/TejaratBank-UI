@@ -830,24 +830,32 @@ export default function App() {
   const activePost = useActivePost();
   useEffect(() => { setActivePostUser(currentUser?.id ?? null); }, [currentUser?.id]);
   // Working as another post changes what the person may do (the server then counts only that post's permissions):
-  // the menus and the sections follow at once, not at the next sign-in or focus.
+  // the menus and the sections follow at once, not at the next sign-in or focus. Quick switches count as one
+  // (a short wait), and what the server shows is read again only when the permissions really changed.
   const activePostsKey = activePost.postIds ? [...activePost.postIds].sort().join(',') : '';
+  const lastPermissionsRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!currentUser?.id) return undefined;
+    if (!currentUser?.id) { lastPermissionsRef.current = null; return undefined; }
     let alive = true;
-    refreshCurrentUserPB()
-      .then((liveUser) => {
-        if (!alive || !liveUser) return;
-        setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
-        // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
-        void loadTasks(false);
-        void loadUsersAndTeams();
-        refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox).catch(() => {});
-        refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable).catch(() => {});
-        refreshLookup(`${liveUser.id}:report-scope`, getReportScope).catch(() => {});
-      })
-      .catch(() => {});
-    return () => { alive = false; };
+    const timer = window.setTimeout(() => {
+      refreshCurrentUserPB()
+        .then((liveUser) => {
+          if (!alive || !liveUser) return;
+          const key = `${liveUser.id}|${[...(liveUser.permissions ?? [])].sort().join(',')}`;
+          const changed = lastPermissionsRef.current !== null && lastPermissionsRef.current !== key;
+          lastPermissionsRef.current = key;
+          if (!changed) return;
+          setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
+          // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
+          void loadTasks(false);
+          void loadUsersAndTeams();
+          refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox).catch(() => {});
+          refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable).catch(() => {});
+          refreshLookup(`${liveUser.id}:report-scope`, getReportScope).catch(() => {});
+        })
+        .catch(() => {});
+    }, 400);
+    return () => { alive = false; window.clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, activePostsKey, loadTasks, loadUsersAndTeams]);
   useEffect(() => {
