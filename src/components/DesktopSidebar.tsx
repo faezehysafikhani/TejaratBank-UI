@@ -1,5 +1,7 @@
+import { ActivePostSwitcher } from './ActivePostSwitcher';
+import type { HiddenInfo } from '../utils/activePost';
 import React, { useEffect, useState } from 'react';
-import { Kanban, Calendar, AlertCircle, Settings, LogOut, MessageSquare, FileText, PanelRightClose, Plus, BarChart3, UserCog } from 'lucide-react';
+import { Kanban, Calendar, AlertCircle, Settings, LogOut, MessageSquare, FileText, PanelRightClose, Plus, BarChart3, UserCog, UserX } from 'lucide-react';
 import { toPersianDigits } from '../utils/helpers';
 import { AppColorPalette, User as UserType } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
@@ -22,6 +24,8 @@ interface DesktopSidebarProps {
   onToggleOpen?: () => void;
   /** Whether a section is available to the user (permissions); all are when omitted. */
   canOpenTab?: (tab: ActiveTab) => boolean;
+  /** The tasks the chosen post hides, and why (a note under the post switch). */
+  hidden?: HiddenInfo;
 }
 
 export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
@@ -40,6 +44,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   isOpen = true,
   onToggleOpen,
   canOpenTab = (_tab: ActiveTab) => true,
+  hidden,
 }) => {
   const palette = COLOR_PALETTES[appColorPalette] || COLOR_PALETTES.indigo;
 
@@ -82,15 +87,18 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     {/* Reserves the sidebar's width/gap in the flex row; the sidebar itself is fixed (out of flow). */}
     <div className="hidden lg:block w-48 shrink-0" aria-hidden="true" />
     <aside
-      className="hidden lg:flex flex-col w-48 shrink-0 gap-3 p-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm fixed z-20 overflow-y-auto animate-in fade-in slide-in-from-right-4 duration-300"
+      className="hidden lg:flex flex-col w-48 shrink-0 gap-1.5 p-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm fixed z-20 overflow-y-auto animate-in fade-in slide-in-from-right-4 duration-300"
       style={{ right: fixedRight, top: HEADER_HEIGHT_PX + EDGE_GAP_PX, bottom: EDGE_GAP_PX }}
     >
+
+      {/* «حالت نمایش پست»: first thing in the sidebar, only for someone holding several posts */}
+      {currentUser && <ActivePostSwitcher variant="card" hidden={hidden} />}
 
       {onOpenCreateModal && (
         <button
           type="button"
           onClick={onOpenCreateModal}
-          className={`ui-glow w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-tr ${palette.gradientFromTo} text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-90 active:scale-98 transition-all cursor-pointer`}
+          className={`ui-glow w-full flex items-center justify-center gap-2 py-2 bg-gradient-to-tr ${palette.gradientFromTo} text-white font-bold text-xs rounded-xl shadow-sm hover:opacity-90 active:scale-98 transition-all cursor-pointer`}
         >
           <Plus className="w-4 h-4 shrink-0" />
           <span>افزودن فعالیت</span>
@@ -98,7 +106,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       )}
 
       {/* Navigation Section */}
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <div className="flex items-center justify-between px-2 py-0.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
           <span>منوی دسترسی</span>
           {onToggleOpen && (
@@ -118,7 +126,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('kanban')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'kanban'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -136,7 +144,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('calendar')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'calendar'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -153,7 +161,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('chat')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'chat'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -175,7 +183,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('notes')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'notes'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -193,7 +201,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('overdue')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'overdue'
               ? 'bg-rose-600 text-white shadow-md shadow-rose-950/20'
               : 'text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400'
@@ -222,7 +230,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('reports')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'reports'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -240,7 +248,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('substitution')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'substitution'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -252,13 +260,31 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           </div>
         </button>
         )}
+
+        {/* 8. People without an organisational post (for those who may place people) */}
+        {canOpenTab('unplaced') && (
+        <button
+          type="button"
+          onClick={() => setActiveTab('unplaced')}
+          className={`w-full flex items-center justify-between px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'unplaced'
+              ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
+              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <UserX className="w-4 h-4 shrink-0" />
+            <span className="truncate">کارتابل افراد بدون پست</span>
+          </div>
+        </button>
+        )}
       </div>
 
 
-      <div className="border-t border-slate-100 dark:border-slate-800/80 my-0.5" />
+      <div className="border-t border-slate-100 dark:border-slate-800/80" />
 
       {/* System & Settings Section */}
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         <div className="px-2 py-0.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
           تنظیمات برنامه
         </div>
@@ -266,7 +292,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`w-full flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'settings'
               ? `ui-glow ${palette.accentBg} text-white shadow-md shadow-indigo-950/20`
               : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
@@ -280,7 +306,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           <button
             type="button"
             onClick={onLogout}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+            className="w-full flex items-center gap-2 px-2.5 py-1 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4 text-rose-500 shrink-0" />
             <span className="truncate">خروج از حساب</span>
@@ -290,9 +316,9 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
       {/* Progress Summary Widget */}
       {totalTasks > 0 && (
-        <div className="mt-auto pt-3 border-t border-slate-100 dark:border-slate-800/80 shrink-0 flex flex-col items-center justify-end gap-2">
-          <div className="relative w-24 h-24 shrink-0">
-            <svg viewBox="0 0 100 100" className="w-24 h-24 -rotate-90">
+        <div className="mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/80 shrink-0 flex flex-col items-center justify-end gap-1">
+          <div className="relative w-16 h-16 shrink-0">
+            <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
               <circle cx="50" cy="50" r={RADIUS} fill="none" strokeWidth="10" className="stroke-slate-100 dark:stroke-slate-800" />
               <circle
                 cx="50"
@@ -307,7 +333,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-base font-black text-slate-800 dark:text-slate-100">
+              <span className="text-sm font-black text-slate-800 dark:text-slate-100">
                 {toPersianDigits(progressPercent)}٪
               </span>
             </div>

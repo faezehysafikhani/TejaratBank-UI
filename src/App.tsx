@@ -24,6 +24,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 const JalaliCalendarView = lazy(() => import('./components/JalaliCalendarView').then(m => ({ default: m.JalaliCalendarView })));
 const OverdueTasksView = lazy(() => import('./components/OverdueTasksView').then(m => ({ default: m.OverdueTasksView })));
 const ReportsPage = lazy(() => import('./components/reports/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const UnplacedPeopleView = lazy(() => import('./components/UnplacedPeopleView').then(m => ({ default: m.UnplacedPeopleView })));
 const SubstitutionInboxView = lazy(() => import('./components/SubstitutionInboxView').then(m => ({ default: m.SubstitutionInboxView })));
 const TeamChatView = lazy(() => import('./components/TeamChatView').then(m => ({ default: m.TeamChatView })));
 const PersonalNotesView = lazy(() => import('./components/PersonalNotesView').then(m => ({ default: m.PersonalNotesView })));
@@ -77,7 +78,8 @@ import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
-import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, SubstitutionInbox } from './services/orgStructureApi';
+import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
+import { HiddenInfo, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -94,6 +96,7 @@ const PAGE_TITLES: Record<string, string> = {
   notes: 'یادداشت‌های شخصی',
   reports: 'گزارشات',
   substitution: 'کارتابل جانشینی',
+  unplaced: 'کارتابل افراد بدون پست',
   settings: 'تنظیمات و پروفایل',
 };
 
@@ -428,11 +431,15 @@ export default function App() {
   const substitution = useLookup<SubstitutionInbox | null>(
     currentUserId ? `${currentUserId}:substitution` : null, getSubstitutionInbox, null).value;
   const showSubstitution = !!substitution?.enabled && (substitution.canManageAll || substitution.posts.length > 0);
+  // «کارتابل افراد بدون پست»: for those who may place people, where the structure module exists.
+  const orgAvailable = useLookup<boolean>(currentUserId ? orgStructureLookupKey(currentUserId) : null, isOrgStructureAvailable, false).value;
+  const showUnplaced = !!orgAvailable && can(currentUser, ORG_STRUCTURE_PERMISSIONS.manageAssignments);
   const canOpenSection = useCallback(
     (tab: ActiveTab) => canOpenTab(currentUser, tab)
       && (tab !== 'reports' || Object.values(reportTabsFor(currentUser, reportScope)).some(Boolean))
-      && (tab !== 'substitution' || showSubstitution),
-    [currentUser, reportScope, showSubstitution],
+      && (tab !== 'substitution' || showSubstitution)
+      && (tab !== 'unplaced' || showUnplaced),
+    [currentUser, reportScope, showSubstitution, showUnplaced],
   );
 
   const canCreateTask = can(currentUser, PERMISSIONS.tasksCreate);
@@ -813,10 +820,42 @@ export default function App() {
 
   // Task Visibility Rule: owner, responsible people and the task's access list - the same rule
   // the server applies. Every view (dashboard, board, calendar, chat) shows only these tasks.
-  const visibleTasks = useMemo(() => {
+  const mayViewTasks0 = useMemo(() => {
     if (!currentUser) return tasks;
     return tasks.filter((task) => isTaskVisibleTo(task, currentUser));
   }, [tasks, currentUser]);
+
+  // «نمایش بر اساس پست»: a person with several posts may look at the system through one of them (or
+  // one unit). Only what the screens show is narrowed; sub-tasks follow their parent task.
+  const activePost = useActivePost();
+  useEffect(() => { setActivePostUser(currentUser?.id ?? null); }, [currentUser?.id]);
+  useEffect(() => {
+    if (!currentUser?.id) return undefined;
+    let alive = true;
+    const loadHeld = () => getMyPlacement().then((p) => alive && setHeldPosts(p?.assignment?.positions ?? [])).catch(() => {});
+    loadHeld();
+    window.addEventListener('focus', loadHeld);
+    return () => { alive = false; window.removeEventListener('focus', loadHeld); };
+  }, [currentUser?.id]);
+  const visibleTasks = useMemo(() => {
+    if (!activePost.postIds) return mayViewTasks0;
+    const inScope = new Set(mayViewTasks0.filter((t) => taskInPosts(t, activePost.postIds)).map((t) => t.id));
+    return mayViewTasks0.filter((t) => inScope.has(t.id) || (t.parentTaskId ? inScope.has(t.parentTaskId) : false));
+  }, [mayViewTasks0, activePost.postIds]);
+  // What the chosen post hides, and why: no post at all (given to a person), a stand-in's work, or another post's.
+  const hiddenInfo = useMemo<HiddenInfo>(() => {
+    const info: HiddenInfo = { noPost: 0, standIn: 0, other: 0, titles: [] };
+    if (!activePost.postIds) return info;
+    const shown = new Set(visibleTasks.map((t) => t.id));
+    for (const t of mayViewTasks0) {
+      if (t.parentTaskId || shown.has(t.id)) continue;
+      if ((t.posts?.length ?? 0) === 0) info.noPost++;
+      else if (t.standIns?.some((s) => s.userId === currentUser?.id)) info.standIn++;
+      else info.other++;
+      if (info.titles.length < 6) info.titles.push(t.title);
+    }
+    return info;
+  }, [mayViewTasks0, visibleTasks, activePost.postIds, currentUser?.id]);
 
   const taskTitleById = useMemo(() => new Map(visibleTasks.map((t) => [t.id, t.title])), [visibleTasks]);
 
@@ -1053,10 +1092,13 @@ export default function App() {
     };
   }, [currentUser?.id, loadServerNotifications]);
 
-  const allNotifications = useMemo(
-    () => mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks))),
-    [appNotifications, serverNotifications, visibleTasks]
-  );
+  const allNotifications = useMemo(() => {
+    const merged = mergeNotifications(appNotifications, serverNotifications.map((n) => toAppNotification(n, visibleTasks)));
+    if (!activePost.postIds) return merged;
+    // One post chosen: the notices of its tasks (the others stay out of the bell until «همه» is chosen).
+    const ids = new Set(visibleTasks.map((t) => t.id));
+    return merged.filter((n) => !n.taskId || ids.has(n.taskId));
+  }, [appNotifications, serverNotifications, visibleTasks, activePost.postIds]);
 
   const unreadNotificationsCount = useMemo(
     () => allNotifications.filter((n) => !n.isRead).length,
@@ -1184,6 +1226,7 @@ export default function App() {
         <div className="relative z-10 text-center max-w-sm mx-auto space-y-4 p-8 rounded-3xl bg-white/10 dark:bg-slate-900/50 border border-white/10 shadow-2xl backdrop-blur-md">
           <img 
             src={brand.logo}
+            style={{ visibility: brand.ready ? 'visible' : 'hidden' }}
             alt="لوگو" 
             className="w-16 h-16 mx-auto rounded-2xl shadow-xl object-cover border border-white/20" 
           />
@@ -1221,50 +1264,47 @@ export default function App() {
   // App Initial Splash Screen with Spinning App Logo & Progress Bar
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 text-white font-sans dir-rtl select-none transition-opacity duration-300 overflow-hidden">
-        {/* Subtle Ambient Background Lighting */}
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-950 via-teal-900 to-indigo-950 text-white font-sans dir-rtl select-none transition-opacity duration-300 overflow-hidden">
+        {/* Aurora glows, matching the sign-in page */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[30%] left-[35%] w-96 h-96 rounded-full bg-indigo-600/20 blur-3xl animate-pulse" />
-          <div className="absolute bottom-[30%] right-[35%] w-96 h-96 rounded-full bg-purple-600/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-[22%] left-[30%] w-96 h-96 rounded-full bg-emerald-400/25 blur-3xl animate-pulse" />
+          <div className="absolute bottom-[22%] right-[30%] w-96 h-96 rounded-full bg-cyan-400/20 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-[40%] right-[12%] w-72 h-72 rounded-full bg-violet-500/20 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
         </div>
 
         {/* Central Logo Container */}
         <div className="relative flex flex-col items-center justify-center z-10 space-y-6">
           <div className="relative flex items-center justify-center">
             {/* Outer Soft Spinning Glow Ring */}
-            <div 
-              className="absolute -inset-6 rounded-full border-2 border-transparent border-t-indigo-500/90 border-r-purple-500/70 shadow-lg shadow-indigo-500/25 animate-smooth-spin" 
+            <div
+              className="absolute -inset-7 rounded-full border-2 border-transparent border-t-emerald-300/90 border-r-cyan-300/70 shadow-lg shadow-emerald-400/25 animate-smooth-spin"
               style={{ animationDuration: '1.6s' }}
             />
 
             {/* Secondary Counter-rotating Accent Ring */}
-            <div 
-              className="absolute -inset-3 rounded-full border border-indigo-400/25 border-b-cyan-400/50 animate-smooth-spin" 
+            <div
+              className="absolute -inset-3 rounded-full border border-emerald-300/25 border-b-violet-300/50 animate-smooth-spin"
               style={{ animationDirection: 'reverse', animationDuration: '2.8s' }}
             />
-            
+
             {/* Glowing Aura */}
-            <div className="absolute inset-0 rounded-2xl bg-indigo-500/30 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-full bg-emerald-300/30 blur-xl animate-pulse" />
 
             {/* App Logo Image */}
-            <div className="relative p-2 rounded-2xl bg-slate-900 border border-white/15 shadow-2xl">
-              <img 
+            <div className="relative p-2.5 rounded-full bg-white shadow-2xl">
+              <img
                 src={brand.logo}
-                alt="لوگوی برنامه" 
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover shadow-md"
+                style={{ visibility: brand.ready ? 'visible' : 'hidden' }}
+                alt="لوگوی برنامه"
+                className="w-44 h-44 sm:w-56 sm:h-56 rounded-full object-contain"
               />
             </div>
           </div>
 
-          {/* Title & Loading Status */}
-          <div className="text-center space-y-2 mt-6 sm:mt-8">
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-              {brand.name}
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-indigo-200/90 animate-pulse">
-              در حال بارگذاری داده‌ها و ورود به سامانه...
-            </p>
-          </div>
+          {/* Loading Status (the system name is intentionally not shown under the logo) */}
+          <p className="mt-8 sm:mt-10 text-xs sm:text-sm font-medium text-emerald-100/90 animate-pulse text-center">
+            در حال بارگذاری داده‌ها و ورود به سامانه...
+          </p>
         </div>
       </div>
     );
@@ -1304,6 +1344,7 @@ export default function App() {
       )}
 
       {/* Top Navbar */}
+      {/* (the «نمایش بر اساس پست» strip comes right under it) */}
       <Navbar
         totalTasks={visibleTasks.length}
         completedTasks={completedCount}
@@ -1322,6 +1363,7 @@ export default function App() {
         onOpenTutorials={currentUser ? () => { requestSettingsTab('help'); handleNavigateTab('settings'); } : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
         onLogout={currentUser ? handleLogout : undefined}
+        showPostFallback={!isDesktopSidebarOpen}
       />
 
       {!isDesktopSidebarOpen && (
@@ -1358,6 +1400,7 @@ export default function App() {
             currentUser={currentUser}
             isOpen={isDesktopSidebarOpen}
             onToggleOpen={handleToggleDesktopSidebar}
+            hidden={hiddenInfo}
           />
 
 
@@ -1477,6 +1520,16 @@ export default function App() {
             {activeTab === 'substitution' && showSubstitution && (
               <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
                 <SubstitutionInboxView onChanged={() => currentUserId && refreshLookup(`${currentUserId}:substitution`, getSubstitutionInbox).catch(() => {})} />
+              </Suspense>
+            )}
+
+            {/* People without an organisational post (to place them) */}
+            {activeTab === 'unplaced' && showUnplaced && (
+              <Suspense fallback={<PageViewLoader appColorPalette={appColorPalette} />}>
+                <UnplacedPeopleView
+                  can={(permission) => can(currentUser, permission)}
+                  onChanged={() => currentUserId && refreshLookup(`${currentUserId}:substitution`, getSubstitutionInbox).catch(() => {})}
+                />
               </Suspense>
             )}
 
@@ -1620,7 +1673,7 @@ export default function App() {
             setAppColorTheme={handleSelectColorTheme}
             appColorPalette={appColorPalette}
             setAppColorPalette={handleSelectColorPalette}
-            totalTasksCount={tasks.length}
+            totalTasksCount={visibleTasks.length}
             currentUser={currentUser}
             onLogout={handleLogout}
             onOpenAuthModal={() => setIsAuthModalOpen(true)}

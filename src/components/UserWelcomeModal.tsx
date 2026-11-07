@@ -124,16 +124,16 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
   const avatarUrl = currentUser.avatar;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/35 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto dir-rtl">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300 overflow-y-auto dir-rtl">
       {/* Decorative Floating Glass Background Lighting Flares */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[8%] left-[10%] w-72 h-72 rounded-full bg-indigo-500/15 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[10%] right-[8%] w-80 h-80 rounded-full bg-purple-500/15 blur-3xl animate-pulse" />
-        <div className="absolute top-[35%] right-[25%] w-56 h-56 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="absolute top-[8%] left-[10%] w-72 h-72 rounded-full bg-emerald-500/8 blur-3xl animate-pulse" />
+        <div className="absolute bottom-[10%] right-[8%] w-80 h-80 rounded-full bg-teal-500/8 blur-3xl animate-pulse" />
+        <div className="absolute top-[35%] right-[25%] w-56 h-56 rounded-full bg-emerald-500/8 blur-3xl" />
         <div className="absolute bottom-[35%] left-[20%] w-48 h-48 rounded-full bg-cyan-500/10 blur-2xl" />
       </div>
 
-      <div className="relative w-full max-w-2xl bg-slate-900/35 text-white rounded-3xl border border-white/30 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden z-10 my-auto animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl bg-gradient-to-br from-slate-900/85 via-emerald-950/55 to-slate-900/85 text-white rounded-3xl border border-white/30 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] backdrop-blur-xl overflow-hidden z-10 my-auto animate-in zoom-in-95 duration-200">
         
         {/* Top Header Banner */}
         <div className="relative p-6 bg-white/10 dark:bg-white/5 backdrop-blur-md border-b border-white/15">
@@ -151,22 +151,22 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
               <img
                 src={avatarUrl}
                 alt={displayName}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-indigo-400/60 shadow-lg shadow-indigo-950/50"
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-400/60 shadow-lg shadow-emerald-950/50"
               />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-2xl border-2 border-indigo-400/60 shadow-lg">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center text-white font-black text-2xl border-2 border-emerald-400/60 shadow-lg">
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
 
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 backdrop-blur-md">
-                  <Sparkles className="w-3 h-3 text-indigo-300" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 backdrop-blur-md">
+                  <Sparkles className="w-3 h-3 text-emerald-300" />
                   {isLoading ? 'در حال همگام‌سازی داده‌ها...' : 'داشبورد خلاصه ورود'}
                 </span>
                 <span className="text-xs text-slate-300 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-300" />
+                  <Calendar className="w-3.5 h-3.5 text-emerald-300" />
                   امروز: {shamsiToday}
                 </span>
               </div>
@@ -189,7 +189,7 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
             <div className="p-4 rounded-2xl bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 flex flex-col justify-between space-y-2 hover:bg-white/15 hover:border-white/30 transition-all shadow-sm">
               <div className="flex items-center justify-between text-slate-300">
                 <span className="text-[11px] font-bold">کل فعالیت‌ها</span>
-                <ListTodo className="w-4 h-4 text-indigo-400" />
+                <ListTodo className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="text-2xl font-black text-white">
                 <AnimatedCounter value={totalTasks} />
@@ -241,15 +241,15 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
             </button>
 
             {/* 4. Active Projects */}
-            <button type="button" onClick={() => onOpenTaskFilter?.('projects')} className="text-right p-4 rounded-2xl bg-purple-950/35 backdrop-blur-md border border-purple-500/40 flex flex-col justify-between space-y-2 hover:bg-purple-900/45 hover:border-purple-400/60 transition-all shadow-sm cursor-pointer">
-              <div className="flex items-center justify-between text-purple-300">
+            <button type="button" onClick={() => onOpenTaskFilter?.('projects')} className="text-right p-4 rounded-2xl bg-teal-950/35 backdrop-blur-md border border-teal-500/40 flex flex-col justify-between space-y-2 hover:bg-teal-900/45 hover:border-teal-400/60 transition-all shadow-sm cursor-pointer">
+              <div className="flex items-center justify-between text-teal-300">
                 <span className="text-[11px] font-bold">پروژه‌ها</span>
-                <FolderKanban className="w-4 h-4 text-purple-400" />
+                <FolderKanban className="w-4 h-4 text-teal-400" />
               </div>
-              <div className="text-2xl font-black text-purple-200">
+              <div className="text-2xl font-black text-teal-200">
                 <AnimatedCounter value={projectTasks.length} />
               </div>
-              <span className="text-[10px] text-purple-200/90 font-medium">پروژه‌های کلان</span>
+              <span className="text-[10px] text-teal-200/90 font-medium">پروژه‌های کلان</span>
             </button>
           </div>
 
@@ -257,17 +257,17 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
           <div className="p-4 rounded-2xl bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 space-y-3 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-slate-200">
               <span className="flex items-center gap-1.5">
-                <BarChart2 className="w-4 h-4 text-indigo-400" />
+                <BarChart2 className="w-4 h-4 text-emerald-400" />
                 وضعیت کلی پیشرفت کارهای شما
               </span>
-              <span className="text-indigo-300 font-bold">
+              <span className="text-emerald-300 font-bold">
                 <AnimatedCounter value={completionRate} suffix="٪ تکمیل شده" />
               </span>
             </div>
             
             <div className="w-full h-3 bg-black/20 rounded-full overflow-hidden p-0.5 border border-white/15">
               <div
-                className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 rounded-full transition-all duration-700 shadow-sm"
+                className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 rounded-full transition-all duration-700 shadow-sm"
                 style={{ width: `${completionRate}%` }}
               />
             </div>
@@ -283,12 +283,12 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
           </div>
 
           {/* Smart Operational Insight */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-900/35 via-purple-900/35 to-indigo-900/35 backdrop-blur-md border border-indigo-400/40 flex items-start gap-3 shadow-sm">
-            <div className="p-2 rounded-xl bg-indigo-500/30 text-indigo-300 border border-indigo-400/40 shrink-0 mt-0.5 backdrop-blur-md">
-              <Zap className="w-5 h-5 text-indigo-300" />
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-900/35 via-teal-900/35 to-emerald-900/35 backdrop-blur-md border border-emerald-400/40 flex items-start gap-3 shadow-sm">
+            <div className="p-2 rounded-xl bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 shrink-0 mt-0.5 backdrop-blur-md">
+              <Zap className="w-5 h-5 text-emerald-300" />
             </div>
             <div className="space-y-1 text-xs">
-              <h4 className="font-bold text-indigo-200">تحلیل هوشمند وضعیت کاری شما:</h4>
+              <h4 className="font-bold text-emerald-200">تحلیل هوشمند وضعیت کاری شما:</h4>
               <p className="text-slate-200 leading-relaxed font-medium">
                 {overdueCount > 0
                   ? `شما تعداد ${toPersianDigits(overdueCount)} فعالیت از موعد گذشته دارید. پیشنهاد می‌شود جهت حفظ انضباط کاری، ابتدا فعالیت‌های معوقه خود را بررسی و تکمیل فرمایید.`
@@ -311,7 +311,7 @@ export const UserWelcomeModal: React.FC<UserWelcomeModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-950/60 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 border border-white/20"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 border border-white/20"
           >
             <span>مشاهده داشبورد و ورود به برنامه</span>
             <ArrowLeft className="w-4 h-4" />

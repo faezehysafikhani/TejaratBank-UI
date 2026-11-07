@@ -7,6 +7,9 @@ export const DEFAULT_SYSTEM_NAME = 'مدیریت وظایف (TM)';
 export const DEFAULT_LOGO = '/tm-logo.png';
 const DEFAULT_FAVICON = '/favicon.svg';
 const CACHE_KEY = 'tm_branding_v1';
+// The last branding the server gave (name and images), so a reload shows the administrator's logo at once
+// instead of the product's own for a moment.
+const CACHE_KEY_FULL = 'tm_branding_v2';
 
 export interface Branding {
   /** The administrator's name for the system; null: the product's own. */
@@ -18,11 +21,13 @@ export interface Branding {
   favicon: string;
   hasCustomLogo: boolean;
   hasCustomFavicon: boolean;
+  /** False until the server's branding is known (or cached): the product's own logo is then not shown. */
+  ready: boolean;
 }
 
 interface BrandingResponse { systemName: string | null; logoUrl: string | null; faviconUrl: string | null; version: string }
 
-function make(customName: string | null, logo: string | null, favicon: string | null): Branding {
+function make(customName: string | null, logo: string | null, favicon: string | null, ready = true): Branding {
   return {
     customName,
     name: customName || DEFAULT_SYSTEM_NAME,
@@ -31,6 +36,7 @@ function make(customName: string | null, logo: string | null, favicon: string | 
     favicon: favicon || logo || DEFAULT_FAVICON,
     hasCustomLogo: !!logo,
     hasCustomFavicon: !!favicon,
+    ready,
   };
 }
 
@@ -42,7 +48,21 @@ function cachedName(): string | null {
   }
 }
 
-let current: Branding = make(cachedName(), null, null);
+function cachedBranding(): Branding {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY_FULL);
+    if (raw) {
+      const saved = JSON.parse(raw) as { name?: string | null; logo?: string | null; favicon?: string | null };
+      return make(saved.name || null, saved.logo || null, saved.favicon || null, true);
+    }
+  } catch {
+    // Unreadable cache: start without it.
+  }
+  // Nothing cached: not ready until the server answers (the name alone may be cached from before).
+  return make(cachedName(), null, null, false);
+}
+
+let current: Branding = cachedBranding();
 const listeners = new Set<() => void>();
 
 function setCurrent(next: Branding) {
@@ -50,6 +70,11 @@ function setCurrent(next: Branding) {
   try {
     if (next.customName) localStorage.setItem(CACHE_KEY, next.customName);
     else localStorage.removeItem(CACHE_KEY);
+    localStorage.setItem(CACHE_KEY_FULL, JSON.stringify({
+      name: next.customName,
+      logo: next.hasCustomLogo ? next.logo : null,
+      favicon: next.hasCustomFavicon ? next.favicon : null,
+    }));
   } catch {
     // Storage unavailable: the name simply shows a moment later next time.
   }
@@ -102,7 +127,8 @@ export function refreshBranding(): Promise<void> {
       const [logo, favicon] = await Promise.all([asDataUrl(branding.logoUrl), asDataUrl(branding.faviconUrl)]);
       setCurrent(make(branding.systemName?.trim() || null, logo, favicon));
     } catch {
-      // An older server without branding, or offline: the product's own stays.
+      // An older server without branding, or offline: the product's own stays (shown once we know nothing else is coming).
+      if (!current.ready) setCurrent(make(current.customName, null, null, true));
     }
   })();
   return loading;

@@ -1,3 +1,4 @@
+import { scopeReport, useActivePost } from '../utils/activePost';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, FileSpreadsheet, FileDown, Printer, Eye, FilterX, Loader2, Repeat, FolderKanban, AlertCircle, Tag, ListChecks, Clock, Play, Pause, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Task, TaskStatus, STATUSES, PRIORITIES } from '../types';
@@ -134,7 +135,10 @@ export const ReportsView: React.FC<{
   generatedBy?: string;
 }> = ({ scope, visibleTasks, refreshKey = 0, onOpenTask, generatedBy }) => {
   const [filters, setFilters] = useState<TaskReportFilters>({ personRole: 'responsible' });
-  const [report, setReport] = useState<TaskReport | null>(null);
+  const [rawReport, setReport] = useState<TaskReport | null>(null);
+  // «نمایش بر اساس پست»: with one post chosen the report keeps the tasks that post was on.
+  const activePost = useActivePost();
+  const report = useMemo(() => scopeReport(rawReport, activePost), [rawReport, activePost]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -166,10 +170,10 @@ export const ReportsView: React.FC<{
     if (!filters.status) { setOverview(null); return; }
     let alive = true;
     getTaskReport({ ...filters, status: undefined })
-      .then((result) => { if (alive) setOverview(result.summary); })
+      .then((result) => { if (alive) setOverview(scopeReport(result, activePost)?.summary ?? result.summary); })
       .catch(() => alive && setOverview(null));
     return () => { alive = false; };
-  }, [filters.personId, filters.personRole, filters.positionId, filters.tag, filters.type, filters.dueFrom, filters.dueTo, filters.status, refreshKey]);
+  }, [filters.personId, filters.personRole, filters.positionId, filters.tag, filters.type, filters.dueFrom, filters.dueTo, filters.status, refreshKey, activePost]);
 
   const set = (patch: Partial<TaskReportFilters>) => setFilters((f) => ({ ...f, ...patch }));
   const hasFilters = !!(filters.personId || filters.positionId || filters.tag || filters.type || filters.status || filters.dueFrom || filters.dueTo || onlyOverdue);
