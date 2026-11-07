@@ -1363,7 +1363,7 @@ export default function App() {
         onOpenTutorials={currentUser ? () => { requestSettingsTab('help'); handleNavigateTab('settings'); } : undefined}
         onOpenSettings={currentUser ? () => handleNavigateTab('settings') : undefined}
         onLogout={currentUser ? handleLogout : undefined}
-        showPostFallback={!isDesktopSidebarOpen}
+        hiddenByPost={hiddenInfo}
       />
 
       {!isDesktopSidebarOpen && (
@@ -1400,7 +1400,6 @@ export default function App() {
             currentUser={currentUser}
             isOpen={isDesktopSidebarOpen}
             onToggleOpen={handleToggleDesktopSidebar}
-            hidden={hiddenInfo}
           />
 
 

@@ -38,6 +38,7 @@ import { iranDateTimeToISO, isoToIranDateTimeParts } from '../utils/jalali';
 import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { NETWORK_ERROR, TIMEOUT_ERROR, persianApiMessage } from '../utils/errorMessages';
 import { normalizeAvatar } from '../utils/avatars';
+import { activePostsHeader } from '../utils/activePost';
 import { clearPrivateData } from '../utils/privateStorage';
 import type { ServerNotificationDto } from '../utils/serverNotifications';
 
@@ -610,6 +611,9 @@ async function request<T>(method: string, path: string, options: RequestOptions 
     // Only a request that follows a real interaction (click, key, scroll, touch, mouse move) tells
     // the server the user is there. Polling and background calls never do.
     if (takeActivityFlag()) headers['X-Nexus-Activity'] = '1';
+    // «Work as this post»: the server then counts only that post's permissions (never more than the person has).
+    const activePosts = activePostsHeader();
+    if (activePosts) headers['X-Active-Posts'] = activePosts;
   }
   if (options.cookieSession) {
     headers['X-Nexus-Session'] = 'cookie';
@@ -1977,21 +1981,24 @@ export function getKnownPermissions(userId: string): string[] | null {
   return session?.user?.id === userId && session.permissions ? session.permissions : null;
 }
 
-let permissionsInFlight: Promise<string[]> | null = null;
+let permissionsInFlight: { key: string; promise: Promise<string[]> } | null = null;
 
 /** GET /me's permissions (callers asking at the same time share one request), saved with the session. */
 export async function getMyPermissions(): Promise<string[]> {
   if (!readSession()) return [];
-  if (permissionsInFlight) return permissionsInFlight;
-  permissionsInFlight = request<CurrentUserResponse>('GET', '/api/identity/auth/me')
+  // One request per chosen post: a switch must not get the answer asked for the previous post.
+  const key = activePostsHeader() ?? '';
+  if (permissionsInFlight?.key === key) return permissionsInFlight.promise;
+  const promise = request<CurrentUserResponse>('GET', '/api/identity/auth/me')
     .then((me) => {
       const permissions = me.permissions || [];
       const latest = readSession();
       if (latest && latest.user?.id === me.user.id) writeSession({ ...latest, permissions });
       return permissions;
     })
-    .finally(() => { permissionsInFlight = null; });
-  return permissionsInFlight;
+    .finally(() => { if (permissionsInFlight?.promise === promise) permissionsInFlight = null; });
+  permissionsInFlight = { key, promise };
+  return promise;
 }
 
 /** Server-side search (every searchable column) and paging of the caller's tenant users. */

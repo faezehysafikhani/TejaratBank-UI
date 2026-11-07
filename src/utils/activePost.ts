@@ -121,6 +121,15 @@ export function useActivePost(): ActivePostView {
   );
 }
 
+/**
+ * The posts the person works as, for the server (header X-Active-Posts): with one post, or one unit, chosen the
+ * server gives only what those posts give (besides roles, groups and the person's own); null for «همه».
+ */
+export function activePostsHeader(): string | null {
+  const ids = viewOf(state).postIds;
+  return ids && ids.size > 0 ? [...ids].sort().join(',') : null;
+}
+
 /** What the chosen post hides, and why (for the note under the switch). */
 export interface HiddenInfo { noPost: number; standIn: number; other: number; titles: string[] }
 export const hiddenTotal = (h: HiddenInfo) => h.noPost + h.standIn + h.other;

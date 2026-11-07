@@ -19,6 +19,7 @@ import { MyPlacementPanel } from './orgStructure/OrgViews';
 import { TitlesPanel } from './orgStructure/TitlesPanel';
 import { canSeeWorkTeams, PERSON_ACCESS_UI_ENABLED } from '../../utils/permissions';
 import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
+import { useActivePost } from '../../utils/activePost';
 
 type MainTab = 'profile' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
 type UsersTab = 'list' | 'roles' | 'titles' | 'history' | 'ldap' | 'sso';
@@ -33,6 +34,9 @@ export function useMyPermissions(userId: string | undefined): Set<string> | null
     const known = userId ? getKnownPermissions(userId) : null;
     return known ? new Set(known) : null;
   });
+  // The post the person works as: the server counts only that post's permissions, so they are read again on a switch.
+  const activePosts = useActivePost().postIds;
+  const activePostsKey = activePosts ? [...activePosts].sort().join(',') : '';
   useEffect(() => {
     if (!userId) { setPermissions(new Set()); return; }
     let alive = true;
@@ -42,7 +46,7 @@ export function useMyPermissions(userId: string | undefined): Set<string> | null
       .then((names) => alive && setPermissions(new Set(names)))
       .catch(() => alive && setPermissions((current) => current ?? new Set()));
     return () => { alive = false; };
-  }, [userId]);
+  }, [userId, activePostsKey]);
   return permissions;
 }
 

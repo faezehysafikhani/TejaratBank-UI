@@ -8,7 +8,7 @@ const MENU_WIDTH = 270;
 const GAP = 12;
 const EDGE = 8;
 
-const HIDDEN_NOTE = 'فقط فعالیت‌ها و گزارش‌های این پست دیده می‌شود. دسترسی شما تغییر نکرده است.';
+const HIDDEN_NOTE = 'فقط فعالیت‌ها و گزارش‌های این پست دیده می‌شود و دسترسی‌ها همان دسترسی‌های شخصی شما به‌علاوهٔ دسترسی‌های این پست (و سمتش) است.';
 
 /** «بدون پست ۱، جانشینی ۲، پست دیگر ۱» */
 const reasons = (h: HiddenInfo) => [
@@ -158,8 +158,9 @@ const Menu: React.FC<{
 
 /**
  * «حالت نمایش پست»: only for a person who holds more than one post. variant «card» sits at the top of the
- * sidebar; «chip» is the small neutral stand-in in the header while the sidebar is not shown. Both open the
- * same menu and use the same state. It narrows what the screens show; it does not change what the person may see.
+ * sidebar; «chip» is the one in the header (the sidebar no longer has it). Both open the same menu and use the
+ * same state. It narrows what the screens show, and the server then counts only the chosen post's permissions
+ * (besides the person's own).
  */
 export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hidden?: HiddenInfo; className?: string }> = ({ variant = 'card', hidden, className = '' }) => {
   const view = useActivePost();
@@ -205,13 +206,16 @@ export const ActivePostSwitcher: React.FC<{ variant?: 'card' | 'chip'; hidden?: 
           onClick={toggle}
           onKeyDown={onTriggerKey}
           {...aria}
-          title={view.narrowed ? `${title}. ${HIDDEN_NOTE}` : title}
+          title={view.narrowed ? `${title}. ${HIDDEN_NOTE}${hidden && hiddenTotal(hidden) > 0 ? `\n${toPersianDigits(hiddenTotal(hidden))} فعالیت پنهان (${reasons(hidden)})` : ''}` : title}
           className={`inline-flex items-center gap-1.5 max-w-[11rem] px-2.5 py-1.5 rounded-full border text-[11px] font-bold cursor-pointer transition-colors ${
             view.narrowed ? 'bg-indigo-500/20 border-indigo-300/40 text-indigo-100' : 'bg-white/10 border-white/20 text-slate-200 hover:bg-white/15'
           }`}
         >
           <Briefcase className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           <span className="truncate">{view.narrowed ? view.selected.title : 'همهٔ پست‌ها'}</span>
+          {view.narrowed && hidden && hiddenTotal(hidden) > 0 && (
+            <span className="shrink-0 min-w-[1.1rem] px-1 rounded-full bg-amber-400 text-amber-950 text-[10px] leading-4 text-center" data-testid="active-post-hidden-chip">{toPersianDigits(hiddenTotal(hidden))}</span>
+          )}
           <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
         </button>
         {menu}
