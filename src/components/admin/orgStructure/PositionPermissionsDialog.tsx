@@ -15,6 +15,10 @@ import {
  * sum of what their posts give (plus a stand-in's, while it is on); nothing is given to a post's
  * superior. A caller can only hand out permissions they hold themselves (the server checks).
  */
+/** The permissions that no other one in the list already needs: what is worth saving. */
+const withoutImplied = (names: readonly string[]): string[] =>
+  names.filter((name) => !names.some((other) => other !== name && prerequisitesOf(other).includes(name)));
+
 export const PositionPermissionsDialog: React.FC<{
   kind: 'position' | 'post';
   id: string;
@@ -44,7 +48,7 @@ export const PositionPermissionsDialog: React.FC<{
         if (!alive) return;
         setGroups(list);
         setOriginal(current.permissionNames);
-        setSelected(new Set(current.permissionNames));
+        setSelected(new Set(withoutImplied(current.permissionNames)));
       })
       .catch((err) => { if (alive) { setGroups([]); setOriginal([]); setError(userErrorMessage(err, 'دریافت دسترسی‌ها ممکن نشد.')); } });
     return () => { alive = false; };
@@ -62,7 +66,10 @@ export const PositionPermissionsDialog: React.FC<{
       .filter((g) => g.permissions.length > 0);
   }, [groups, filter]);
 
-  // A permission another chosen one needs stays chosen (the server adds it back anyway).
+  // `selected` holds only what the person chose. What a chosen permission needs is worked out, shown as
+  // chosen and locked, and never saved (the server adds it back anyway), so taking the permission away
+  // takes its prerequisites away too, unless something else still needs them.
+  const implied = useMemo(() => new Set([...selected].flatMap(prerequisitesOf)), [selected]);
   const neededBy = (permissionName: string): PermissionInfo | undefined => {
     for (const chosen of selected) {
       if (chosen !== permissionName && prerequisitesOf(chosen).includes(permissionName)) return byName.get(chosen);
@@ -75,7 +82,6 @@ export const PositionPermissionsDialog: React.FC<{
       const next = new Set(current);
       if (on) {
         next.add(permission.name);
-        for (const needed of prerequisitesOf(permission.name)) next.add(needed);
       } else {
         next.delete(permission.name);
       }
@@ -87,7 +93,7 @@ export const PositionPermissionsDialog: React.FC<{
     setSaving(true);
     setError(null);
     try {
-      const names = [...selected].sort();
+      const names = withoutImplied([...selected]).sort();
       await (kind === 'position' ? setPositionPermissions(id, companyId, names) : setPostPermissions(id, names));
       const where = kind === 'position' && companies.length > 1 ? ` در «${companies.find((c) => c.id === companyId)?.name ?? ''}»` : '';
       onSaved?.(`دسترسی‌های «${title}»${where} ذخیره شد.`);
@@ -99,7 +105,7 @@ export const PositionPermissionsDialog: React.FC<{
     }
   };
 
-  const changed = original !== null && [...selected].sort().join(',') !== [...original].sort().join(',');
+  const changed = original !== null && withoutImplied([...selected]).sort().join(',') !== [...original].sort().join(',');
   return (
     <AdminDialog
       wide
@@ -135,7 +141,7 @@ export const PositionPermissionsDialog: React.FC<{
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
           دسترسی‌ها
-          <span className="text-xs font-bold text-slate-400 mr-2">({toPersianDigits([...selected].filter(isListedPermission).length)} مورد)</span>
+          <span className="text-xs font-bold text-slate-400 mr-2">({toPersianDigits([...new Set([...selected, ...implied])].filter(isListedPermission).length)} مورد)</span>
         </h4>
         <SearchBox value={filter} onChange={setFilter} placeholder="جستجوی دسترسی..." />
       </div>
@@ -148,8 +154,8 @@ export const PositionPermissionsDialog: React.FC<{
               <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300">{moduleTitle(module)}</div>
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {permissions.map((permission) => {
-                  const checked = selected.has(permission.name);
-                  const dependent = checked ? neededBy(permission.name) : undefined;
+                  const dependent = neededBy(permission.name);
+                  const checked = selected.has(permission.name) || !!dependent;
                   const locked = !canEdit || !!dependent;
                   return (
                     <label key={permission.id} className={`flex items-center gap-2 px-3 py-2 ${locked ? '' : 'cursor-pointer'}`}>
