@@ -402,6 +402,7 @@ export const PositionsPanel: React.FC<{ canManage: boolean; canManagePermissions
           kind="position"
           id={permissionsOf.id}
           title={permissionsOf.title}
+          companies={(permissionsOf.companyIds || []).map((id) => ({ id, name: companyName(id) }))}
           canEdit={canManagePermissions}
           onClose={() => setPermissionsOf(null)}
           onSaved={(text) => setMessage({ type: 'success', text })}

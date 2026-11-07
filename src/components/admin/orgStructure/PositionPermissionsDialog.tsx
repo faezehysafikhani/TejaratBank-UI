@@ -19,10 +19,13 @@ export const PositionPermissionsDialog: React.FC<{
   kind: 'position' | 'post';
   id: string;
   title: string;
+  /** For a position: the companies it is for. Each company has its own list of permissions. */
+  companies?: { id: string; name: string }[];
   canEdit: boolean;
   onClose: () => void;
   onSaved?: (message: string) => void;
-}> = ({ kind, id, title, canEdit, onClose, onSaved }) => {
+}> = ({ kind, id, title, companies = [], canEdit, onClose, onSaved }) => {
+  const [companyId, setCompanyId] = useState(companies[0]?.id ?? '');
   const [groups, setGroups] = useState<{ module: string; permissions: PermissionInfo[] }[] | null>(null);
   const [original, setOriginal] = useState<string[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -32,8 +35,11 @@ export const PositionPermissionsDialog: React.FC<{
 
   useEffect(() => {
     let alive = true;
-    const load = kind === 'position' ? getPositionPermissions : getPostPermissions;
-    Promise.all([listPermissionGroups(), load(id)])
+    if (kind === 'position' && !companyId) { setGroups([]); setOriginal([]); setError('این سمت برای هیچ شرکتی تعیین نشده است.'); return () => { alive = false; }; }
+    setGroups(null);
+    setError(null);
+    const load = kind === 'position' ? getPositionPermissions(id, companyId) : getPostPermissions(id);
+    Promise.all([listPermissionGroups(), load])
       .then(([list, current]) => {
         if (!alive) return;
         setGroups(list);
@@ -42,7 +48,7 @@ export const PositionPermissionsDialog: React.FC<{
       })
       .catch((err) => { if (alive) { setGroups([]); setOriginal([]); setError(userErrorMessage(err, 'دریافت دسترسی‌ها ممکن نشد.')); } });
     return () => { alive = false; };
-  }, [kind, id]);
+  }, [kind, id, companyId]);
 
   const byName = useMemo(() => new Map((groups || []).flatMap((g) => g.permissions).map((p) => [p.name, p])), [groups]);
   const modules = useMemo(() => {
@@ -82,8 +88,9 @@ export const PositionPermissionsDialog: React.FC<{
     setError(null);
     try {
       const names = [...selected].sort();
-      await (kind === 'position' ? setPositionPermissions : setPostPermissions)(id, names);
-      onSaved?.(`دسترسی‌های «${title}» ذخیره شد.`);
+      await (kind === 'position' ? setPositionPermissions(id, companyId, names) : setPostPermissions(id, names));
+      const where = kind === 'position' && companies.length > 1 ? ` در «${companies.find((c) => c.id === companyId)?.name ?? ''}»` : '';
+      onSaved?.(`دسترسی‌های «${title}»${where} ذخیره شد.`);
       onClose();
     } catch (err) {
       setError(userErrorMessage(err, 'ذخیرهٔ دسترسی‌ها انجام نشد.'));
@@ -113,10 +120,18 @@ export const PositionPermissionsDialog: React.FC<{
       {error && <Notice type="error">{error}</Notice>}
       <p className="text-xs text-slate-500 dark:text-slate-400">
         {kind === 'position'
-          ? 'هر کسی که پستی با این سمت دارد این دسترسی‌ها را می‌گیرد؛ با پایان انتصاب، دسترسی‌ها هم برداشته می‌شود. جانشین هم تا زمانی که جانشین است از آن‌ها برخوردار است.'
+          ? 'هر کسی که در همین شرکت پستی با این سمت دارد این دسترسی‌ها را می‌گیرد (همین سمت در شرکت دیگر فهرست جدا دارد)؛ با پایان انتصاب، دسترسی‌ها هم برداشته می‌شود. جانشین هم تا زمانی که جانشین است از آن‌ها برخوردار است.'
           : 'فقط دارندهٔ همین پست این دسترسی‌ها را (علاوه بر دسترسی‌های سمتش) می‌گیرد.'}
         {' '}فقط دسترسی‌هایی را می‌توانید بدهید که خودتان دارید.
       </p>
+      {kind === 'position' && companies.length > 1 && (
+        <label className="flex items-center gap-2 text-sm">
+          <span className="font-bold text-slate-700 dark:text-slate-200">شرکت</span>
+          <select className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5" value={companyId} disabled={saving} onChange={(e) => setCompanyId(e.target.value)}>
+            {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+      )}
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
           دسترسی‌ها

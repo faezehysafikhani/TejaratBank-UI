@@ -383,11 +383,12 @@ export const updatePosition = (id: string, title: string, parentPositionId: stri
   apiRequest<Position>('PUT', `${BASE}/positions/${id}`, { body: { title, parentPositionId, isActive, companyIds } });
 export const deletePosition = (id: string) => apiRequest<void>('DELETE', `${BASE}/positions/${id}`);
 
-/** The permissions a position (سمت) gives to everyone who holds a post of it; and the ones a single post adds. */
+/** The permissions a position (سمت) gives to everyone who holds a post of it IN A COMPANY (each company has its own list); and the ones a single post adds. */
 export interface PositionPermissions { id: string; permissionNames: string[] }
-export const getPositionPermissions = (positionId: string) => apiRequest<PositionPermissions>('GET', `${BASE}/positions/${positionId}/permissions`);
-export const setPositionPermissions = (positionId: string, permissionNames: string[]) =>
-  apiRequest<PositionPermissions>('PUT', `${BASE}/positions/${positionId}/permissions`, { body: { permissionNames } });
+export const getPositionPermissions = (positionId: string, companyId: string) =>
+  apiRequest<PositionPermissions>('GET', `${BASE}/positions/${positionId}/permissions`, { query: { companyId } });
+export const setPositionPermissions = (positionId: string, companyId: string, permissionNames: string[]) =>
+  apiRequest<PositionPermissions>('PUT', `${BASE}/positions/${positionId}/permissions`, { query: { companyId }, body: { permissionNames } });
 export const getPostPermissions = (unitPositionId: string) => apiRequest<PositionPermissions>('GET', `${BASE}/unit-positions/${unitPositionId}/permissions`);
 export const setPostPermissions = (unitPositionId: string, permissionNames: string[]) =>
   apiRequest<PositionPermissions>('PUT', `${BASE}/unit-positions/${unitPositionId}/permissions`, { body: { permissionNames } });
