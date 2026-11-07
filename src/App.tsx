@@ -829,6 +829,27 @@ export default function App() {
   // one unit). Only what the screens show is narrowed; sub-tasks follow their parent task.
   const activePost = useActivePost();
   useEffect(() => { setActivePostUser(currentUser?.id ?? null); }, [currentUser?.id]);
+  // Working as another post changes what the person may do (the server then counts only that post's permissions):
+  // the menus and the sections follow at once, not at the next sign-in or focus.
+  const activePostsKey = activePost.postIds ? [...activePost.postIds].sort().join(',') : '';
+  useEffect(() => {
+    if (!currentUser?.id) return undefined;
+    let alive = true;
+    refreshCurrentUserPB()
+      .then((liveUser) => {
+        if (!alive || !liveUser) return;
+        setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
+        // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
+        void loadTasks(false);
+        void loadUsersAndTeams();
+        refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox).catch(() => {});
+        refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable).catch(() => {});
+        refreshLookup(`${liveUser.id}:report-scope`, getReportScope).catch(() => {});
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, activePostsKey, loadTasks, loadUsersAndTeams]);
   useEffect(() => {
     if (!currentUser?.id) return undefined;
     let alive = true;
