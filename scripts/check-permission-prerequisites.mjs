@@ -17,6 +17,7 @@ const expected = {
   'org_structure.manage_companies': ['org_structure.view', 'users.view', 'users.update'],
   'org_structure.manage_positions': ['org_structure.view', 'users.view', 'users.update'],
   'org_structure.manage_assignments': ['org_structure.view', 'users.view', 'users.update'],
+  'org_structure.manage_position_permissions': ['org_structure.view', 'permissions.view'],
   'org_structure.manage_substitution': ['org_structure.view'],
   'org_structure.assign_tasks_any_level': ['org_structure.view'],
   'org_structure.team_members_any_unit': ['org_structure.view'],

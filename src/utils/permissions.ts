@@ -5,6 +5,14 @@ import type { User } from '../types';
 import type { ActiveTab } from '../components/SandwichBar';
 import type { UserAccessEntry } from '../services/nexusApi';
 
+/**
+ * Whether a person's own access can be set from the UI: their roles, direct grants and denials («دسترسی‌ها»
+ * on the user list, the role choice on a new user, the «نقش‌ها» tab). Off: access comes from the person's
+ * posts (see the position's «دسترسی‌ها»). The code and the server endpoints stay, so turning this on again
+ * brings it all back; nothing already given is changed.
+ */
+export const PERSON_ACCESS_UI_ENABLED = false;
+
 export const PERMISSIONS = {
   tasksView: 'Tasks.View',
   tasksCreate: 'Tasks.Create',
@@ -158,6 +166,7 @@ const PERMISSION_PREREQUISITES: Readonly<Record<string, readonly string[]>> = {
   'org_structure.manage_companies': ['org_structure.view', 'users.view', 'users.update'],
   'org_structure.manage_positions': ['org_structure.view', 'users.view', 'users.update'],
   'org_structure.manage_assignments': ['org_structure.view', 'users.view', 'users.update'],
+  'org_structure.manage_position_permissions': ['org_structure.view', 'permissions.view'],
   'org_structure.manage_substitution': ['org_structure.view'],
   'org_structure.assign_tasks_any_level': ['org_structure.view'],
   'org_structure.team_members_any_unit': ['org_structure.view'],

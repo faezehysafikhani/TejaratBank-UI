@@ -528,7 +528,8 @@ const AccessSourceBadges: React.FC<{ entry: UserAccessEntry; direct: ReadonlySet
       {direct.has(entry.permissionId) && <StatusBadge tone="green">دسترسی مستقیم</StatusBadge>}
       {entry.grantedByRole && <StatusBadge tone="indigo" title={roles}>فعال از طریق نقش {roles}</StatusBadge>}
       {entry.grantedByGroup && <StatusBadge tone="amber" title={groups}>فعال از طریق گروه {groups}</StatusBadge>}
-      {prerequisite && !direct.has(entry.permissionId) && !entry.grantedByRole && !entry.grantedByGroup && (
+      {entry.grantedByPosition && <StatusBadge tone="green" title={(entry.grantingPositions || []).join('، ')}>فعال از طریق سمت {(entry.grantingPositions || []).join('، ')}</StatusBadge>}
+      {prerequisite && !direct.has(entry.permissionId) && !entry.grantedByRole && !entry.grantedByGroup && !entry.grantedByPosition && (
         <StatusBadge tone="slate" title="مجوز دیگری از این کاربر به آن نیاز دارد.">لازمهٔ مجوزی دیگر</StatusBadge>
       )}
     </>

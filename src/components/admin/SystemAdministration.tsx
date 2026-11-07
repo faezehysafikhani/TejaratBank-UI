@@ -17,7 +17,7 @@ import { useLookup } from '../../utils/lookupCache';
 import { OrgStructureSection } from './orgStructure/OrgStructureSection';
 import { MyPlacementPanel } from './orgStructure/OrgViews';
 import { TitlesPanel } from './orgStructure/TitlesPanel';
-import { canSeeWorkTeams } from '../../utils/permissions';
+import { canSeeWorkTeams, PERSON_ACCESS_UI_ENABLED } from '../../utils/permissions';
 import { DEFAULT_SYSTEM_NAME, saveBranding, useBranding } from '../../utils/branding';
 
 type MainTab = 'profile' | 'team' | 'appearance' | 'help' | 'sms' | 'users' | 'org';
@@ -60,7 +60,7 @@ function useOrgStructureAvailable(userId: string | undefined): { available: bool
 const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) => boolean; orgStructureAvailable: boolean }> = ({ currentUserId, can, orgStructureAvailable }) => {
   const tabs: TabItem<UsersTab>[] = [
     ...(can('users.view') ? [{ id: 'list' as const, label: 'مدیریت کاربران', icon: Users }] : []),
-    ...(can('roles.view') ? [{ id: 'roles' as const, label: 'نقش‌ها', icon: ShieldCheck }] : []),
+    ...(PERSON_ACCESS_UI_ENABLED && can('roles.view') ? [{ id: 'roles' as const, label: 'نقش‌ها', icon: ShieldCheck }] : []),
     // Titles before names come with the organization-structure module; whoever may add users manages them.
     ...(orgStructureAvailable && can(TITLE_PERMISSIONS.manage) ? [{ id: 'titles' as const, label: 'عنوان‌ها', icon: BadgeCheck }] : []),
     ...(can('audit_logs.view') ? [{ id: 'history' as const, label: 'تاریخچه ورود', icon: History }] : []),
@@ -80,8 +80,8 @@ const UserManagementSection: React.FC<{ currentUserId: string; can: (p: string) 
             create: can('users.create'),
             update: can('users.update'),
             changeStatus: can('users.change_status'),
-            assignRoles: can('users.assign_roles'),
-            assignPermissions: can('users.assign_permissions'),
+            assignRoles: PERSON_ACCESS_UI_ENABLED && can('users.assign_roles'),
+            assignPermissions: PERSON_ACCESS_UI_ENABLED && can('users.assign_permissions'),
             viewSessions: can('sessions.view'),
             revokeSessions: can('sessions.revoke'),
           }}

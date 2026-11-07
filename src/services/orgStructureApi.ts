@@ -272,6 +272,7 @@ export const ORG_STRUCTURE_PERMISSIONS = {
   manageCompanies: 'org_structure.manage_companies',
   managePositions: 'org_structure.manage_positions',
   manageAssignments: 'org_structure.manage_assignments',
+  managePositionPermissions: 'org_structure.manage_position_permissions',
 } as const;
 
 /**
@@ -381,6 +382,15 @@ export const createPosition = (title: string, parentPositionId: string | null, c
 export const updatePosition = (id: string, title: string, parentPositionId: string | null, isActive: boolean, companyIds: string[]) =>
   apiRequest<Position>('PUT', `${BASE}/positions/${id}`, { body: { title, parentPositionId, isActive, companyIds } });
 export const deletePosition = (id: string) => apiRequest<void>('DELETE', `${BASE}/positions/${id}`);
+
+/** The permissions a position (سمت) gives to everyone who holds a post of it; and the ones a single post adds. */
+export interface PositionPermissions { id: string; permissionNames: string[] }
+export const getPositionPermissions = (positionId: string) => apiRequest<PositionPermissions>('GET', `${BASE}/positions/${positionId}/permissions`);
+export const setPositionPermissions = (positionId: string, permissionNames: string[]) =>
+  apiRequest<PositionPermissions>('PUT', `${BASE}/positions/${positionId}/permissions`, { body: { permissionNames } });
+export const getPostPermissions = (unitPositionId: string) => apiRequest<PositionPermissions>('GET', `${BASE}/unit-positions/${unitPositionId}/permissions`);
+export const setPostPermissions = (unitPositionId: string, permissionNames: string[]) =>
+  apiRequest<PositionPermissions>('PUT', `${BASE}/unit-positions/${unitPositionId}/permissions`, { body: { permissionNames } });
 
 /** A deputy's positions (or every deputy's), each with its holders. */
 export const listUnitPositions = (unitId?: string) => apiRequest<UnitPosition[]>('GET', `${BASE}/unit-positions`, { query: { unitId } });

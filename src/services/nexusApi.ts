@@ -2117,6 +2117,9 @@ export interface UserAccessEntry {
   effective?: boolean;
   /** Effective only because another permission of the user needs it. */
   grantedAsPrerequisite?: boolean;
+  /** Given by the post(s) the user holds (or stands in for): the position's and the post's own permissions. */
+  grantedByPosition?: boolean;
+  grantingPositions?: string[] | null;
 }
 
 export interface UserAccess {

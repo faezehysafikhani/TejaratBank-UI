@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Building2, Network, UserRound, Pencil, Plus, UserPlus, Zap, Loader2, Briefcase, LogOut, ArrowUp, ArrowDown, Trash2, Power, RefreshCw, GitBranch, Move, ChevronsUp, LayoutTemplate, Link2, GitMerge, History, UserCog, UserMinus,
+  Building2, Network, UserRound, Pencil, Plus, UserPlus, Zap, Loader2, Briefcase, LogOut, ArrowUp, ArrowDown, Trash2, Power, RefreshCw, GitBranch, Move, ChevronsUp, LayoutTemplate, Link2, GitMerge, History, UserCog, UserMinus, ShieldCheck,
 } from 'lucide-react';
 import { AdminCard, AdminDialog, Field, Notice, PrimaryButton, SecondaryButton, StatusBadge, Toggle, inputClass } from '../AdminUi';
 import { userErrorMessage } from '../../../utils/errorMessages';
@@ -24,6 +24,7 @@ import { SaveTemplateDialog } from './nodes/SaveTemplateDialog';
 import { NodePostTools } from './nodes/NodePostTools';
 import { AppointDialog, EndAppointmentDialog, PostHistory, UserPositionHistory } from './nodes/AppointmentDialogs';
 import { StandInDialog } from './nodes/StandInDialog';
+import { PositionPermissionsDialog } from './PositionPermissionsDialog';
 import { MergeNodeDialog, NodeHistoryDialog } from './nodes/HistoryDialogs';
 import { CompanyFormDialog } from './nodes/CompanyFormDialog';
 import { CompanyLogo } from './nodes/CompanyLogo';
@@ -209,6 +210,7 @@ export const OrgChartDetails: React.FC<{
     | { kind: 'appoint'; post: ChartPosition; placeName: string }
     | { kind: 'endAppointment'; post: ChartPosition }
     | { kind: 'standIn'; post: ChartPosition }
+    | { kind: 'postPermissions'; post: ChartPosition }
     | { kind: 'history'; company: ChartCompany; unit: ChartUnit }
     | { kind: 'removeLink'; company: ChartCompany; unit: ChartUnit; linkId: string; targetId: string; targetName: string; linkTypeId: string }
     | null
@@ -636,6 +638,9 @@ export const OrgChartDetails: React.FC<{
             {can(P.manageAssignments) && position.isActive && (
               <ActionTile icon={UserCog} label="تعیین جانشین" title="جانشین از همین واحد: تا پر شدن پست، یا از تاریخی تا تاریخی (مرخصی، مأموریت)" disabled={busy} onClick={() => setExtra({ kind: 'standIn', post: position })} />
             )}
+            {can(P.managePositionPermissions) && (
+              <ActionTile icon={ShieldCheck} label="دسترسی‌های این پست" title="دسترسی‌هایی که دارندهٔ همین پست (علاوه بر سمتش) می‌گیرد" onClick={() => setExtra({ kind: 'postPermissions', post: position })} />
+            )}
             {can(P.manageAssignments) && position.holders.length > 0 && (
               <ActionTile icon={UserMinus} tone="rose" label="پایان انتصاب" disabled={busy} onClick={() => setExtra({ kind: 'endAppointment', post: position })} />
             )}
@@ -702,6 +707,8 @@ export const OrgChartDetails: React.FC<{
           <AppointDialog post={extra.post} placeName={extra.placeName} onDone={async (text) => { await onChanged(); setMessage({ type: 'success', text }); }} onClose={() => setExtra(null)} />
         ) : extra.kind === 'endAppointment' ? (
           <EndAppointmentDialog post={extra.post} onDone={async (text) => { await onChanged(); setMessage({ type: 'success', text }); }} onClose={() => setExtra(null)} />
+        ) : extra.kind === 'postPermissions' ? (
+          <PositionPermissionsDialog kind="post" id={extra.post.unitPositionId} title={postLabel(extra.post)} canEdit={can(P.managePositionPermissions)} onClose={() => setExtra(null)} onSaved={(text) => setMessage({ type: 'success', text })} />
         ) : extra.kind === 'standIn' ? (
           <StandInDialog post={extra.post} onDone={async (text) => { await onChanged(); setMessage({ type: 'success', text }); }} onClose={() => setExtra(null)} />
         ) : extra.kind === 'editCompany' ? (

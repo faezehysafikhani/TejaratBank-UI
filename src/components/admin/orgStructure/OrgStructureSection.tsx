@@ -126,7 +126,7 @@ export const OrgStructureSection: React.FC<{ can: (permission: string) => boolea
         <AdminDialog wide title={TOOL_TITLES[tool]} onClose={close} footer={<SecondaryButton onClick={close}>بستن</SecondaryButton>}>
           {tool === 'companies' && <CompaniesPanel canManage={can(P.manageCompanies)} canSeeUnits={can(U.view)} advanced={advanced} />}
           {tool === 'units' && <UnitsPanel canCreate={can(U.create)} canUpdate={can(U.update)} canDeactivate={can(U.delete)} />}
-          {tool === 'positions' && <PositionsPanel canManage={can(P.managePositions)} />}
+          {tool === 'positions' && <PositionsPanel canManage={can(P.managePositions)} canManagePermissions={can(P.managePositionPermissions)} />}
           {tool === 'group' && <OrgGroupPanel canEdit={can(P.manageCompanies)} onOpenCompany={(id) => { setChartCompanyId(id); close(); }} />}
           {tool === 'links' && <OrgLinksPanel canEditLinks={canNode(can, 'update')} canManageTypes={canNode(can, 'manageRules')} />}
           {tool === 'templates' && <OrgTemplatesPanel canManageTemplates={canNode(can, 'manageTemplates')} canCreateCompany={can(P.manageCompanies)} />}

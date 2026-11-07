@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2, Network, Loader2, Ban, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Network, Loader2, Ban, CheckCircle2, ShieldCheck } from 'lucide-react';
 import {
   AdminCard, AdminDialog, Field, IconAction, Notice, PrimaryButton, SecondaryButton, StatusBadge, Toggle, inputClass,
 } from '../AdminUi';
@@ -12,6 +12,7 @@ import {
 import { EmptyRow, LoadingRow, useLoad } from './orgShared';
 import { CompanyFormDialog } from './nodes/CompanyFormDialog';
 import { CompanyLogo } from './nodes/CompanyLogo';
+import { PositionPermissionsDialog } from './PositionPermissionsDialog';
 
 type Message = { type: 'success' | 'error'; text: string } | null;
 
@@ -285,7 +286,7 @@ function headPositionIds(positions: Position[], companies: Company[], assignment
   return heads;
 }
 
-export const PositionsPanel: React.FC<{ canManage: boolean }> = ({ canManage }) => {
+export const PositionsPanel: React.FC<{ canManage: boolean; canManagePermissions?: boolean }> = ({ canManage, canManagePermissions = false }) => {
   const data = useLoad(async () => {
     const [positions, companies, assignments] = await Promise.all([
       listPositions(), listCompanies(), listAssignments().catch(() => [] as UserAssignment[]),
@@ -294,6 +295,7 @@ export const PositionsPanel: React.FC<{ canManage: boolean }> = ({ canManage }) 
   }, 'دریافت فهرست سمت‌ها ممکن نشد.');
   const [message, setMessage] = useState<Message>(null);
   const [draft, setDraft] = useState<PositionDraft | null>(null);
+  const [permissionsOf, setPermissionsOf] = useState<Position | null>(null);
   const { busy, run } = useAction(data.reload, setMessage);
   // A message from before the dialog opened is not the dialog's.
   const dialogOpen = !!draft;
@@ -381,10 +383,11 @@ export const PositionsPanel: React.FC<{ canManage: boolean }> = ({ canManage }) 
                       {companyIds.map((id) => <StatusBadge key={id} tone="indigo">{companyName(id)}</StatusBadge>)}
                       {!p.isActive && <StatusBadge tone="red">غیرفعال</StatusBadge>}
                     </div>
-                    {canManage && (
+                    {(canManage || canManagePermissions) && (
                       <div className="whitespace-nowrap">
-                        <IconAction icon={Pencil} label="ویرایش" onClick={() => setDraft({ id: p.id, title: p.title, parentPositionId: p.parentPositionId, isActive: p.isActive, companyIds })} />
-                        <IconAction icon={Trash2} tone="rose" label="حذف" disabled={busy} onClick={() => run(() => deletePosition(p.id), 'سمت حذف شد.', 'حذف سمت انجام نشد.')} />
+                        {canManagePermissions && <IconAction icon={ShieldCheck} label="دسترسی‌های این سمت" onClick={() => setPermissionsOf(p)} />}
+                        {canManage && <IconAction icon={Pencil} label="ویرایش" onClick={() => setDraft({ id: p.id, title: p.title, parentPositionId: p.parentPositionId, isActive: p.isActive, companyIds })} />}
+                        {canManage && <IconAction icon={Trash2} tone="rose" label="حذف" disabled={busy} onClick={() => run(() => deletePosition(p.id), 'سمت حذف شد.', 'حذف سمت انجام نشد.')} />}
                       </div>
                     )}
                   </div>
@@ -393,6 +396,17 @@ export const PositionsPanel: React.FC<{ canManage: boolean }> = ({ canManage }) 
             </div>
           )}
       </AdminCard>
+
+      {permissionsOf && (
+        <PositionPermissionsDialog
+          kind="position"
+          id={permissionsOf.id}
+          title={permissionsOf.title}
+          canEdit={canManagePermissions}
+          onClose={() => setPermissionsOf(null)}
+          onSaved={(text) => setMessage({ type: 'success', text })}
+        />
+      )}
 
       {draft && (
         <AdminDialog
