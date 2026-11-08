@@ -9,3 +9,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# graphify knowledge graph (rebuilt per branch)
+graphify-out/
