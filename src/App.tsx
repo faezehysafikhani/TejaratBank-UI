@@ -73,13 +73,13 @@ import {
   toAppNotification,
 } from './utils/serverNotifications';
 import { Database, PanelRightOpen } from 'lucide-react';
-import { NexusApiError, SESSION_ENDED_EVENT, SESSION_END_MESSAGES, TASK_CREATED_ACTION, sessionEndReasonOf, withoutEditDuplicates } from './services/nexusApi';
+import { NexusApiError, getMyPermissions, SESSION_ENDED_EVENT, SESSION_END_MESSAGES, TASK_CREATED_ACTION, sessionEndReasonOf, withoutEditDuplicates } from './services/nexusApi';
 import { SessionGuard } from './components/SessionGuard';
 import { describeTaskChanges, summarizeTaskChanges, userNameLookup } from './utils/taskChangeSummary';
 import { getReportScope, ReportScope } from './services/taskReportApi';
 import { reportTabsFor } from './utils/reportTabs';
 import { isOrgStructureAvailable, orgStructureLookupKey, getSubstitutionInbox, getMyPlacement, SubstitutionInbox, ORG_STRUCTURE_PERMISSIONS } from './services/orgStructureApi';
-import { HiddenInfo, setActivePostSwitching, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
+import { HiddenInfo, isActivePostSwitching, revertActivePost, setActivePostSwitching, setActivePostUser, setHeldPosts, taskInPosts, useActivePost } from './utils/activePost';
 import { readLookup, refreshLookup, useLookup } from './utils/lookupCache';
 import { can, canOpenTab, firstAllowedTab, PERMISSIONS } from './utils/permissions';
 import { userErrorMessage } from './utils/errorMessages';
@@ -838,24 +838,33 @@ export default function App() {
   useEffect(() => {
     if (!currentUser?.id) { lastPermissionsRef.current = null; setActivePostSwitching(false); return undefined; }
     let alive = true;
-    refreshCurrentUserPB()
-      .then(async (liveUser) => {
-        if (!alive || !liveUser) return;
-        const key = `${liveUser.id}|${[...(liveUser.permissions ?? [])].sort().join(',')}`;
+    const userId = currentUser.id;
+    // getMyPermissions fails when the server does not answer (refreshCurrentUser would quietly keep the old user).
+    getMyPermissions()
+      .then(async (permissions) => {
+        if (!alive) return;
+        const key = `${userId}|${[...permissions].sort().join(',')}`;
         const changed = lastPermissionsRef.current !== null && lastPermissionsRef.current !== key;
         lastPermissionsRef.current = key;
         if (!changed) return;
-        setCurrentUser((prev) => (prev && prev.id === liveUser.id ? { ...prev, permissions: liveUser.permissions } : prev));
+        setCurrentUser((prev) => (prev && prev.id === userId ? { ...prev, permissions } : prev));
         // What the server shows also follows the permissions (all tasks, all people, the substitution inbox, the structure).
         await Promise.allSettled([
           loadTasks(false),
           loadUsersAndTeams(),
-          refreshLookup(`${liveUser.id}:substitution`, getSubstitutionInbox),
-          refreshLookup(orgStructureLookupKey(liveUser.id), isOrgStructureAvailable),
-          refreshLookup(`${liveUser.id}:report-scope`, getReportScope),
+          refreshLookup(`${userId}:substitution`, getSubstitutionInbox),
+          refreshLookup(orgStructureLookupKey(userId), isOrgStructureAvailable),
+          refreshLookup(`${userId}:report-scope`, getReportScope),
         ]);
       })
-      .catch(() => {})
+      .catch(() => {
+        // A switch the server could not confirm must not leave the new post shown with the old post's access:
+        // the choice before it comes back, and the person is told.
+        if (alive && isActivePostSwitching()) {
+          revertActivePost();
+          void appAlert('تغییر پست انجام نشد، چون ارتباط با سرور برقرار نیست. پست قبلی حفظ شد؛ بعد از وصل شدن دوباره تلاش کنید.');
+        }
+      })
       .finally(() => { if (alive) setActivePostSwitching(false); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -27,11 +27,15 @@ interface State {
   selected: string;
   /** A switch is under way: what the new post allows and shows is still being read. */
   switching: boolean;
+  /** The choice before the switch under way, to go back to when the server cannot answer. */
+  previous: { key: string; ids: string[] } | null;
+  /** The seats of the saved choice, known before the held posts are (a reload): the server is told from the first request. */
+  savedIds: string[] | null;
 }
 
 const STORAGE_PREFIX = 'tm_active_post_v1:';
 const listeners = new Set<() => void>();
-let state: State = { userId: null, held: [], selected: ALL_POSTS, switching: false };
+let state: State = { userId: null, held: [], selected: ALL_POSTS, switching: false, previous: null, savedIds: null };
 let switchGuard: ReturnType<typeof setTimeout> | null = null;
 
 const read = (userId: string): string => {
@@ -41,10 +45,24 @@ const read = (userId: string): string => {
     return ALL_POSTS;
   }
 };
-const write = (userId: string, value: string) => {
+const IDS_PREFIX = 'tm_active_post_ids_v1:';
+const readIds = (userId: string): string[] | null => {
   try {
-    if (value === ALL_POSTS) localStorage.removeItem(STORAGE_PREFIX + userId);
-    else localStorage.setItem(STORAGE_PREFIX + userId, value);
+    const ids = (localStorage.getItem(IDS_PREFIX + userId) || '').split(',').filter(Boolean);
+    return ids.length > 0 ? ids : null;
+  } catch {
+    return null;
+  }
+};
+const write = (userId: string, value: string, ids: string[] = []) => {
+  try {
+    if (value === ALL_POSTS) {
+      localStorage.removeItem(STORAGE_PREFIX + userId);
+      localStorage.removeItem(IDS_PREFIX + userId);
+    } else {
+      localStorage.setItem(STORAGE_PREFIX + userId, value);
+      localStorage.setItem(IDS_PREFIX + userId, ids.join(','));
+    }
   } catch {
     // Storage unavailable: the choice just is not remembered.
   }
@@ -74,7 +92,8 @@ export function buildOptions(held: HeldPosition[]): ActivePostOption[] {
 /** Called when somebody signs in (null at sign-out): the saved choice of that person comes back. */
 export function setActivePostUser(userId: string | null) {
   if (state.userId === userId) return;
-  state = { userId, held: [], selected: userId ? read(userId) : ALL_POSTS, switching: false };
+  const selected = userId ? read(userId) : ALL_POSTS;
+  state = { userId, held: [], selected, switching: false, previous: null, savedIds: userId && selected !== ALL_POSTS ? readIds(userId) : null };
   emit();
 }
 
@@ -82,7 +101,7 @@ export function setActivePostUser(userId: string | null) {
 export function setHeldPosts(held: HeldPosition[]) {
   const options = buildOptions(held);
   const selected = options.some((o) => o.key === state.selected) ? state.selected : ALL_POSTS;
-  state = { ...state, held, selected };
+  state = { ...state, held, selected, savedIds: null };
   emit();
 }
 
@@ -98,13 +117,27 @@ export function setActivePostSwitching(on: boolean) {
 export function selectActivePost(key: string) {
   if (!state.userId || state.switching || key === state.selected) return;
   const before = activePostsHeader();
-  state = { ...state, selected: key };
-  write(state.userId, key);
+  const current = viewOf(state);
+  const previous = { key: state.selected, ids: [...(current.postIds ?? [])] };
+  const chosen = current.options.find((o) => o.key === key);
+  state = { ...state, selected: key, previous };
+  write(state.userId, key, chosen?.postIds ?? []);
   // Only a switch that changes what the server is told has anything to wait for.
   const waits = activePostsHeader() !== before;
   if (waits) setActivePostSwitching(true);
   else emit();
 }
+
+/** The switch could not be completed (the server did not answer): the choice before it comes back. */
+export function revertActivePost() {
+  if (!state.userId || !state.switching || !state.previous) return;
+  const { key, ids } = state.previous;
+  state = { ...state, selected: key, previous: null };
+  write(state.userId, key, ids);
+  setActivePostSwitching(false);
+}
+
+export const isActivePostSwitching = () => state.switching;
 
 export interface ActivePostView {
   /** More than one post held: the switch is shown. */
@@ -145,7 +178,9 @@ export function useActivePost(): ActivePostView {
  */
 export function activePostsHeader(): string | null {
   const ids = viewOf(state).postIds;
-  return ids && ids.size > 0 ? [...ids].sort().join(',') : null;
+  if (ids && ids.size > 0) return [...ids].sort().join(',');
+  // Just after a reload the held posts are not known yet, but the saved choice is: use it, so the first answers already follow it.
+  return state.held.length === 0 && state.savedIds ? [...state.savedIds].sort().join(',') : null;
 }
 
 /** What the chosen post hides, and why (for the note under the switch). */
