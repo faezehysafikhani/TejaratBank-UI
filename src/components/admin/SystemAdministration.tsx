@@ -582,7 +582,8 @@ export const SystemAdministration: React.FC<{
     ...(can('sms_settings.view') ? [{ id: 'sms' as const, label: 'پنل پیامکی', icon: MessageSquare }] : []),
     ...(can('users.view') || can('roles.view') || can('audit_logs.view') || can('ldap_settings.view') || can('sso_settings.view')
       ? [{ id: 'users' as const, label: 'مدیریت کاربران', icon: Users }] : []),
-    ...(orgStructureAvailable ? [{ id: 'org' as const, label: 'ساختار سازمانی', icon: Building2 }] : []),
+    // The structure tab is for whoever was given a structure permission (by role, position or post), not for everyone.
+    ...(orgStructureAvailable && Object.values(ORG_STRUCTURE_PERMISSIONS).some(can) ? [{ id: 'org' as const, label: 'ساختار سازمانی', icon: Building2 }] : []),
   ];
   const current = tabs.some((t) => t.id === active) ? active : 'profile';
 
