@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { AdminDialog, Notice, PrimaryButton, SecondaryButton } from '../AdminUi';
+import { AdminDialog, Notice, PrimaryButton, SecondaryButton, SelectAllCheckbox, selectAllState } from '../AdminUi';
 import { SearchBox } from '../AdminUi';
 import { userErrorMessage } from '../../../utils/errorMessages';
 import { toPersianDigits } from '../../../utils/helpers';
@@ -89,6 +89,24 @@ export const PositionPermissionsDialog: React.FC<{
     });
   };
 
+  // «انتخاب همه»: every permission shown now (the search narrows it) or those of one section. What a chosen permission needs
+  // shows as chosen and locked by itself; clearing takes only what the person had chosen. Each box can be changed afterwards.
+  const setMany = (permissions: PermissionInfo[], on: boolean) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      for (const permission of permissions) {
+        if (on) next.add(permission.name);
+        else next.delete(permission.name);
+      }
+      return next;
+    });
+  };
+  const boxesOf = (permissions: PermissionInfo[]) => permissions.map((p) => {
+    const dependent = neededBy(p.name);
+    return { checked: selected.has(p.name) || !!dependent, locked: !canEdit || !!dependent };
+  });
+  const allVisible = modules.flatMap((g) => g.permissions);
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -145,13 +163,30 @@ export const PositionPermissionsDialog: React.FC<{
         </h4>
         <SearchBox value={filter} onChange={setFilter} placeholder="جستجوی دسترسی..." />
       </div>
+      {groups !== null && allVisible.length > 0 && (
+        <SelectAllCheckbox
+          testId="select-all-permissions"
+          label="انتخاب همهٔ دسترسی‌ها"
+          {...selectAllState(boxesOf(allVisible))}
+          onChange={(on) => setMany(allVisible, on)}
+          className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+        />
+      )}
       {groups === null ? (
         <div className="py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
       ) : (
         <div className="space-y-3">
           {modules.map(({ module, permissions }) => (
             <div key={module} className="rounded-xl border border-slate-200 dark:border-slate-700">
-              <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300">{moduleTitle(module)}</div>
+              <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300 flex items-center justify-between gap-2">
+                <span>{moduleTitle(module)}</span>
+                <SelectAllCheckbox
+                  testId={`select-all-${module}`}
+                  label="انتخاب همه"
+                  {...selectAllState(boxesOf(permissions))}
+                  onChange={(on) => setMany(permissions, on)}
+                />
+              </div>
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {permissions.map((permission) => {
                   const dependent = neededBy(permission.name);

@@ -9,8 +9,7 @@ import { getAssignment, setAssignment, removeAssignment, Honorific, listTitles, 
 import { toPersianDigits, formatToJalali } from '../../utils/helpers';
 import {
   AdminCard, SearchBox, StatusBadge, IconAction, Pagination, Field, inputClass, Notice,
-  AdminDialog, PrimaryButton, SecondaryButton, toLatinDigits, useDebounced, PillTabs,
-} from './AdminUi';
+  AdminDialog, PrimaryButton, SecondaryButton, toLatinDigits, useDebounced, PillTabs, SelectAllCheckbox, selectAllState } from './AdminUi';
 import { moduleTitle, toggleUserAccess, clearPrerequisiteDenials, clearPrerequisiteDenialsForPermissions, preservePrerequisitesWhenDisabling, preservePermissionPrerequisites, enabledDependentForPrerequisite, hasKnownPermissionDependents, rolePermissionNames, isListedPermission } from '../../utils/permissions';
 import { userErrorMessage } from '../../utils/errorMessages';
 import { LoadingRow } from './orgStructure/orgShared';
@@ -579,6 +578,54 @@ const UserAccessDialog: React.FC<{ user: AdminUser; rights: UserAdminRights; onC
     [access, roles, roleIds],
   );
 
+  // What one permission looks like for the choices (direct, denied) the page holds: does the user end up with it, and is it
+  // locked because another permission the user has needs it. The boxes and the «انتخاب همه» both read it from here.
+  const stateOf = (entry: UserAccess['permissions'][number], directNow: ReadonlySet<string>, deniedNow: ReadonlySet<string>) => {
+    const dependent = enabledDependentForPrerequisite(entry, access?.permissions || [], directNow, deniedNow, selectedRoleNames, selectedRolePermissions);
+    const grantedBySelectedRole = selectedRolePermissions.has(entry.name)
+      || (entry.grantedByRole && entry.grantingRoles.some((roleName) => selectedRoleNames.has(roleName)));
+    const prerequisite = !!dependent || (!!entry.grantedAsPrerequisite && !hasKnownPermissionDependents(entry.name));
+    const effective = !deniedNow.has(entry.permissionId) && (
+      directNow.has(entry.permissionId) || grantedBySelectedRole || entry.grantedByGroup || prerequisite
+    );
+    return { dependent, prerequisite, effective, cannotDisable: !!dependent && effective };
+  };
+
+  const setEntry = (entry: UserAccess['permissions'][number], on: boolean, directNow: Set<string>, deniedNow: Set<string>) => {
+    const next = toggleUserAccess(entry, on, directNow, deniedNow);
+    return on
+      ? { direct: next.direct, denied: clearPrerequisiteDenials(entry, access!.permissions, next.denied) }
+      : { direct: preservePrerequisitesWhenDisabling(entry, access!.permissions, next.direct, next.denied), denied: next.denied };
+  };
+
+  // «انتخاب همه»: every permission shown now (the search narrows it) or those of one section. Each one goes through the same
+  // rule as its own box. Switching on is one pass; switching off repeats until nothing more can go, so a permission another
+  // chosen one needs goes only after that one, and one that stays locked (needed by a permission outside the list) stays on.
+  // Every box can be changed afterwards.
+  const setMany = (entries: UserAccess['permissions'], on: boolean) => {
+    let nextDirect = new Set<string>(direct);
+    let nextDenied = new Set<string>(denied);
+    for (let pass = 0; pass < 10; pass += 1) {
+      let changed = false;
+      for (const entry of entries) {
+        const state = stateOf(entry, nextDirect, nextDenied);
+        if (state.effective === on || (!on && state.cannotDisable)) continue;
+        const next = setEntry(entry, on, nextDirect, nextDenied);
+        nextDirect = next.direct;
+        nextDenied = next.denied;
+        changed = true;
+      }
+      if (on || !changed) break;
+    }
+    setDirect(nextDirect);
+    setDenied(nextDenied);
+  };
+  const boxesOf = (entries: UserAccess['permissions']) => entries.map((entry) => {
+    const state = stateOf(entry, direct, denied);
+    return { checked: state.effective, locked: !rights.assignPermissions || state.cannotDisable };
+  });
+  const allVisible = modules.flatMap(([, entries]) => entries);
+
   const save = async () => {
     if (!access) return;
     setSaving(true);
@@ -666,31 +713,30 @@ const UserAccessDialog: React.FC<{ user: AdminUser; rights: UserAdminRights; onC
             <p className="text-xs text-slate-500 dark:text-slate-400">
               تیک هر مجوز یعنی این کاربر واقعاً آن را دارد. برداشتن تیک مجوزی که از نقش یا گروه می‌آید، آن را فقط برای همین کاربر غیرفعال می‌کند و نقش یا گروه تغییر نمی‌کند؛ با زدن دوباره تیک، دسترسی برمی‌گردد. فقط مجوزهایی را می‌توانید اعطا یا غیرفعال کنید که خودتان دارید.
             </p>
+            {allVisible.length > 0 && (
+              <SelectAllCheckbox
+                testId="select-all-permissions"
+                label="انتخاب همهٔ مجوزها"
+                {...selectAllState(boxesOf(allVisible))}
+                onChange={(on) => setMany(allVisible, on)}
+                className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+              />
+            )}
             <div className="space-y-3">
               {modules.map(([module, entries]) => (
                 <div key={module} className="rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300">{moduleTitle(module)}</div>
+                  <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300 flex items-center justify-between gap-2">
+                    <span>{moduleTitle(module)}</span>
+                    <SelectAllCheckbox
+                      testId={`select-all-${module}`}
+                      label="انتخاب همه"
+                      {...selectAllState(boxesOf(entries))}
+                      onChange={(on) => setMany(entries, on)}
+                    />
+                  </div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {entries.map((entry) => {
-                      const dependent = enabledDependentForPrerequisite(
-                        entry,
-                        access.permissions,
-                        direct,
-                        denied,
-                        selectedRoleNames,
-                        selectedRolePermissions,
-                      );
-                      const grantedBySelectedRole = selectedRolePermissions.has(entry.name)
-                        || (entry.grantedByRole && entry.grantingRoles.some((roleName) => selectedRoleNames.has(roleName)));
-                      const prerequisite = !!dependent
-                        || (!!entry.grantedAsPrerequisite && !hasKnownPermissionDependents(entry.name));
-                      const effective = !denied.has(entry.permissionId) && (
-                        direct.has(entry.permissionId)
-                        || grantedBySelectedRole
-                        || entry.grantedByGroup
-                        || prerequisite
-                      );
-                      const cannotDisable = !!dependent && effective;
+                      const { dependent, prerequisite, effective, cannotDisable } = stateOf(entry, direct, denied);
                       return (
                       <label key={entry.permissionId} className={`flex items-center justify-between gap-3 px-3 py-2 ${rights.assignPermissions && !cannotDisable ? 'cursor-pointer' : ''}`}>
                         <span className="flex items-center gap-2 min-w-0">
@@ -700,13 +746,9 @@ const UserAccessDialog: React.FC<{ user: AdminUser; rights: UserAdminRights; onC
                             checked={effective}
                             title={cannotDisable ? `ابتدا مجوز «${dependent.description}» را غیرفعال کنید.` : undefined}
                             onChange={(e) => {
-                              const next = toggleUserAccess(entry, e.target.checked, direct, denied);
-                              setDirect(e.target.checked
-                                ? next.direct
-                                : preservePrerequisitesWhenDisabling(entry, access.permissions, next.direct, next.denied));
-                              setDenied(e.target.checked
-                                ? clearPrerequisiteDenials(entry, access.permissions, next.denied)
-                                : next.denied);
+                              const next = setEntry(entry, e.target.checked, direct, denied);
+                              setDirect(next.direct);
+                              setDenied(next.denied);
                             }}
                           />
                           <span className="min-w-0 text-sm text-slate-800 dark:text-slate-100">{entry.description}</span>

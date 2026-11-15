@@ -5,8 +5,7 @@ import {
 } from '../../services/nexusApi';
 import { toPersianDigits } from '../../utils/helpers';
 import {
-  AdminCard, SearchBox, StatusBadge, IconAction, Field, inputClass, Notice, AdminDialog, PrimaryButton, SecondaryButton,
-} from './AdminUi';
+  AdminCard, SearchBox, StatusBadge, IconAction, Field, inputClass, Notice, AdminDialog, PrimaryButton, SecondaryButton, SelectAllCheckbox, selectAllState } from './AdminUi';
 import { isListedPermission, moduleTitle, prerequisitesOf } from '../../utils/permissions';
 import { userErrorMessage } from '../../utils/errorMessages';
 import { roleTitle } from './UsersPanel';
@@ -185,6 +184,29 @@ const RoleDialog: React.FC<{
     });
   };
 
+  // «انتخاب همه»: every permission shown now (the search narrows it) or those of one section. What a ticked permission needs is
+  // ticked with it; clearing keeps whatever another ticked permission still needs. Each box can be changed afterwards.
+  const setMany = (permissions: PermissionInfo[], on: boolean) => {
+    setSelected((current) => {
+      const next = new Set<string>(current);
+      for (const permission of permissions) {
+        if (on) {
+          next.add(permission.name);
+          for (const needed of prerequisitesOf(permission.name)) next.add(needed);
+        } else {
+          next.delete(permission.name);
+        }
+      }
+      if (!on) for (const chosen of Array.from(next)) for (const needed of prerequisitesOf(chosen)) next.add(needed);
+      return next;
+    });
+  };
+  const boxesOf = (permissions: PermissionInfo[]) => permissions.map((p) => {
+    const checked = selected.has(p.name);
+    return { checked, locked: !canEditPermissions || (checked && !!neededBy(p.name)) };
+  });
+  const allVisible = modules.flatMap((g) => g.permissions);
+
   const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) { setError('نام نقش را وارد کنید.'); return; }
@@ -257,13 +279,30 @@ const RoleDialog: React.FC<{
         <p className="text-xs text-slate-500 dark:text-slate-400">
           با زدن تیک هر مجوز، مجوزهایی که لازمهٔ آن هستند هم خودکار انتخاب می‌شوند. فقط مجوزهایی را می‌توانید به نقش بدهید که خودتان دارید.
         </p>
+        {groups !== null && allVisible.length > 0 && (
+          <SelectAllCheckbox
+            testId="select-all-permissions"
+            label="انتخاب همهٔ مجوزها"
+            {...selectAllState(boxesOf(allVisible))}
+            onChange={(on) => setMany(allVisible, on)}
+            className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700"
+          />
+        )}
         {groups === null ? (
           <div className="py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
         ) : (
           <div className="space-y-3">
             {modules.map(({ module, permissions }) => (
               <div key={module} className="rounded-xl border border-slate-200 dark:border-slate-700">
-                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300">{moduleTitle(module)}</div>
+                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/60 rounded-t-xl text-xs font-extrabold text-slate-600 dark:text-slate-300 flex items-center justify-between gap-2">
+                  <span>{moduleTitle(module)}</span>
+                  <SelectAllCheckbox
+                    testId={`select-all-${module}`}
+                    label="انتخاب همه"
+                    {...selectAllState(boxesOf(permissions))}
+                    onChange={(on) => setMany(permissions, on)}
+                  />
+                </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {permissions.map((permission) => {
                     const checked = selected.has(permission.name);

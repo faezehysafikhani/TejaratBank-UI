@@ -72,6 +72,36 @@ export function PillTabs<T extends string>({ tabs, active, onChange, compact = f
   );
 }
 
+/**
+ * «انتخاب همه» for a list of checkboxes: ticked when every one is, half-ticked when some are. Clicking it ticks all of
+ * them (also when only some are), and clicking it when all are ticked clears them; each box stays free to change after that.
+ */
+export const SelectAllCheckbox: React.FC<{
+  label: string;
+  checked: boolean;
+  indeterminate: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+  className?: string;
+  testId?: string;
+}> = ({ label, checked, indeterminate, disabled, onChange, className = '', testId }) => {
+  const box = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => { if (box.current) box.current.indeterminate = indeterminate && !checked; }, [indeterminate, checked]);
+  return (
+    <label className={`inline-flex items-center gap-2 text-xs font-extrabold text-slate-700 dark:text-slate-200 ${disabled ? 'opacity-50' : 'cursor-pointer'} ${className}`}>
+      <input ref={box} type="checkbox" data-testid={testId} checked={checked} disabled={disabled} onChange={() => onChange(!checked)} />
+      <span>{label}</span>
+    </label>
+  );
+};
+
+/** How a list of boxes looks to its «انتخاب همه»: how many can be changed, and the state of all of them. */
+export function selectAllState(items: readonly { checked: boolean; locked: boolean }[]): { checked: boolean; indeterminate: boolean; disabled: boolean } {
+  const free = items.filter((item) => !item.locked);
+  const on = items.filter((item) => item.checked).length;
+  return { checked: items.length > 0 && on === items.length, indeterminate: on > 0 && on < items.length, disabled: free.length === 0 };
+}
+
 export const SearchBox: React.FC<{ value: string; onChange: (value: string) => void; placeholder: string }> = ({ value, onChange, placeholder }) => (
   <div className="relative w-full sm:w-80">
     <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
