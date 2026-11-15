@@ -55,11 +55,12 @@ const PATTERN_SCHEMES: { id: AppTheme; name: string; description: string; previe
 ];
 
 /** Training videos (Persian narration with captions), served from /tutorials. Grouped by subject, in the order they should be watched (each video's closing line points to the next one). */
-const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: { id: number; file: string; title: string; text: string }[] }[] = [
+const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; restricted?: boolean; videos: { id: number; file: string; title: string; text: string }[] }[] = [
   {
     id: 'org',
     title: 'ساختار سازمانی',
     folder: 'org-structure',
+    restricted: true,
     videos: [
       { id: 1, file: '01-build-from-scratch', title: 'ساخت چارت سازمانی از صفر', text: 'ایجاد شرکت، واحدها و سمت‌ها و ساخت اولین چارت' },
       { id: 2, file: '02-structure-rules', title: 'قواعد ساختار', text: 'چه چیزی زیر چه چیزی قرار می‌گیرد' },
@@ -93,6 +94,7 @@ const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: 
   {
     id: 'users',
     title: 'مدیریت کاربران',
+    restricted: true,
     folder: 'user-management',
     videos: [
       { id: 101, file: '01-users', title: 'مدیریت کاربران', text: 'ایجاد، ویرایش و فعال یا غیرفعال کردن کاربران' },
@@ -101,7 +103,14 @@ const TUTORIAL_CATEGORIES: { id: string; title: string; folder: string; videos: 
     ],
   },
 ];
-const TUTORIAL_VIDEOS = TUTORIAL_CATEGORIES.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
+/**
+ * Categories marked restricted teach administration (building the structure, managing users): only someone who may
+ * manage those things sees them; everyone else sees the general ones. Only what is listed changes, nothing is labelled.
+ */
+const MANAGES_ADMINISTRATION = (permissions: string[] = []): boolean =>
+  permissions.some((p) =>
+    p.startsWith('org_structure.manage') || p === 'org_structure.node.create' || p === 'org_structure.node.update' ||
+    p === 'users.create' || p === 'users.update' || p === 'roles.create' || p === 'roles.update');
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   themeMode,
@@ -138,7 +147,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     videos: true,
     account: false,
   });
-  const [activeVideo, setActiveVideo] = useState<number>(1);
+  const tutorialCategories = TUTORIAL_CATEGORIES.filter((c) => !c.restricted || MANAGES_ADMINISTRATION(currentUser?.permissions));
+  const tutorialVideos = tutorialCategories.flatMap((c) => c.videos.map((v) => ({ ...v, src: `/tutorials/${c.folder}/${v.file}.mp4` })));
+  const [activeVideo, setActiveVideo] = useState<number>(() => tutorialVideos[0]?.id ?? 1);
+  const [openTutorialCategory, setOpenTutorialCategory] = useState<string | null>(() => tutorialCategories[0]?.id ?? null);
+  useEffect(() => {
+    if (tutorialVideos.length && !tutorialVideos.some((v) => v.id === activeVideo)) setActiveVideo(tutorialVideos[0].id);
+  }, [tutorialVideos, activeVideo]);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
@@ -724,7 +739,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <PlayCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
             <span>ویدیوهای آموزشی</span>
             <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-xl border border-emerald-300 dark:border-emerald-800 shrink-0">
-              {TUTORIAL_VIDEOS.length} ویدیو
+              {tutorialVideos.length} ویدیو
             </span>
           </div>
           {openSections.videos ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
@@ -738,20 +753,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 controls
                 preload="metadata"
                 className="w-full rounded-2xl bg-black border border-slate-200 dark:border-slate-700 aspect-video"
-                src={TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.src}
+                src={tutorialVideos.find((v) => v.id === activeVideo)?.src}
               />
               <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                {TUTORIAL_VIDEOS.find((v) => v.id === activeVideo)?.title}
+                {tutorialVideos.find((v) => v.id === activeVideo)?.title}
               </p>
             </div>
-            <div className="lg:col-span-2 space-y-4 max-h-[22rem] overflow-y-auto pe-1">
-              {TUTORIAL_CATEGORIES.map((cat) => (
-                <section key={cat.id} aria-label={cat.title}>
-                  <h4 className="flex items-center gap-2 mb-2 text-xs font-extrabold text-emerald-800 dark:text-emerald-300">
-                    <span>{cat.title}</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">{cat.videos.length.toLocaleString('fa-IR')} ویدیو</span>
-                  </h4>
-                  <ul className="space-y-2">
+            <div className="lg:col-span-2 space-y-2 max-h-[26rem] overflow-y-auto pe-1">
+              {tutorialCategories.map((cat) => (
+                <section key={cat.id} aria-label={cat.title} className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenTutorialCategory((current) => (current === cat.id ? null : cat.id))}
+                    aria-expanded={openTutorialCategory === cat.id}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-emerald-50/70 dark:bg-emerald-950/40 text-xs font-extrabold text-emerald-800 dark:text-emerald-300 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>{cat.title}</span>
+                      <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold">{cat.videos.length.toLocaleString('fa-IR')} ویدیو</span>
+                    </span>
+                    {openTutorialCategory === cat.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                  {openTutorialCategory === cat.id && (
+                  <ul className="space-y-2 p-2">
                     {cat.videos.map((v, idx) => {
                       const on = v.id === activeVideo;
                       return (
@@ -777,6 +801,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       );
                     })}
                   </ul>
+                  )}
                 </section>
               ))}
             </div>
