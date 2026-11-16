@@ -401,7 +401,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    layout: { padding: { top: 36, right: 15, bottom: 15, left: 4 } },
+    layout: { padding: { top: 26, right: 15, bottom: 46, left: 4 } },
     onClick: (_event, elements) => {
       if (elements.length > 0) handleBarClick(assigneeBarData[elements[0].index]);
     },

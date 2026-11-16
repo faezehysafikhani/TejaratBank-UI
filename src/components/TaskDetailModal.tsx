@@ -57,6 +57,8 @@ interface TaskDetailModalProps {
   onPreviewAttachment: (attachment: Attachment) => void;
   onOpenProjectDetails?: (task: Task) => void;
   onToggleSubTask?: (taskId: string, subTaskId: string) => void;
+  /** «ثبت نهایی»: finishes a project or recurring task at once. */
+  onFinalizeProject?: (taskId: string) => void;
   onConvertToTask?: (title: string, description?: string, parent?: { id: string; title: string }) => void;
 }
 
@@ -86,6 +88,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onPreviewAttachment,
   onOpenProjectDetails,
   onToggleSubTask,
+  onFinalizeProject,
   onConvertToTask,
 }) => {
   if (!isOpen || !task) return null;
@@ -681,6 +684,23 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* «ثبت نهایی»: a project or a recurring task is finished here directly, not one subtask at a time. */}
+          {onFinalizeProject && canEditTask && (task.isProject || task.isRecurring) && currentComputedStatus !== 'completed' && (
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {task.isProject ? 'پروژه را بدون تکمیل تک‌تک زیرفعالیت‌ها به‌صورت نهایی ببندید.' : 'فعالیت تکرارشونده را به‌صورت نهایی ببندید.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => onFinalizeProject(task.id)}
+                className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{task.isProject ? 'ثبت نهایی پروژه' : 'ثبت نهایی فعالیت'}</span>
+              </button>
             </div>
           )}
 

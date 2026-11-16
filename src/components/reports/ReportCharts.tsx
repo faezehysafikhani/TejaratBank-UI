@@ -109,7 +109,7 @@ export const ReportBar: React.FC<{ title: string; subtitle?: string; data: Chart
   };
   const options: ChartOptions<'bar'> = {
     responsive: true, maintainAspectRatio: false, animation: false,
-    layout: { padding: { top: 36, right: 15, bottom: 15, left: 4 } },
+    layout: { padding: { top: 26, right: 15, bottom: 46, left: 4 } },
     scales: {
       x: { ticks: { display: false }, grid: { display: false }, border: { color: '#94a3b8', width: 1.5 } },
       y: {

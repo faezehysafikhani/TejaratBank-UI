@@ -20,7 +20,8 @@ import {
   ChevronsRight,
   Clock,
   Check,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react';
 
 interface JalaliDateTimePickerProps {
@@ -31,6 +32,9 @@ interface JalaliDateTimePickerProps {
   disabled?: boolean;
   /** Marks the field as required (red star after the label). */
   required?: boolean;
+  /** The field may stay empty: it shows `emptyText` (not the current moment) until a date is picked, and has a ✕ to clear it. */
+  optional?: boolean;
+  emptyText?: string;
 }
 
 export const JalaliDateTimePicker: React.FC<JalaliDateTimePickerProps> = ({
@@ -40,6 +44,8 @@ export const JalaliDateTimePicker: React.FC<JalaliDateTimePickerProps> = ({
   popoverPosition = 'auto',
   disabled = false,
   required = false,
+  optional = false,
+  emptyText = 'بدون تاریخ',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -248,9 +254,22 @@ export const JalaliDateTimePicker: React.FC<JalaliDateTimePickerProps> = ({
           disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-slate-100/80 dark:hover:bg-slate-800 cursor-pointer'
         }`}
       >
-        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{formattedDisplay}</span>
+        {optional && !valueISO
+          ? <span className="text-xs font-medium text-slate-400 dark:text-slate-500">{emptyText}</span>
+          : <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">{formattedDisplay}</span>}
         <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
       </button>
+      {optional && valueISO && !disabled && (
+        <button
+          type="button"
+          onClick={() => { onChangeISO(''); setIsOpen(false); }}
+          className="absolute left-9 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-rose-600 cursor-pointer"
+          aria-label="حذف تاریخ"
+          title="حذف تاریخ"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      )}
 
       {/* Date & Time Picker Modal / Dropdown. Rendered on <body>: inside a dialog whose overlay
           has a backdrop filter, position: fixed would be relative to that scrolling overlay

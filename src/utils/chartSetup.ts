@@ -43,9 +43,9 @@ export const persianIntegerTick = (value: string | number): string => {
 };
 
 /**
- * Draws, for each bar, its count above it and the person's name written vertically - inside the
- * bar when it fits, otherwise above it (as the board always showed them). `names` gives the
- * label of each bar by index.
+ * Draws, for each bar, its count above it and the person's name under it, written straight (not turned): over two lines at
+ * most, cut with «…» to the width of the bar's own column so neighbours never run into each other (the tooltip has the whole
+ * name). `names` gives the label of each bar by index. The chart needs about 46px of bottom padding for the names.
  */
 export const barNameLabels = (names: () => string[]): Plugin<'bar'> => ({
   id: 'barNameLabels',
@@ -53,58 +53,52 @@ export const barNameLabels = (names: () => string[]): Plugin<'bar'> => ({
     const meta = chart.getDatasetMeta(0);
     const dataset = chart.data.datasets[0];
     if (!meta || !dataset) return;
-    const { ctx } = chart;
+    const { ctx, chartArea } = chart;
     const labels = names();
     const dark = isDarkMode();
     const countColor = dark ? '#e2e8f0' : '#334155';
-    const nameAboveColor = dark ? '#f1f5f9' : '#1e293b';
+    const nameColor = dark ? '#f1f5f9' : '#1e293b';
+    const columnWidth = chartArea.width / Math.max(1, meta.data.length);
+    const maxWidth = Math.max(24, columnWidth - 6);
+
+    const fit = (text: string): string => {
+      if (ctx.measureText(text).width <= maxWidth) return text;
+      let cut = text;
+      while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxWidth) cut = cut.slice(0, -1);
+      return `${cut}…`;
+    };
+    // Words fill the first line, the rest the second; a single long word is cut.
+    const lines = (text: string): string[] => {
+      const words = text.trim().split(/\s+/).filter(Boolean);
+      if (words.length <= 1) return [fit(text.trim())];
+      let first = words[0];
+      let k = 1;
+      while (k < words.length && ctx.measureText(`${first} ${words[k]}`).width <= maxWidth) first = `${first} ${words[k++]}`;
+      if (k >= words.length) return [first];
+      return [fit(first), fit(words.slice(k).join(' '))];
+    };
 
     ctx.save();
     meta.data.forEach((element, index) => {
       const bar = element as unknown as { x: number; y: number; base: number };
       const value = Number(dataset.data[index] ?? 0);
-      const rawName = labels[index] ?? '';
-      const height = Math.abs(bar.base - bar.y);
       const top = Math.min(bar.y, bar.base);
 
-      ctx.font = `bold 11px ${CHART_FONT_FAMILY}`;
-      const namePixelHeight = ctx.measureText(rawName).width + 14;
-      const fitsInside = height >= namePixelHeight && height >= 44;
-
-      let name = rawName;
-      if (fitsInside) {
-        while (name.length > 2 && ctx.measureText(name).width > height - 12) name = name.slice(0, -1);
-        if (name !== rawName) name = `${name.slice(0, -1)}…`;
-      } else if (rawName.length > 14) {
-        name = `${rawName.slice(0, 12)}…`;
-      }
-      const nameWidth = Math.max(18, ctx.measureText(name).width);
-
-      // Count: right above the bar, or above the name when the name sits above the bar.
+      // Count, right above the bar.
       ctx.fillStyle = countColor;
       ctx.font = `900 11px ${CHART_FONT_FAMILY}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
-      ctx.fillText(toPersianDigits(value), bar.x, fitsInside ? top - 6 : top - 6 - nameWidth - 6);
+      ctx.direction = 'ltr';
+      ctx.fillText(toPersianDigits(value), bar.x, top - 6);
 
-      // Name, rotated to read bottom-up.
-      ctx.save();
-      ctx.translate(bar.x, fitsInside ? top + height / 2 : top - 6 - nameWidth / 2);
-      ctx.rotate(-Math.PI / 2);
+      // Name, under the axis.
+      ctx.fillStyle = nameColor;
+      ctx.font = `bold 11px ${CHART_FONT_FAMILY}`;
       ctx.direction = 'rtl';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `${fitsInside ? 'bold' : '800'} 11px ${CHART_FONT_FAMILY}`;
-      if (fitsInside) {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-        ctx.shadowBlur = 2;
-        ctx.shadowOffsetY = 1;
-        ctx.fillStyle = '#ffffff';
-      } else {
-        ctx.fillStyle = nameAboveColor;
-      }
-      ctx.fillText(name, 0, 0);
-      ctx.restore();
+      ctx.textBaseline = 'top';
+      lines(labels[index] ?? '').forEach((line, row) => ctx.fillText(line, bar.x, chartArea.bottom + 8 + row * 14));
     });
     ctx.restore();
   },

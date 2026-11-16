@@ -47,6 +47,8 @@ import { ReplyRef, splitReply, withReply } from '../utils/chatReply';
 import { useMyPermissions } from './admin/SystemAdministration';
 import { isAllowedUploadFile, UPLOAD_TYPE_ERROR_MESSAGE, ALLOWED_UPLOAD_ACCEPT } from '../utils/uploadPolicy';
 import { appAlert, appConfirm } from '../utils/appDialog';
+import { copyText } from '../utils/clipboard';
+import { showToast } from '../utils/toast';
 
 interface TeamChatViewProps {
   currentUser: User | null;
@@ -384,13 +386,19 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
   };
 
   // Copy task description to clipboard
-  const handleCopyTaskDescription = (task: Task) => {
+  const handleCopyTaskDescription = async (task: Task) => {
     const textToCopy = task.description && task.description.trim()
       ? `فعالیت: ${task.title}\nتوضیحات:\n${task.description}`
       : `فعالیت: ${task.title}\n(بدون توضیحات ثبت‌شده)`;
-    navigator.clipboard.writeText(textToCopy);
+    // «کپی شد» only when it really was copied (on a plain-http address the browser has no clipboard; copyText falls back).
+    if (!(await copyText(textToCopy))) {
+      showToast('کپی انجام نشد. از «درج در گفتگو» استفاده کنید یا متن را با دست انتخاب و کپی کنید.', 'error');
+      return;
+    }
     setCopiedTaskId(task.id);
     setTimeout(() => setCopiedTaskId(null), 2000);
+    // The cursor goes to the message box, so pasting (Ctrl+V) puts the text there; «درج در گفتگو» puts it there itself.
+    if (activePartnerId) composerRef.current?.focus();
   };
 
   // 1. Unread counts, per person and per team (cache-first, refreshed every few seconds)
@@ -1344,7 +1352,7 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
                           type="button"
                           onClick={() => handleCopyTaskDescription(t)}
                           className="px-2 py-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer border border-slate-200/70 dark:border-slate-700"
-                          title="کپی متن توضیحات فعالیت"
+                          title="کپی متن در کلیپ‌بورد (برای چسباندن با Ctrl+V). برای گذاشتن مستقیم در پیام، «درج در گفتگو» را بزنید."
                         >
                           {copiedTaskId === t.id ? (
                             <>

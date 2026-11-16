@@ -4,7 +4,7 @@ import { STATUSES, Task, User } from '../../types';
 import { AdminCard, AdminDialog, Field, Notice, Pagination, PrimaryButton, SecondaryButton, StatusBadge, inputClass } from '../admin/AdminUi';
 import { JalaliDatePicker } from '../JalaliDatePicker';
 import { toPersianDigits } from '../../utils/helpers';
-import { getIranTodayISO, parseISOToJalali, PERSIAN_MONTH_NAMES } from '../../utils/jalali';
+import { parseISOToJalali, PERSIAN_MONTH_NAMES } from '../../utils/jalali';
 import { userErrorMessage } from '../../utils/errorMessages';
 import { buildXlsx, jalaliStamp, saveBlob } from '../../utils/reportExport';
 import { MeetingReportData, PrintInfo, downloadMeetingReport, tableReportBlob } from '../../utils/meetingReportPdf';
@@ -26,7 +26,7 @@ const UNKNOWN_PERSON = 'فرد ثبت‌شده در جلسه';
 type MinutesFilter = 'all' | 'with' | 'without';
 
 interface Filters {
-  /** yyyy-MM-dd (Gregorian), inclusive */
+  /** yyyy-MM-dd (Gregorian), inclusive; empty: no limit */
   from: string;
   to: string;
   type: '' | Meeting['details']['type'];
@@ -42,10 +42,15 @@ const addDays = (iso: string, days: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-const defaultFilters = (): Filters => {
-  const today = getIranTodayISO();
-  return { from: addDays(today, -90), to: addDays(today, 30), type: '', organizerId: '', participantId: '', text: '', minutes: 'all' };
-};
+/** No date chosen means no limit on that side: the server is asked for this much. */
+const FAR_PAST = '2000-01-01';
+const FAR_FUTURE = '2100-01-01';
+
+// Both dates start empty (all meetings); each can be set and cleared again with its own ✕.
+const defaultFilters = (): Filters => ({ from: '', to: '', type: '', organizerId: '', participantId: '', text: '', minutes: 'all' });
+
+/** For searching: capital and small letters alike, and the Arabic ي / ك the way they are typed as ی / ک. */
+const searchForm = (value: string) => value.toLowerCase().replace(/ي/g, 'ی').replace(/ك/g, 'ک');
 
 const dayText = (iso: string) => {
   const j = iso ? parseISOToJalali(iso.slice(0, 10)) : null;
@@ -74,7 +79,7 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
     setLoading(true);
     setError(null);
     // The server's "to" is exclusive.
-    listMeetings(filters.from, addDays(filters.to, 1))
+    listMeetings(filters.from || FAR_PAST, addDays(filters.to || FAR_FUTURE, 1))
       .then((rows) => alive && setMeetings(rows))
       .catch((err) => alive && (setMeetings([]), setError(userErrorMessage(err, 'دریافت جلسات ممکن نشد.'))))
       .finally(() => alive && setLoading(false));
@@ -99,7 +104,7 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
     if (filters.minutes === 'with' && !hasMinutes(d)) return false;
     if (filters.minutes === 'without' && hasMinutes(d)) return false;
     const text = filters.text.trim();
-    if (text && ![d.title, d.location, d.description, d.minutes, ...d.agenda.map((a) => a.title)].some((v) => (v || '').includes(text))) return false;
+    if (text && ![d.title, d.location, d.description, d.minutes, ...d.agenda.map((a) => a.title)].some((v) => searchForm(v || '').includes(searchForm(text)))) return false;
     return true;
   }), [meetings, filters]);
 
@@ -123,7 +128,9 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
   const participantsText = (m: Meeting) => m.details.participantIds.map(nameOf).join('، ');
 
   const filtersText = (() => {
-    const parts = [`از ${jalaliDate(filters.from)} تا ${jalaliDate(filters.to)}`];
+    const parts = [filters.from || filters.to
+      ? `${filters.from ? `از ${jalaliDate(filters.from)}` : ''}${filters.from && filters.to ? ' ' : ''}${filters.to ? `تا ${jalaliDate(filters.to)}` : ''}`
+      : 'همهٔ تاریخ‌ها'];
     if (filters.type) parts.push(`نوع: ${TYPE_LABELS[filters.type]}`);
     if (filters.organizerId) parts.push(`برگزارکننده: ${nameOf(filters.organizerId)}`);
     if (filters.participantId) parts.push(`شرکت‌کننده: ${nameOf(filters.participantId)}`);
@@ -229,8 +236,8 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <FieldGroup label="جلسات از تاریخ"><JalaliDatePicker ariaLabel="جلسات از تاریخ" value={filters.from} onChange={(from) => from && set({ from })} /></FieldGroup>
-          <FieldGroup label="جلسات تا تاریخ"><JalaliDatePicker ariaLabel="جلسات تا تاریخ" value={filters.to} onChange={(to) => to && set({ to })} /></FieldGroup>
+          <FieldGroup label="جلسات از تاریخ"><JalaliDatePicker ariaLabel="جلسات از تاریخ" value={filters.from} onChange={(from) => set({ from: from || '' })} /></FieldGroup>
+          <FieldGroup label="جلسات تا تاریخ"><JalaliDatePicker ariaLabel="جلسات تا تاریخ" value={filters.to} onChange={(to) => set({ to: to || '' })} /></FieldGroup>
           <Field label="نوع">
             <select className={inputClass} value={filters.type} onChange={(e) => set({ type: e.target.value as Filters['type'] })}>
               <option value="">همه انواع</option>

@@ -30,11 +30,14 @@ import {
   deletePersonalNotePB,
 } from '../services/dataService';
 import { appAlert, appConfirm } from '../utils/appDialog';
+import { copyText } from '../utils/clipboard';
+import { showToast } from '../utils/toast';
 
 interface PersonalNotesViewProps {
   currentUser: User | null;
   appColorPalette?: AppColorPalette;
-  onConvertToTask?: (title: string, description?: string) => void;
+  /** `onCreated` runs with the new task's id once the task has really been saved. */
+  onConvertToTask?: (title: string, description?: string, onCreated?: (taskId: string) => void) => void;
 }
 
 const COLOR_CONFIGS: Record<string, { bg: string; border: string; badge: string; text: string }> = {
@@ -98,6 +101,20 @@ export const PersonalNotesView: React.FC<PersonalNotesViewProps> = ({
   const [formIsPinned, setFormIsPinned] = useState<boolean>(false);
   const [formAttachments, setFormAttachments] = useState<NoteAttachment[]>([]);
   const [copiedNoteId, setCopiedNoteId] = useState<string | null>(null);
+
+  // Notes already made into a task (note id -> task id), kept in this browser per person so the card can show it.
+  const convertedKey = `parstask_note_tasks_${currentUser?.id ?? ''}`;
+  const [convertedNotes, setConvertedNotes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    try { setConvertedNotes(JSON.parse(localStorage.getItem(convertedKey) || '{}') || {}); } catch { setConvertedNotes({}); }
+  }, [convertedKey]);
+  const markConverted = (noteId: string, taskId: string) => {
+    setConvertedNotes((current) => {
+      const next = { ...current, [noteId]: taskId };
+      try { localStorage.setItem(convertedKey, JSON.stringify(next)); } catch { /* storage unavailable: shown until reload */ }
+      return next;
+    });
+  };
   const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const noteFileInputRef = useRef<HTMLInputElement>(null);
@@ -254,9 +271,9 @@ export const PersonalNotesView: React.FC<PersonalNotesViewProps> = ({
   };
 
   // Copy Note Text
-  const handleCopyNote = (note: PersonalNote) => {
+  const handleCopyNote = async (note: PersonalNote) => {
     const fullText = `${note.title}\n\n${note.content}`;
-    navigator.clipboard.writeText(fullText);
+    if (!(await copyText(fullText))) { showToast('کپی انجام نشد.', 'error'); return; }
     setCopiedNoteId(note.id);
     setTimeout(() => setCopiedNoteId(null), 2000);
   };
@@ -651,17 +668,25 @@ export const PersonalNotesView: React.FC<PersonalNotesViewProps> = ({
         <div className="pt-2 border-t border-black/5 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <span>{toPersianDigits(dateStr)}</span>
-            {onConvertToTask && (
+            {onConvertToTask && (convertedNotes[note.id] ? (
+              <span
+                className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-md bg-emerald-100/70 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60"
+                title="از این یادداشت یک وظیفه ساخته شده است"
+              >
+                <CheckSquare className="w-3 h-3" />
+                <span>به وظیفه تبدیل شد</span>
+              </span>
+            ) : (
               <button
                 type="button"
-                onClick={() => onConvertToTask(note.title, note.content || '')}
+                onClick={() => onConvertToTask(note.title, note.content || '', (taskId) => markConverted(note.id, taskId))}
                 className="flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-md bg-indigo-100/60 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 cursor-pointer"
                 title="تبدیل این یادداشت به یک وظیفه جدید"
               >
                 <CheckSquare className="w-3 h-3" />
                 <span>تبدیل به وظیفه</span>
               </button>
-            )}
+            ))}
           </div>
 
           <div className="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">

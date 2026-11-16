@@ -135,6 +135,7 @@ const KNOWN_MESSAGES: Record<string, string> = {
   'The assigned user does not exist in this tenant.': 'کاربر مسئول در این سازمان وجود ندارد.',
   'The assigned team does not exist in this tenant.': 'تیم انتخاب‌شده در این سازمان وجود ندارد.',
   'Choose who is responsible for the task.': 'لطفاً مسئول اجرای فعالیت را انتخاب کنید.',
+  'Choose at least one responsible person for the subtask.': 'برای هر زیرفعالیت دست‌کم یک مسئول انتخاب کنید.',
   'The responsible user is not an active user of this organization.': 'مسئول اجرای انتخاب‌شده کاربر فعال این سازمان نیست.',
   'The owner of this task has not allowed the assignee to change its status.': 'مالک این فعالیت اجازه تغییر وضعیت را به مسئول آن نداده است.',
   'Only the owner of this task, or a user who manages all tasks, can do this.': 'این کار فقط توسط مالک فعالیت یا مدیر وظایف سازمان امکان‌پذیر است.',

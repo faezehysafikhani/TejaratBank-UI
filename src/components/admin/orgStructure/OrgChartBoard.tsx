@@ -486,7 +486,8 @@ export const OrgChartBoard: React.FC<{
   const overlay = useRef<HTMLDivElement>(null);
   const [chartBusy, setChartBusy] = useState(false);
   const topInset = useCallback(() => (overlay.current && overlay.current.parentElement && view === 'tree' ? overlay.current.offsetHeight + 8 : 0), [view]);
-  const { fit, home, zoomBy, focus, subscribe } = usePanZoom(viewport, content, !!company && view === 'tree', topInset);
+  const wheelZooms = useCallback(() => fullscreen, [fullscreen]);
+  const { fit, home, zoomBy, focus, subscribe } = usePanZoom(viewport, content, !!company && view === 'tree', topInset, wheelZooms);
   useEffect(() => subscribe((v) => { zoomScale.current = v.s; }), [subscribe]);
   /** The buttons over the canvas fade while the chart is being used (moved, zoomed, scrolled) and come back a moment after. */
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -1102,7 +1103,7 @@ export const OrgChartBoard: React.FC<{
         tabIndex={0}
         onPointerDown={() => setHint(false)}
         onWheel={() => setHint(false)}
-        aria-label="چارت سازمانی؛ با چرخ ماوس یا دو انگشت بزرگ‌نمایی کنید و با کشیدن جابه‌جا کنید"
+        aria-label="چارت سازمانی؛ با Ctrl و چرخ ماوس (یا دو انگشت) بزرگ‌نمایی کنید و با کشیدن جابه‌جا کنید"
         className={`relative overflow-hidden touch-none select-none outline-hidden cursor-grab data-[dragging=true]:cursor-grabbing data-[dragging=true]:[&_*]:cursor-grabbing bg-slate-50/60 dark:bg-slate-950/40 ${fullscreen ? 'flex-1 min-h-0' : 'h-[65vh] min-h-[420px] xl:h-[calc(100vh-170px)] xl:min-h-[620px]'}`}
       >
         <div ref={content} className="absolute top-0 left-0 origin-top-left w-max px-10 py-10 flex flex-col items-center">
@@ -1251,7 +1252,7 @@ export const OrgChartBoard: React.FC<{
         </div>
 
         {hint && <p className="pointer-events-none absolute bottom-3 left-3 z-10 hidden sm:block rounded-lg bg-white/80 dark:bg-slate-900/80 px-2.5 py-1 text-[11px] text-slate-500 shadow-xs">
-          <span className="pointer-coarse:hidden">چرخ ماوس: بزرگ‌نمایی · کشیدن: جابه‌جایی · دوبار کلیک: نزدیک‌تر</span>
+          <span className="pointer-coarse:hidden">{fullscreen ? 'چرخ ماوس' : 'Ctrl + چرخ ماوس'}: بزرگ‌نمایی · کشیدن: جابه‌جایی · دوبار کلیک: نزدیک‌تر</span>
           <span className="hidden pointer-coarse:inline">دو انگشت: بزرگ‌نمایی · کشیدن: جابه‌جایی</span>
         </p>}
         {asOf && (

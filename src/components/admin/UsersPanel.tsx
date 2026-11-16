@@ -244,6 +244,7 @@ const UserFormDialog: React.FC<{
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorTick, setErrorTick] = useState(0);
 
   const [activeTab, setActiveTab] = useState<'basic' | 'credentials' | 'placement' | 'photo'>('basic');
   const [placementDraft, setPlacementDraft] = useState<OrgPlacementDraft>(EMPTY_PLACEMENT_DRAFT);
@@ -332,6 +333,7 @@ const UserFormDialog: React.FC<{
     const problem = validate();
     if (problem) {
       setError(problem);
+      setErrorTick((n) => n + 1);
       setActiveTab(/رمز|نام کاربری/.test(problem) ? 'credentials' : /سمت|شرکت|تاریخ پایان/.test(problem) ? 'placement' : 'basic');
       return;
     }
@@ -412,7 +414,7 @@ const UserFormDialog: React.FC<{
         />
       )}
       <form id="user-form" onSubmit={submit} className="space-y-2.5 [&_input]:py-2 [&_select]:py-2 [&_textarea]:py-2 [&_label>span:first-child]:mb-1" noValidate>
-        {error && <Notice type="error">{error}</Notice>}
+        {error && <Notice key={errorTick} type="error">{error}</Notice>}
         {activeTab === 'basic' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/30 p-3">

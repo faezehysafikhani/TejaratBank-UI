@@ -34,7 +34,7 @@ export function localRect(el: HTMLElement, content: HTMLElement) {
  * moves; a drag never counts as a click on the card under it. Lists inside the canvas marked
  * data-scrollable keep scrolling with the wheel while they can. `active`: the viewport is mounted.
  */
-export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean, inset?: () => number) {
+export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: RefObject<HTMLDivElement | null>, active: boolean, inset?: () => number, wheelAlwaysZooms?: () => boolean) {
   /** The room kept at the top: the narrow-screen controls, and whatever lies over the canvas (the toolbar). */
   const tp = (vp: HTMLElement) => topPad(vp) + (inset?.() ?? 0);
   const view = useRef<PanZoomView>({ x: 0, y: 0, s: 1 });
@@ -64,7 +64,10 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     listeners.current.forEach((listener) => listener(view.current));
   }, [content, viewport]);
 
-  /** Some of the content always stays in sight. */
+  /**
+   * The chart cannot be pulled out of sight: a chart smaller than the canvas stays wholly inside it (and below the toolbar
+   * over its top); a bigger one can be moved only until its edge meets the canvas's edge.
+   */
   const set = useCallback((next: PanZoomView, animate = false) => {
     const el = content.current;
     const vp = viewport.current;
@@ -72,11 +75,12 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     const s = clampScale(next.s);
     const w = el.offsetWidth * s;
     const h = el.offsetHeight * s;
-    const keep = Math.min(120, vp.clientWidth / 3, vp.clientHeight / 3);
+    const top = tp(vp);
+    const clamp = (value: number, a: number, b: number) => Math.min(Math.max(a, b), Math.max(Math.min(a, b), value));
     view.current = {
       s,
-      x: Math.min(vp.clientWidth - keep, Math.max(keep - w, next.x)),
-      y: Math.min(vp.clientHeight - keep, Math.max(keep - h, next.y)),
+      x: clamp(next.x, PAD, vp.clientWidth - w - PAD),
+      y: clamp(next.y, top, vp.clientHeight - h - PAD),
     };
     apply(animate);
   }, [apply, clampScale, content, viewport]);
@@ -109,7 +113,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
       return;
     }
     moved.current = false;
-    set({ s, x: (vp.clientWidth - w) / 2, y: h <= vp.clientHeight - top - PAD ? (vp.clientHeight - h) / 2 : top }, animate);
+    set({ s, x: (vp.clientWidth - w) / 2, y: h <= vp.clientHeight - top - PAD ? Math.max(top, (vp.clientHeight - h) / 2) : top }, animate);
   }, [clampScale, content, fit, set, viewport]);
 
   const zoomAt = useCallback((px: number, py: number, factor: number, animate = false) => {
@@ -179,6 +183,9 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
         const canScroll = e.deltaY > 0 ? list.scrollTop + list.clientHeight < list.scrollHeight - 1 : list.scrollTop > 0;
         if (canScroll) return;
       }
+      // On the page the wheel scrolls the page (the chart would otherwise trap it); the chart zooms with Ctrl (a touchpad pinch
+      // arrives that way) or, where the page cannot scroll anyway (full screen), with the wheel itself.
+      if (!(e.ctrlKey || e.metaKey) && !wheelAlwaysZooms?.()) return;
       e.preventDefault();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       const p = local(e);
@@ -287,6 +294,13 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
       else set(view.current);
     });
     resize.observe(vp);
+    // The chart changes size too (a card moved, a branch opened): it is brought back inside the canvas, or re-centred when
+    // the user has not moved it yet - it never ends up under the toolbar.
+    const contentResize = new ResizeObserver(() => {
+      if (!moved.current) home();
+      else set(view.current);
+    });
+    if (content.current) contentResize.observe(content.current);
 
     vp.addEventListener('wheel', onWheel, { passive: false });
     vp.addEventListener('pointerdown', onPointerDown);
@@ -299,6 +313,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
     vp.addEventListener('dragstart', onDragStart);
     return () => {
       resize.disconnect();
+      contentResize.disconnect();
       vp.removeEventListener('wheel', onWheel);
       vp.removeEventListener('pointerdown', onPointerDown);
       vp.removeEventListener('pointermove', onPointerMove);
@@ -309,7 +324,7 @@ export function usePanZoom(viewport: RefObject<HTMLDivElement | null>, content: 
       vp.removeEventListener('keydown', onKey);
       vp.removeEventListener('dragstart', onDragStart);
     };
-  }, [active, clampScale, fit, home, set, viewport, zoomAt, zoomBy]);
+  }, [active, clampScale, content, fit, home, set, viewport, wheelAlwaysZooms, zoomAt, zoomBy]);
 
   return { fit, home, zoomBy, focus, subscribe };
 }

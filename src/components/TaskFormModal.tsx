@@ -54,7 +54,8 @@ interface PersonOption {
 interface TaskFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, taskId?: string) => void;
+  /** `false`: the save failed; the form stays open with what was typed. */
+  onSave: (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, taskId?: string) => void | boolean | Promise<boolean | void>;
   taskToEdit?: Task | null;
   initialStatus?: TaskStatus;
   initialDueDate?: string;
@@ -182,6 +183,15 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [availableTeams, setAvailableTeams] = useState<WorkTeam[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; assignee?: string; dueDate?: string }>({});
+  const formBodyRef = useRef<HTMLDivElement>(null);
+  // A refused save must be seen: the form body scrolls (the save button is at the bottom), so the first message is brought into view.
+  useEffect(() => {
+    if (!errors.title && !errors.assignee && !errors.dueDate) return;
+    const frame = requestAnimationFrame(() => {
+      formBodyRef.current?.querySelector('[data-form-error]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [errors]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
@@ -572,8 +582,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!title.trim()) {
       setErrors({ title: isProject ? 'عنوان پروژه الزامی است' : 'عنوان فعالیت الزامی است' });
       return;
@@ -657,7 +669,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
 
     let finalSubTasks = finalIsProject ? projectSubTasks : (taskToEdit?.projectSubTasks || []);
     if (finalIsRecurring && recurringConfig) {
-      finalSubTasks = generateRecurringOccurrences(recurringConfig, finalSubTasks);
+      // The server refuses a subtask nobody is responsible for, and every occurrence is one: they go to the people who are
+      // responsible for the task (the person saving it when none is chosen).
+      const occurrenceAssignees = (responsibleIds.length > 0 ? responsibleIds : currentUser ? [currentUser.id] : [])
+        .map((id) => ({ id, name: personOf(id).name || 'کاربر' }));
+      finalSubTasks = generateRecurringOccurrences(recurringConfig, finalSubTasks)
+        .map((st) => (st.assignees && st.assignees.length > 0 ? st : { ...st, assignees: occurrenceAssignees }));
     }
 
     // A recurring task's date is its schedule's first occurrence (start date at the start time),
@@ -673,7 +690,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       ? computeAutoTaskStatus(finalSubTasks)
       : status;
 
-    onSave(
+    setSubmitting(true);
+    let saved: boolean | void = true;
+    try {
+      saved = await onSave(
       {
         title: title.trim(),
         description: lockedDescription
@@ -707,7 +727,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       },
       taskToEdit ? taskToEdit.id : undefined
     );
-
+    } finally {
+      setSubmitting(false);
+    }
+    if (saved === false) return;
     onClose();
   };
 
@@ -745,7 +768,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           </div>
 
           {/* Form Body */}
-          <div className="p-5 sm:p-6 space-y-5 overflow-y-auto grow bg-gradient-to-b from-white to-slate-50/70 dark:from-slate-900 dark:to-slate-950/30">
+          <div ref={formBodyRef} className="p-5 sm:p-6 space-y-5 overflow-y-auto grow bg-gradient-to-b from-white to-slate-50/70 dark:from-slate-900 dark:to-slate-950/30">
 
           {/* Notice Banner for Assignees who can only update status */}
           {isStatusOnlyEdit && (
@@ -902,12 +925,14 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     <div className="flex items-center gap-2">
                       <select
                         value={newSubTaskImportance}
+                        title="وزن زیرفعالیت در محاسبهٔ پیشرفت پروژه؛ این همان اولویت پروژه نیست"
+                        aria-label="وزن زیرفعالیت در پیشرفت پروژه"
                         onChange={(e) => setNewSubTaskImportance(e.target.value as SubTaskImportance)}
                         className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-100 cursor-pointer"
                       >
-                        <option value="low">اهمیت: کم (وزن ۱)</option>
-                        <option value="medium">اهمیت: متوسط (وزن ۲)</option>
-                        <option value="high">اهمیت: زیاد (وزن ۳)</option>
+                        <option value="low">وزن در پیشرفت: کم (۱)</option>
+                        <option value="medium">وزن در پیشرفت: متوسط (۲)</option>
+                        <option value="high">وزن در پیشرفت: زیاد (۳)</option>
                       </select>
 
                       <button
@@ -1334,6 +1359,8 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       onChangeISO={(iso) => setRecurringEndDate(iso)}
                       label=""
                       popoverPosition="top"
+                      optional
+                      emptyText="بدون تاریخ پایان"
                     />
                   </div>
                 </div>
@@ -1367,7 +1394,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               />
             </div>
             {errors.title && (
-              <p className="mt-1 text-xs text-rose-500 flex items-center gap-1 font-medium">
+              <p data-form-error role="alert" className="mt-1 text-xs text-rose-500 flex items-center gap-1 font-medium">
                 <AlertCircle className="w-3.5 h-3.5" />
                 {errors.title}
               </p>
@@ -1429,7 +1456,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                   disabled={isStatusOnlyEdit}
                   required
                 />
-                {errors.dueDate && <p className="text-xs text-red-500 font-medium mt-1">{errors.dueDate}</p>}
+                {errors.dueDate && <p data-form-error role="alert" className="text-xs text-red-500 font-medium mt-1">{errors.dueDate}</p>}
               </div>
             )}
 
@@ -1615,7 +1642,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                       </div>
                     )}
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">فعالیت به پست سازمانی داده می‌شود؛ اگر دارندهٔ پست عوض شود، فعالیت به نفر جدید می‌رسد.{assignmentLimited ? ' فقط پست‌های هم‌سطح شما و زیرمجموعه‌تان نمایش داده می‌شوند.' : ''}</p>
-                    {errors.assignee && <p className="text-xs text-red-500 font-medium">{errors.assignee}</p>}
+                    {errors.assignee && <p data-form-error role="alert" className="text-xs text-red-500 font-medium">{errors.assignee}</p>}
                     {/* As with people: may the posts' holders change the task's status? */}
                     {responsiblePostIds.length > 0 && assigneeStatusToggle()}
                   </div>
@@ -1790,7 +1817,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
                     )}
 
                     {errors.assignee && (
-                      <p className="text-xs text-red-500 font-medium">{errors.assignee}</p>
+                      <p data-form-error role="alert" className="text-xs text-red-500 font-medium">{errors.assignee}</p>
                     )}
 
                     {/* Checkbox for status update permission when someone is responsible */}
@@ -2001,7 +2028,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
           {/* Priority (درجه اهمیت: کم، متوسط، زیاد) */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
-              درجه اهمیت (اولویت)
+              {isProject ? 'اولویت پروژه' : 'اولویت فعالیت'}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(PRIORITIES) as Priority[]).map((prKey) => {

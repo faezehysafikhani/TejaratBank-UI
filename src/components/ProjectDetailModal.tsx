@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { Task, ProjectCharter, ProjectSubTask, SubTaskImportance, AppColorPalette } from '../types';
 import { COLOR_PALETTES } from '../utils/theme';
+import { appConfirm } from '../utils/appDialog';
 import { toPersianDigits, formatToJalali, computeAutoTaskStatus } from '../utils/helpers';
 import { JalaliDateTimePicker } from './JalaliDateTimePicker';
 import {
@@ -195,6 +196,24 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
       projectSubTasks: updated,
       status: computeAutoTaskStatus(updated),
     });
+  };
+
+  // «ثبت نهایی پروژه»: every subtask is finished and the project is closed in one step.
+  const handleFinalizeProject = async () => {
+    const open = subTasks.filter((st) => !st.completed).length;
+    const question = open > 0
+      ? `ثبت نهایی پروژه؟ ${toPersianDigits(open)} زیرفعالیت باز هم تکمیل‌شده ثبت می‌شود.`
+      : 'ثبت نهایی پروژه؟';
+    if (!(await appConfirm(question))) return;
+    const nowIso = new Date().toISOString();
+    const finished = subTasks.map((st) => ({
+      ...st,
+      completed: true,
+      status: 'completed' as const,
+      actualStartDate: st.actualStartDate || nowIso,
+      actualCompletedDate: st.actualCompletedDate || nowIso,
+    }));
+    onUpdateTask(task.id, { projectSubTasks: finished, status: 'completed', actualCompletionDate: task.actualCompletionDate || nowIso });
   };
 
   const handleDeleteSubTask = (subId: string) => {
@@ -668,7 +687,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                 <div className="md:col-span-7 p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
                   <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                     <BarChart3 className="w-4 h-4 text-indigo-500" />
-                    <span>تفکیک پیشرفت بر اساس درجه اهمیت زیرفعالیت‌ها</span>
+                    <span>تفکیک پیشرفت بر اساس وزن زیرفعالیت‌ها</span>
                   </h4>
 
                   <div className="space-y-3">
@@ -687,7 +706,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                               <span
                                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.bg} ${cfg.border} ${cfg.text}`}
                               >
-                                اهمیت {cfg.label}
+                                وزن {cfg.label}
                               </span>
                               <span className="text-slate-500 font-medium text-[11px]">
                                 {toPersianDigits(stat.completed)} از {toPersianDigits(stat.total)} مورد تکمیل شده
@@ -804,6 +823,20 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                     </button>
                   </div>
                 </form>
+
+                {task.status !== 'completed' && (
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-900">
+                    <p className="text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">پروژه را بدون تکمیل تک‌تک زیرفعالیت‌ها به‌صورت نهایی ببندید.</p>
+                    <button
+                      type="button"
+                      onClick={handleFinalizeProject}
+                      className="shrink-0 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>ثبت نهایی پروژه</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* List of subtasks */}
                 <div className="space-y-2.5">

@@ -327,7 +327,9 @@ export default function App() {
     try {
       const fetched = await fetchTasksFromPB();
       const processed = fetched.map((t) => {
-        if (t.isProject || t.isRecurring || (t.projectSubTasks && t.projectSubTasks.length > 0)) {
+        // With subtasks the status follows them; a project or recurring task with none keeps the status the server holds
+        // (it can be finished directly with «ثبت نهایی»).
+        if (t.projectSubTasks && t.projectSubTasks.length > 0) {
           return { ...t, status: computeAutoTaskStatus(t.projectSubTasks) };
         }
         return t;
@@ -482,7 +484,7 @@ export default function App() {
   const handleSaveTask = async (
     taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>,
     taskId?: string
-  ) => {
+  ): Promise<boolean> => {
     // What to do once a NEW task exists (a task from a meeting's resolution is linked to the meeting).
     // Taken now, before the form calls onClose, which clears the reference: reading it after the
     // save would find it empty and the task would never be linked.
@@ -573,12 +575,15 @@ export default function App() {
         afterCreate?.(created.id);
       }
       setPbError(null);
+      return true;
     } catch (err: any) {
       console.error('Error saving task:', err);
       const errMsg = userErrorMessage(err, 'خطا در ذخیره‌سازی فعالیت');
       setPbError(errMsg);
       void appAlert(`خطا در ذخیره‌سازی:\n${errMsg}`);
       loadTasks(false);
+      // The form stays open with everything typed in, so it can be corrected and saved again.
+      return false;
     } finally {
       setIsSyncing(false);
     }
@@ -737,7 +742,7 @@ export default function App() {
     const isAuto = updates.isProject ?? targetTask?.isProject ?? updates.isRecurring ?? targetTask?.isRecurring ?? (updatedSubTasks && updatedSubTasks.length > 0);
 
     const finalUpdates = { ...updates };
-    if (isAuto && updatedSubTasks) {
+    if (isAuto && updatedSubTasks && updatedSubTasks.length > 0) {
       finalUpdates.status = computeAutoTaskStatus(updatedSubTasks);
     }
 
@@ -757,6 +762,27 @@ export default function App() {
     } catch (err) {
       console.error('Error syncing project details to server:', err);
     }
+  };
+
+  // «ثبت نهایی»: finishes a project (or a recurring task) in one step instead of one subtask at a time.
+  const handleFinalizeProject = async (taskId: string) => {
+    const targetTask = tasks.find((t) => t.id === taskId);
+    if (!targetTask || targetTask.status === 'completed') return;
+    const open = (targetTask.projectSubTasks || []).filter((st) => (st.status || (st.completed ? 'completed' : 'not_started')) !== 'completed').length;
+    const label = targetTask.isProject ? 'پروژه' : 'فعالیت';
+    const question = open > 0
+      ? `ثبت نهایی ${label} «${targetTask.title}»؟ ${toPersianDigits(open)} زیرفعالیت باز هم تکمیل‌شده ثبت می‌شود.`
+      : `ثبت نهایی ${label} «${targetTask.title}»؟`;
+    if (!(await appConfirm(question))) return;
+    const nowIso = new Date().toISOString();
+    const finished = (targetTask.projectSubTasks || []).map((st) => ({
+      ...st,
+      status: 'completed' as SubTaskProgress,
+      completed: true,
+      actualStartDate: st.actualStartDate || nowIso,
+      actualCompletedDate: st.actualCompletedDate || nowIso,
+    }));
+    await handleUpdateProjectTask(taskId, { projectSubTasks: finished, status: 'completed', actualCompletionDate: targetTask.actualCompletionDate || nowIso });
   };
 
   const handleUpdateComments = (taskId: string, comments: TaskComment[]) => {
@@ -800,8 +826,8 @@ export default function App() {
   // Handler to convert chat messages, activity comments, or personal notes into a new task
   // A message or comment turned into a task keeps its text as the description (nothing can be
   // changed in it, more can be added); a note's text is an ordinary description.
-  const handleConvertToTask = useCallback((title: string, description?: string, parent?: { id: string; title: string }, lockDescription = true) => {
-    handleOpenCreateModal('todo', undefined, title, description || '', parent);
+  const handleConvertToTask = useCallback((title: string, description?: string, parent?: { id: string; title: string }, lockDescription = true, onCreated?: (taskId: string) => void) => {
+    handleOpenCreateModal('todo', undefined, title, description || '', parent, [], onCreated);
     setLockInitialDescription(lockDescription && !!(description || '').trim());
   }, [handleOpenCreateModal]);
 
@@ -1595,7 +1621,7 @@ export default function App() {
                 <PersonalNotesView
                   currentUser={currentUser}
                   appColorPalette={appColorPalette}
-                  onConvertToTask={(title, description) => handleConvertToTask(title, description, undefined, false)}
+                  onConvertToTask={(title, description, onCreated) => handleConvertToTask(title, description, undefined, false, onCreated)}
                 />
               </Suspense>
             )}
@@ -1678,6 +1704,7 @@ export default function App() {
             onPreviewAttachment={setPreviewAttachment}
             onOpenProjectDetails={handleOpenProjectDetails}
             onToggleSubTask={handleToggleSubTask}
+            onFinalizeProject={handleFinalizeProject}
             onConvertToTask={handleConvertToTask}
           />
         )}

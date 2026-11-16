@@ -257,8 +257,15 @@ export const Notice: React.FC<{ type: 'success' | 'error' | 'info'; children: Re
     const timer = window.setTimeout(() => close.current?.(), 7000);
     return () => window.clearTimeout(timer);
   }, [closable, children]);
+  // A refusal must be seen: in a dialog the message is at the top of the scrolling body while the save button is at the
+  // bottom, so an error scrolls itself into view when it appears (or its text changes).
+  const box = React.useRef<HTMLDivElement>(null);
+  const text = typeof children === 'string' ? children : '';
+  React.useEffect(() => {
+    if (type === 'error') box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [type, text]);
   return (
-    <div role={type === 'error' ? 'alert' : 'status'} className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${styles[type]}`}>
+    <div ref={box} role={type === 'error' ? 'alert' : 'status'} className={`flex items-start gap-2 p-3 rounded-xl border text-sm ${styles[type]}`}>
       <Icon className="w-4 h-4 shrink-0 mt-0.5" />
       <div className="flex-1 leading-relaxed">{children}</div>
       {onClose && (
