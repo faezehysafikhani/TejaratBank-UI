@@ -42,9 +42,13 @@ const addDays = (iso: string, days: number) => {
   return date.toISOString().slice(0, 10);
 };
 
-/** No date chosen means no limit on that side: the server is asked for this much. */
-const FAR_PAST = '2000-01-01';
-const FAR_FUTURE = '2100-01-01';
+/**
+ * The server accepts at most ~370 days per request, so a wide or open range is fetched in windows of this many days.
+ * An empty side of the range stands for "a lot": 3 years back / 1 year ahead of today (or of the other date).
+ */
+const WINDOW_DAYS = 360;
+const MAX_WINDOWS = 12;
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 // Both dates start empty (all meetings); each can be set and cleared again with its own ✕.
 const defaultFilters = (): Filters => ({ from: '', to: '', type: '', organizerId: '', participantId: '', text: '', minutes: 'all' });
@@ -78,8 +82,21 @@ export const MeetingsReport: React.FC<{ people: User[]; tasks: Task[]; generated
     let alive = true;
     setLoading(true);
     setError(null);
+    const today = todayIso();
+    const rangeFrom = filters.from || addDays(filters.to && filters.to < today ? filters.to : today, -3 * 365);
+    const rangeTo = filters.to || addDays(filters.from && filters.from > today ? filters.from : today, 365);
     // The server's "to" is exclusive.
-    listMeetings(filters.from || FAR_PAST, addDays(filters.to || FAR_FUTURE, 1))
+    const end = addDays(rangeTo, 1);
+    const windows: Array<[string, string]> = [];
+    for (let start = rangeFrom; start < end && windows.length < MAX_WINDOWS; start = addDays(start, WINDOW_DAYS)) {
+      const stop = addDays(start, WINDOW_DAYS);
+      windows.push([start, stop < end ? stop : end]);
+    }
+    Promise.all(windows.map(([a, b]) => listMeetings(a, b)))
+      .then((parts) => {
+        const seen = new Set<string>();
+        return parts.flat().filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+      })
       .then((rows) => alive && setMeetings(rows))
       .catch((err) => alive && (setMeetings([]), setError(userErrorMessage(err, 'دریافت جلسات ممکن نشد.'))))
       .finally(() => alive && setLoading(false));

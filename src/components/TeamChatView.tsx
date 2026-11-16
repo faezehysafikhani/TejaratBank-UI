@@ -383,6 +383,17 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
     const descText = task.description && task.description.trim() ? task.description.trim() : 'بدون توضیحات';
     const quote = `📌 [فعالیت: ${task.title}]\n📝 توضیحات: ${descText}\n`;
     setInputMessage((prev) => (prev.trim() ? `${prev}\n\n${quote}` : quote));
+    focusComposer();
+  };
+
+  // Put the cursor in the message box (after the click has finished, so the button does not keep the focus).
+  const focusComposer = () => {
+    setTimeout(() => {
+      const box = composerRef.current;
+      if (!box) return;
+      box.focus();
+      box.setSelectionRange(box.value.length, box.value.length);
+    }, 0);
   };
 
   // Copy task description to clipboard
@@ -398,7 +409,8 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
     setCopiedTaskId(task.id);
     setTimeout(() => setCopiedTaskId(null), 2000);
     // The cursor goes to the message box, so pasting (Ctrl+V) puts the text there; «درج در گفتگو» puts it there itself.
-    if (activePartnerId) composerRef.current?.focus();
+    if (composerRef.current) focusComposer();
+    else showToast('متن کپی شد. یک گفتگو را باز کنید و با Ctrl+V بچسبانید.', 'ok');
   };
 
   // 1. Unread counts, per person and per team (cache-first, refreshed every few seconds)
@@ -1335,7 +1347,7 @@ export const TeamChatView: React.FC<TeamChatViewProps> = ({
                     <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-700/60">
                       <div className="flex items-center gap-1.5">
                         {/* Insert into chat input */}
-                        {activePartner && (
+                        {(activePartner || activeTeamChatId) && (
                           <button
                             type="button"
                             onClick={() => handleInsertTaskIntoChat(t)}
