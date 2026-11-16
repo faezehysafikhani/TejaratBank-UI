@@ -328,6 +328,18 @@ const UserFormDialog: React.FC<{
     return null;
   };
 
+  /** Whether anything differs from what is stored (edit only). */
+  const hasChanges = (stored: AdminUser): boolean => {
+    const same = (a: string | null | undefined, b: string | null | undefined) => (a || '').trim() === (b || '').trim();
+    const first = stored.firstName || (!stored.lastName ? stored.displayName : '');
+    return !(
+      same(form.firstName, first) && same(form.lastName, stored.lastName) && same(form.username, stored.username) &&
+      same(form.phoneNumber, stored.phoneNumber) && same(form.email, stored.email) && same(form.address, stored.address) &&
+      same(form.fatherName, stored.fatherName) && same(form.birthDate, stored.birthDate) && same(form.avatarUrl, stored.avatarUrl) &&
+      !form.password && !passwordConfirm && !placementDirty && (!showTitle || titleId === originalTitleId)
+    );
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const problem = validate();
@@ -335,6 +347,11 @@ const UserFormDialog: React.FC<{
       setError(problem);
       setErrorTick((n) => n + 1);
       setActiveTab(/رمز|نام کاربری/.test(problem) ? 'credentials' : /سمت|شرکت|تاریخ پایان/.test(problem) ? 'placement' : 'basic');
+      return;
+    }
+    // Nothing was changed: say so instead of claiming something was saved.
+    if (!isNew && persistedUser && !hasChanges(persistedUser)) {
+      onSaved(`برای «${persistedUser.displayName}» تغییری انجام نشده بود؛ چیزی ذخیره نشد.`);
       return;
     }
     setSaving(true);
@@ -348,7 +365,7 @@ const UserFormDialog: React.FC<{
         setPersistedUser(created);
       } else {
         savedUserId = savedId || user!.id;
-        if (persistedUser) await adminUpdateUser(persistedUser, form);
+        if (persistedUser) setPersistedUser(await adminUpdateUser(persistedUser, form));
       }
 
       // Even with none ticked: the default role the server gave is then taken away.
